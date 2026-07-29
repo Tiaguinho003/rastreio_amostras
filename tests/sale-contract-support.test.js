@@ -23,6 +23,7 @@ import {
   computeContractMoney,
   deriveContractAgenda,
   deriveContractPhases,
+  finalizeBlockReason,
   CONTRACT_PHASE_KEYS,
   computeContractMoneyWithAgio,
   decodeContractSeqCursor,
@@ -1377,30 +1378,44 @@ test('deriveContractPhases (RC-D79): o pagamento acende por ACAO, nunca por data
   assert.equal(phaseStates({ ...vencido, status: 'FINALIZADO' }, '2026-07-10')[4], 'feito');
 });
 
-test('deriveContractPhases: 🔴 o BURACO e legitimo — finalizado sem aprovacao (RC-D66)', () => {
-  // O portao morreu: da pra finalizar sem nunca ter enviado a etiqueta. A linha
-  // mostra o furo em vez de esconder. Quem "consertar" isso reintroduz o portao.
+test('deriveContractPhases (RC-D84): finalizar da TODAS as fases por completas', () => {
+  // EFEITO, nao condicao — o portao segue morto (RC-D66). ⚠️ Consequencia aceita:
+  // o contrato finalizado sem a etiqueta ter saido mostra a aprovacao CHEIA.
   assert.deepEqual(
     phaseStates(
       agendaRow({
         status: 'FINALIZADO',
         requiresApproval: true,
         hasApprovalLabel: false,
+        invoiceDate: '2026-08-12T00:00:00.000Z',
+      }),
+      '2026-07-10'
+    ),
+    ['feito', 'feito', 'feito', 'feito', 'feito']
+  );
+});
+
+test('deriveContractPhases (RC-D84): o "na" sobrevive — fase que nao existe nao completa', () => {
+  assert.deepEqual(
+    phaseStates(agendaRow({ status: 'FINALIZADO', requiresApproval: false }), '2026-07-10'),
+    ['feito', 'na', 'feito', 'feito', 'feito']
+  );
+});
+
+test('deriveContractPhases: 🔴 o BURACO segue legitimo ENQUANTO o contrato vive', () => {
+  // Antes de finalizar, a linha nao esconde nada: marcado, etiqueta nao enviada e
+  // a data ja passada = furo no meio. Quem "consertar" isso reintroduz o portao.
+  assert.deepEqual(
+    phaseStates(
+      agendaRow({
+        status: 'EMITIDO',
+        requiresApproval: true,
+        hasApprovalLabel: false,
         invoiceDate: '2026-07-01T00:00:00.000Z',
       }),
       '2026-07-10'
     ),
-    ['feito', 'pendente', 'feito', 'feito', 'feito']
-  );
-});
-
-test('deriveContractPhases: 🔴 pagar adiantado deixa a linha cheia na PONTA', () => {
-  assert.deepEqual(
-    phaseStates(
-      agendaRow({ status: 'FINALIZADO', invoiceDate: '2026-08-12T00:00:00.000Z' }),
-      '2026-07-10'
-    ),
-    ['feito', 'na', 'pendente', 'pendente', 'feito']
+    ['feito', 'pendente', 'feito', 'feito', 'pendente']
   );
 });
 
@@ -1428,4 +1443,30 @@ test('deriveContractPhases: sem todayKey nada e afirmado por data', () => {
     phaseStates(agendaRow({ invoiceDate: '2026-01-01T00:00:00.000Z' }), null).slice(2, 4),
     ['pendente', 'pendente']
   );
+});
+
+// ── RC-D85/D86: finalizeBlockReason — a unica trava do "Finalizar" ───────────
+// 🔴 Nao confundir com o portao AP18 (RC-D66): aquele exigia a APROVACAO enviada e
+// travava por causa de outro objeto. Este olha uma data do proprio contrato.
+
+test('finalizeBlockReason: antes do faturamento trava; a partir dele libera', () => {
+  const row = { invoiceDate: '2026-07-12T00:00:00.000Z' };
+  assert.equal(finalizeBlockReason(row, '2026-07-11'), 'before_invoice_date');
+  // "A PARTIR de" inclui o proprio dia — e o dia em que a nota acompanha a carga.
+  assert.equal(finalizeBlockReason(row, '2026-07-12'), null);
+  assert.equal(finalizeBlockReason(row, '2026-07-13'), null);
+});
+
+test('finalizeBlockReason (RC-D86): sem data planejada nao finaliza', () => {
+  assert.equal(finalizeBlockReason({ invoiceDate: null }, '2026-07-12'), 'invoice_date_missing');
+});
+
+test('finalizeBlockReason: o dia em que libera e ANTES do ponto do faturamento acender', () => {
+  // As duas regras usam a mesma data com corte diferente, de proposito: dia 12 ja
+  // finaliza, mas a linha so acende no 13 — e a RC-D84 tapa o vao, porque quem
+  // finalizou no 12 ja tem a linha inteira cheia.
+  const row = agendaRow({ invoiceDate: '2026-07-12T00:00:00.000Z' });
+  assert.equal(finalizeBlockReason(row, '2026-07-12'), null);
+  assert.equal(phaseStates(row, '2026-07-12')[3], 'pendente');
+  assert.equal(phaseStates({ ...row, status: 'FINALIZADO' }, '2026-07-12')[3], 'feito');
 });

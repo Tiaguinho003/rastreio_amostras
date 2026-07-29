@@ -28441,12 +28441,31 @@ body.is-selection-mode .mobile-tabbar {
 
 .ctr-details-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.6rem;
 }
 
 .ctr-details-actions > .ctr-btn {
   flex: 1 1 0;
   min-width: 0;
+}
+
+/* RC-D85/D86: por que o "Finalizar" esta apagado. Linha inteira acima dos botoes
+   (`flex: 1 0 100%`), porque a explicacao vem ANTES de encontrar o botao morto. */
+.ctr-details-actions-hint {
+  flex: 1 0 100%;
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: var(--brand-muted);
+}
+
+/* O mesmo motivo, no card do mobile. */
+.ctr-card-blocked {
+  margin: 0 0 0.5rem;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: var(--brand-muted);
 }
 
 .ctr-modal-loading {
@@ -31421,6 +31440,27 @@ body.is-selection-mode .mobile-tabbar {
   }
   .fv-row-menu-item.is-danger {
     color: var(--fv-chip-red-fg);
+  }
+  /* RC-D85/D86: item travado vira DUAS linhas — rotulo + o motivo. Sem o motivo
+     na propria linha, um item apagado no menu e um beco: no toque nao ha tooltip
+     para socorrer, e o operador nao descobre que falta a data de faturamento. */
+  .fv-row-menu-item.is-blocked {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.08rem;
+    opacity: 0.55;
+    cursor: default;
+  }
+  @media (hover: hover) {
+    .fv-row-menu-item.is-blocked:hover {
+      background: none;
+    }
+  }
+  .fv-row-menu-hint {
+    font-size: 0.72rem;
+    font-weight: 400;
+    line-height: 1.3;
+    color: var(--brand-muted);
   }
 }
 

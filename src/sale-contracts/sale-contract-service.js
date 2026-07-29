@@ -22,6 +22,7 @@ import {
   receivableKeysetWhere,
   deriveContractAgenda,
   deriveContractPhases,
+  finalizeBlockReason,
   buildApprovalWorklistView,
   decodeApprovalWlCursor,
   encodeApprovalWlCursor,
@@ -1349,6 +1350,21 @@ export class SaleContractService {
       to: 'FINALIZADO',
       conflictCode: 'SALE_CONTRACT_NOT_FINALIZABLE',
       conflictMessage: 'cannot be finalized',
+      // RC-D85/D86: a UI ja esconde o botao com o motivo escrito, mas botao
+      // escondido nao e trava — quem chama a API direto tem que bater aqui.
+      guard: (contract) => {
+        const block = finalizeBlockReason(contract, brtTodayKey());
+        if (block === 'invoice_date_missing') {
+          throw new HttpError(409, 'Sale contract has no invoice date', {
+            code: 'SALE_CONTRACT_INVOICE_DATE_MISSING',
+          });
+        }
+        if (block === 'before_invoice_date') {
+          throw new HttpError(409, 'Sale contract invoice date has not arrived', {
+            code: 'SALE_CONTRACT_BEFORE_INVOICE_DATE',
+          });
+        }
+      },
     });
   }
 
@@ -1373,7 +1389,7 @@ export class SaleContractService {
     contractId,
     input,
     actorContext,
-    { op, from, to, conflictCode, conflictMessage }
+    { op, from, to, conflictCode, conflictMessage, guard = null }
   ) {
     const actor = assertAuthenticatedActor(actorContext, op);
     assertRoleAllowed(actor.role, SALE_CONTRACT_ACCESS_ROLES, op);
@@ -1382,7 +1398,8 @@ export class SaleContractService {
 
     const contract = await this.prisma.saleContract.findUnique({
       where: { id: contractId },
-      select: { id: true, status: true, version: true },
+      // `invoiceDate` entra pelo guard do Finalizar (RC-D85); o Reabrir ignora.
+      select: { id: true, status: true, version: true, invoiceDate: true },
     });
     if (!contract) {
       throw new HttpError(404, 'Sale contract not found', { code: 'SALE_CONTRACT_NOT_FOUND' });
@@ -1392,6 +1409,9 @@ export class SaleContractService {
         code: conflictCode,
       });
     }
+    // Depois do status e antes da version: o motivo mais util primeiro. Um contrato
+    // ja FINALIZADO tem que dizer "nao e finalizavel", nao "falta a data".
+    if (guard) guard(contract);
     if (contract.version !== expectedVersion) {
       throw new HttpError(409, 'Sale contract was modified concurrently', {
         code: 'SALE_CONTRACT_VERSION_CONFLICT',

@@ -1165,6 +1165,79 @@ Duas regras que os testes fixam, porque são as que um "conserto" futuro quebrar
 simplesmente apaga, porque o status voltou a `EMITIDO`. Se isso precisar ser visível como "voltou",
 é decisão nova.
 
+## 9. O que "Finalizar" significa e quando ele existe (RC-D84..D86) — 2026-07-29
+
+> **Fonte:** o Flavio, seguindo para outras partes do fluxo: _"para a finalização do contrato as
+> fases do contrato devem ser todas dadas como completas, e a ação de finalizar deve ficar disponível
+> apenas a partir da data de faturamento"_.
+
+As duas frases fecham a mesma ideia por lados opostos: **finalizar passa a significar que o contrato
+inteiro aconteceu** — e a trava de data é o que torna esse significado verdadeiro, porque impede
+declarar cumprido um contrato que nem foi faturado.
+
+### 9.1 Efeito, não condição
+
+A primeira frase se lia de dois jeitos, e eles geram código oposto:
+
+| Leitura                  | O que seria                                              |
+| ------------------------ | -------------------------------------------------------- |
+| **Efeito** (a escolhida) | finalizar **pinta** as fases; nada é exigido antes       |
+| Condição                 | finalizar **exige** as fases completas — 🪦 volta o AP18 |
+
+O Flavio escolheu **efeito**. Isso preserva a RC-D66: o portão da aprovação continua morto, e
+finalizar segue sendo um toque.
+
+> ⚠️ **Consequência aceita:** um contrato finalizado **sem a etiqueta de aprovação ter saído** passa
+> a mostrar a aprovação cheia. E como o card de Avisos filtra `status = 'EMITIDO'`, o aviso some no
+> mesmo instante — o fato deixa de existir no app inteiro. Ele viu esse caso no preview e escolheu
+> assim.
+
+**O `na` sobrevive ao FINALIZADO** (escolha minha, vetável): uma fase que **não existe** neste
+contrato — a aprovação de quem não marcou — não tem como estar completa. "Todas as fases completas"
+vale para as que se aplicam.
+
+### 9.2 Decisões (ledger RC, continuação)
+
+| #          | Decisão                                                                                                                                                                    |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **RC-D84** | **Finalizar dá todas as fases por completas** — é **efeito**, não condição. O portão segue morto (RC-D66). O `na` da aprovação não marcada permanece                       |
+| **RC-D85** | **"Finalizar" só a partir da data de faturamento**, o próprio dia incluído. Antes dela não houve nota, logo não há pagamento a declarar                                    |
+| **RC-D86** | **Sem data de faturamento ("À definir", D144) não finaliza.** A saída é editar o contrato e pôr a data — que é a ação certa de qualquer forma. ⚠️ **Revoga parte do D144** |
+
+> ⚠️ **A RC-D86 revoga o D144 na parte que dizia que "à definir" finalizava direto.** O resto do
+> D144 fica: data planejada nula continua sendo estado legítimo, e continua exibida como "À definir".
+> A **RC-D63** também fica inteira — finalizar não **pede** data nenhuma ao operador; ele só exige
+> que a planejada exista e já tenha chegado.
+
+### 9.3 O que foi feito
+
+**A trava é de verdade, não é botão escondido.** `finalizeSaleContract` ganha um `guard` no
+`_flipContractStatus`, que roda **depois do status e antes da version** — um contrato já finalizado
+tem que dizer "não é finalizável", não "falta a data". Dois códigos distintos:
+`SALE_CONTRACT_INVOICE_DATE_MISSING` e `SALE_CONTRACT_BEFORE_INVOICE_DATE`.
+
+**Os três lugares onde "Finalizar" aparece escrevem o motivo** — menu ⋯ da tabela, card do mobile e
+rodapé do Detalhes. Botão apagado sem explicação é beco, e no toque não há tooltip para socorrer:
+
+```
+⋯  Finalizar
+   Defina a data de faturamento primeiro.      ← o item vira duas linhas
+```
+
+Duas armadilhas que o caminho revelou:
+
+- 🔴 **O 409 da trava colide com o 409 da concorrência.** Os dois `runTerminal` mapeavam _qualquer_
+  409 para "este contrato foi modificado, recarregue a página" — frase errada para a data. Nasceu o
+  `terminalErrorMessage`, que desempata pelo **código** antes de cair no status.
+- **O corte da trava e o corte da linha são diferentes de propósito.** Dia 12 já finaliza, mas o
+  ponto do faturamento só acende no 13. Não é inconsistência: quem finalizou no dia 12 tem a linha
+  inteira cheia pela RC-D84, então o vão nunca aparece.
+
+**A duplicação é consciente:** `finalizeBlockReason` (servidor) e `finalizeBlockedReason` (front)
+implementam a mesma regra. A do servidor é a trava; a do front só evita o clique. O
+`todayInputValueBRT` fixa `America/Sao_Paulo` justamente para as duas não discordarem quando o
+aparelho está em outro fuso.
+
 ## Apêndice A — Ledger de decisões (condensado)
 
 > Resolução final de cada decisão; as **superadas** apontam para o que as substituiu. O histórico completo (Contexto→Opções→Proposta + sessões) está no Git.
@@ -1313,7 +1386,7 @@ simplesmente apaga, porque o status voltou a `EMITIDO`. Se isso precisar ser vis
 - **D141** — Banco vira **texto livre** na conta bancária (supera D24 em parte e D39; ajusta D28/D59/D60): `ClientBankAccount.bankName` (texto obrigatório, máx. 120, entrada em MAIÚSCULAS como o Titular) substitui a FK `bankId`; a entidade `Bank` (lookup nome + COMPE) sai inteira do sistema — tabela, API `/banks`, aba "Bancos" de `/cadastros` (que fica Clientes | Corretores), `BankFormModal` e `BankSelectField`. Motivo: cadastrar uma instituição só para vincular a conta era fricção sem ganho — o nome do banco é dado de exibição (contrato/PDF), sem agrupamento nem relatório por banco. Compat: snapshots de contratos já emitidos preservam `bankName`/`compeCode` congelados (PDF e modal de Detalhes já renderizam o código condicionalmente); snapshots novos saem sem `bankId`/`compeCode`. Migration `20260714130000_bank_free_text` faz backfill do nome antes de dropar FK e tabela (prod nunca rodou as migrations de bancos — zero dado real; só o demo local tinha contas).
 - **D142** — Cronograma coerente: a criação/edição valida `paymentDate >= invoiceDate` (`422 VALIDATION_ERROR` no campo `paymentDate`, em `normalizeEtapa2Input` — cobre à vista, Futuro e Editar; front espelha com erro dentro do campo). Motivo: dava para salvar pagamento planejado anterior ao faturamento planejado, cronograma incoerente que os feeds do dashboard exibiam sem crítica. Contratos já emitidos não são revalidados (a regra só age na escrita).
 - **D143** — Conviver com o cross-aggregate **não-atômico** do Editar (emit): `_syncSampleOwner`/`_syncMovementFromContract` commitam antes da transação do contrato; se a `version` bumpar no meio, o 409 deixa amostra/venda à frente do contrato. Decisão: NÃO reescrever para o caminho atômico (`appendEventBatch`+`beforeCommit`, molde da criação à vista) — a janela é minúscula (a `version` é checada imediatamente antes dos syncs) e a divergência é **autocorrigível**: os dois syncs são idempotentes e convergem no retry do Editar pós-409. Hardening aplicado: a resolução de corretores (único 422 tardio) passou para antes dos syncs — depois deles, só o próprio conflito de versão pode falhar. O fix completo fica registrado como opção futura se o app ganhar concorrência real.
-- **D144** — Datas planejadas **"À definir"** no FUTURO (condiciona D142; revisa parcialmente EMB22): em contratos `type='FUTURO'`, `invoiceDate` e `paymentDate` podem — **cada uma, independentemente** — vir `null` **explícito** no payload (escolha ativa "À definir" no form; `undefined` segue 422). À vista (MERCADO_A_VISTA) segue exigindo as duas — inclusive no Editar de um à vista (a permissão deriva de `contract.type`, não do payload). Backend: `normalizeEtapa2Input(input, { allowOpenDates })`; o emit passou a carregar o contrato ANTES de normalizar para conhecer o `type` (efeito: 404/409 agora precedem o 422 de payload). D142 só compara quando AMBAS presentes; dia-útil (DSB-D7) só vale para data presente. O Editar (EMITIDO) define a data depois — e também pode **voltar** uma data definida para "à definir" (regrava a etapa 2 inteira). **Embarque**: a worklist passa a **incluir** os sem `invoiceDate` (reverte o "sem data não entra na fila" da EMB22): estado sempre `a_embarcar` (nunca atrasado), no **fim do G0** (nulls-last), entre si por `contractSeq` (= ordem de emissão, pedido do Flavio); o contador de atrasados não os conta; o filtro "a embarcar" os inclui. Financeiro (`a_vencer`, nulls-last) e Aprovações (nulls-last) já toleravam null — mudança só de exibição. **Calendário/feeds do dashboard seguem SEM evento** até a data ser definida (range exclui null; não há onde plotar "à definir"). Faturar/pagar/embarcar direto é permitido (as transições usam só a data real). **Exibição**: texto "À definir" (cards, Detalhes, worklists; "À DEFINIR" no PDF do contrato; "À definir" no Espelho) em vez de "—". O filtro por período da aba Contratos segue **excluindo** quem não tem a data. `approvalReminderLeadDays` permanece como está (sem consumidor — só age quando o faturamento existir). Schema: colunas já anuláveis desde `20260626130000` — **zero migration**.
+- **D144** — Datas planejadas **"À definir"** no FUTURO (condiciona D142; revisa parcialmente EMB22): em contratos `type='FUTURO'`, `invoiceDate` e `paymentDate` podem — **cada uma, independentemente** — vir `null` **explícito** no payload (escolha ativa "À definir" no form; `undefined` segue 422). À vista (MERCADO_A_VISTA) segue exigindo as duas — inclusive no Editar de um à vista (a permissão deriva de `contract.type`, não do payload). Backend: `normalizeEtapa2Input(input, { allowOpenDates })`; o emit passou a carregar o contrato ANTES de normalizar para conhecer o `type` (efeito: 404/409 agora precedem o 422 de payload). D142 só compara quando AMBAS presentes; dia-útil (DSB-D7) só vale para data presente. O Editar (EMITIDO) define a data depois — e também pode **voltar** uma data definida para "à definir" (regrava a etapa 2 inteira). **Embarque**: a worklist passa a **incluir** os sem `invoiceDate` (reverte o "sem data não entra na fila" da EMB22): estado sempre `a_embarcar` (nunca atrasado), no **fim do G0** (nulls-last), entre si por `contractSeq` (= ordem de emissão, pedido do Flavio); o contador de atrasados não os conta; o filtro "a embarcar" os inclui. Financeiro (`a_vencer`, nulls-last) e Aprovações (nulls-last) já toleravam null — mudança só de exibição. **Calendário/feeds do dashboard seguem SEM evento** até a data ser definida (range exclui null; não há onde plotar "à definir"). Faturar/pagar/embarcar direto é permitido (as transições usam só a data real). ⚠️ **REVOGADA nesta parte pela RC-D86 (§9):** faturar/pagar/embarcar já não existem (§6), e o que sobrou — **finalizar** — passou a **exigir** `invoiceDate` preenchida e já chegada; "à definir" não finaliza mais. O resto do D144 fica de pé. **Exibição**: texto "À definir" (cards, Detalhes, worklists; "À DEFINIR" no PDF do contrato; "À definir" no Espelho) em vez de "—". O filtro por período da aba Contratos segue **excluindo** quem não tem a data. `approvalReminderLeadDays` permanece como está (sem consumidor — só age quando o faturamento existir). Schema: colunas já anuláveis desde `20260626130000` — **zero migration**.
 - **D145** — Washout paga corretagem **só no FUTURO** (revisa a D105): a corretagem de um `WASH_OUT` só é cobrável quando o contrato é `type='FUTURO'` (contrato a termo negociado que quebrou). O contrato **à vista** (`MERCADO_A_VISTA`) cancelado por washout **não gera cobrança**: some do **Financeiro** por completo — fora da lista, de todos os filtros (inclusive "Cancelado") e do cabeçalho "Corretagem total" — e tem o **Espelho de Corretagem bloqueado** (`409 ESPELHO_WASHOUT_SPOT`). O **FUTURO** em washout permanece inalterado (aparece no Financeiro como "cancelado", conta no total, Espelho normal). Backend: `listBrokerReceivables` passa a filtrar os grupos de washout e o agregado `totalCommission` por `{ status: 'WASH_OUT', type: 'FUTURO' }` (constante `WASHOUT_BILLABLE`); o gate do Espelho (`exportEspelhoPdf`) usa o predicado puro `isSpotWashout(contract)`. Como o físico washout é excluído **no `where`**, ele nunca chega à `buildReceivableView` → **zero mudança** no card/tipos TS/painel do Financeiro (toda linha exibida é não-washout ou FUTURO washout, como hoje). O front espelha o gate do Espelho esmaecendo o card ("À vista cancelado"). O "N vencidos" já era só `EMITIDO/FATURADO` — washout nunca contou lá. Motivo: a corretagem remunera a negociação; num contrato à vista que caiu não há negócio a remunerar (regra do Flavio). Regra de leitura/gate — **zero migration**, vale retroativamente para qualquer contrato.
 - **D146** — Auditoria e fechamento da cascata **contrato-à-vista → lote/venda** (completa a família D48/D52/D66; alvo "Opção A" travado com o Flavio: propagar de volta só o que já é editável no contrato e veio do lote/cliente — **não** tornar o cadastro do cliente editável pelo contrato). Mapa verificado (o que editar no "Editar"/`emitSaleContract` de um contrato à vista propaga de volta): **vendedor** → `Sample.ownerClientId` + `declared.owner` (`_syncSampleOwner`, D48); **comprador** → `SampleMovement.buyerClientId` (`_syncMovementFromContract`, P20); **sacas** → movimento + **recálculo do saldo do lote**; **data do contrato** → `movementDate`. Todos já corretos. **Banco do vendedor, filial do vendedor e armazéns** são **seleção** (escolhe-se qual registro do cliente usar) → snapshot-only **por design**, sem contraparte viva a atualizar; **preço/corretagem/corretores** só existem no contrato (o `SampleMovement` não guarda dinheiro). **Bug corrigido:** `_syncSampleOwner` chamava `updateRegistration` **sem** `confirmHarvestPropagation: true` — se o lote do contrato à vista for **origem de liga**, editar (ou criar) o contrato lançava `409 BLEND_HARVEST_PROPAGATION_REQUIRED` e o fluxo quebrava; agora passa a flag (molde da conferência de ficha na câmera em `sample-command-service.js`), propagando o dono às ligas ancestrais no mesmo batch atômico. **Observações registradas (NÃO alteradas nesta decisão):** (a) o nome PJ no **snapshot do contrato** usa `clientDisplayName` (razão social, `legalName ?? tradeName`) enquanto o `declared.owner` do lote usa `buildClientDisplayName` (nome fantasia, `tradeName ?? legalName`) — divergência provavelmente proposital (documento legal × lista operacional); mexer arriscaria o nome no PDF; (b) a **filial do comprador** (`buyerUnitId`) é ofertada/snapshotada no contrato mas **não é propagada à venda**: o comando `updateSampleMovement` **suporta** o campo (`sample-command-service.js:919`), mas o `_syncMovementFromContract` **não o inclui** no patch (passa só `buyerClientId`/`quantitySacks`/`movementDate`) — o wiring segue adiado (passe futuro; correção da obs original por D147); (c) o sync segue **não-atômico** (D143, dívida aceita). Zero migration.
 

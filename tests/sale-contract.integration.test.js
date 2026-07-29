@@ -374,16 +374,24 @@ if (!databaseUrl || !databaseReachable) {
     );
 
     // FINALIZADO também não: o contrato não pede mais nada (RC-D62).
+    // RC-D85: finalizar só existe a partir do faturamento, então a data vai para o
+    // passado, o contrato é finalizado, e SÓ ENTÃO ela é movida para o dia do feed.
+    // O que este teste afirma é que o FINALIZADO fica fora por STATUS — não por
+    // estar fora da janela.
     const done = await setupConfirmedContract({ lotNumber: '25062' });
     await prisma.saleContract.update({
       where: { id: done.contractId },
-      data: { invoiceDate: schedDate },
+      data: { invoiceDate: calendarDay(-1) },
     });
     await saleContractService.finalizeSaleContract(
       done.contractId,
       { expectedVersion: done.version },
       adminActor
     );
+    await prisma.saleContract.update({
+      where: { id: done.contractId },
+      data: { invoiceDate: schedDate },
+    });
 
     const res = await saleContractService.getDashboardInvoiceEvents(
       { from: '2026-07-01', to: dayKey(calendarDay(20)) },
@@ -2842,7 +2850,11 @@ if (!databaseUrl || !databaseReachable) {
     );
   });
 
-  test('D144: finalizar direto com planejadas "à definir" (RC-D63: nao pede data)', async () => {
+  // ⚠️ RC-D86 REVOGOU a parte do D144 que este teste guardava: "à definir" era
+  // finalizavel direto. Nao e mais — sem data de faturamento nao houve nota, logo
+  // nao ha pagamento a declarar. O RC-D63 segue de pe: finalizar nao PEDE data
+  // nenhuma ao operador; ele so exige que a planejada exista e ja tenha chegado.
+  test('RC-D86: planejada "à definir" NAO finaliza; a saida e por a data', async () => {
     const buyerId = randomUUID();
     await createBuyerClient(buyerId);
     const created = await saleContractService.createFutureSaleContract(
@@ -2851,6 +2863,51 @@ if (!databaseUrl || !databaseReachable) {
     );
     // RC-D68: sem data nenhuma, a agenda diz que nao ha compromisso.
     assert.equal(created.contract.agenda?.kind, 'nenhum');
+    await assert.rejects(
+      saleContractService.finalizeSaleContract(
+        created.contract.id,
+        { expectedVersion: created.contract.version },
+        adminActor
+      ),
+      (error) =>
+        error.status === 409 && error.details?.code === 'SALE_CONTRACT_INVOICE_DATE_MISSING'
+    );
+    // O contrato nao foi tocado — nem status nem version.
+    const untouched = await saleContractService.getSaleContract(created.contract.id, adminActor);
+    assert.equal(untouched.contract.status, 'EMITIDO');
+    assert.equal(untouched.contract.version, created.contract.version);
+  });
+
+  test('RC-D85: antes da data de faturamento nao finaliza; a partir dela sim', async () => {
+    const buyerId = randomUUID();
+    await createBuyerClient(buyerId);
+    const created = await saleContractService.createFutureSaleContract(
+      await createFutureInput(buyerId, { invoiceDate: null, paymentDate: null }),
+      adminActor
+    );
+
+    // Datas RELATIVAS (helper): a asserta e sobre futuro/passado, nao sobre a data.
+    // Offsets folgados (+2/-1) porque o servidor corta em BRT e o helper em UTC —
+    // 3h de diferenca derrubariam um teste ancorado exatamente em hoje. O corte no
+    // PROPRIO dia (o "a partir de" inclusivo) esta coberto no teste unitario, que
+    // passa o `todayKey` na mao.
+    await prisma.saleContract.update({
+      where: { id: created.contract.id },
+      data: { invoiceDate: calendarDay(2) },
+    });
+    await assert.rejects(
+      saleContractService.finalizeSaleContract(
+        created.contract.id,
+        { expectedVersion: created.contract.version },
+        adminActor
+      ),
+      (error) => error.status === 409 && error.details?.code === 'SALE_CONTRACT_BEFORE_INVOICE_DATE'
+    );
+
+    await prisma.saleContract.update({
+      where: { id: created.contract.id },
+      data: { invoiceDate: calendarDay(-1) },
+    });
     const finalized = await saleContractService.finalizeSaleContract(
       created.contract.id,
       { expectedVersion: created.contract.version },
@@ -2858,9 +2915,6 @@ if (!databaseUrl || !databaseReachable) {
     );
     assert.equal(finalized.contract.status, 'FINALIZADO');
     assert.equal(finalized.contract.agenda?.kind, 'finalizado');
-    // As planejadas seguem "à definir" no histórico.
-    assert.equal(finalized.contract.invoiceDate, null);
-    assert.equal(finalized.contract.paymentDate, null);
   });
 
   test('D144: financeiro trata paymentDate "à definir" como a_vencer, nunca vencido', async () => {

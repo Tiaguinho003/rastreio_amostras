@@ -49,6 +49,8 @@ import {
   agendaColor,
   contractAgenda,
   contractAgendaLabel,
+  finalizeBlockedReason,
+  terminalErrorMessage,
   STATUS_META,
   STATUS_TEXT_COLOR,
   STATUS_TINT,
@@ -370,14 +372,7 @@ export function SaleContractDetailsModal({
         title: direction === 'finalize' ? 'Contrato finalizado' : 'Contrato reaberto',
       });
     } catch (cause) {
-      toast.error({
-        title:
-          cause instanceof ApiError && cause.status === 409
-            ? 'Este contrato foi modificado. Recarregue a página e tente de novo.'
-            : cause instanceof ApiError
-              ? cause.message
-              : 'Não foi possível atualizar o contrato.',
-      });
+      toast.error({ title: terminalErrorMessage(cause, 'Não foi possível atualizar o contrato.') });
     } finally {
       setTerminalBusy(false);
     }
@@ -409,9 +404,13 @@ export function SaleContractDetailsModal({
     label: string;
     danger?: boolean;
     disabled?: boolean;
+    hint?: string;
     onClick: () => void;
   }> = [];
   if (canManage && view.status === 'EMITIDO') {
+    // RC-D85/D86: a trava do Finalizar. O motivo vira a linha acima do rodapé —
+    // aqui o operador tem o "Editar" ao lado, que é justamente a saída.
+    const finalizeBlocked = finalizeBlockedReason(view);
     footerButtons.push(
       { key: 'editar', label: 'Editar', onClick: onEditar },
       { key: 'agio', label: 'Ágio', onClick: () => onApplyAgio('AGIO') },
@@ -419,7 +418,8 @@ export function SaleContractDetailsModal({
       {
         key: 'finalizar',
         label: terminalBusy ? 'Finalizando...' : 'Finalizar',
-        disabled: terminalBusy,
+        disabled: terminalBusy || finalizeBlocked != null,
+        hint: finalizeBlocked ?? undefined,
         onClick: () => void runTerminal('finalize'),
       },
       { key: 'washout', label: 'Washout', danger: true, onClick: onWashout }
@@ -441,9 +441,11 @@ export function SaleContractDetailsModal({
     footerButtons.push({ key: 'espelho', label: 'Gerar espelho', onClick: onGerarEspelho });
   }
 
+  const footerHint = footerButtons.find((button) => button.hint)?.hint ?? null;
   const footer =
     footerButtons.length > 0 ? (
       <div className="ctr-details-actions">
+        {footerHint ? <p className="ctr-details-actions-hint">{footerHint}</p> : null}
         {footerButtons.map((button) => (
           <button
             key={button.key}

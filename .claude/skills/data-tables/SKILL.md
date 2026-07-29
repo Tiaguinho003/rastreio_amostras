@@ -310,12 +310,12 @@ não dizem a mesma coisa: a linha diz **onde o registro está**, o chip diz **qu
 compromisso** — com a data e o vermelho do atraso, que a linha não tem. Se as duas respondessem a
 mesma pergunta, uma delas seria ruído e a coluna teria ficado só com a mais informativa.
 
-🔴 **Linha de progressão só é barra quando o processo é sequencial.** No contrato nada trava nada:
-dá para finalizar sem enviar a aprovação e pagar antes de faturar, então `● ○ ● ● ●` (buraco no
-meio) é estado legítimo. Por isso os **trilhos entre os pontos são sempre neutros e só os pontos
-mudam de estado** — trilho preenchido leria "cheguei até aqui", que seria mentira. Cinco luzes num
-trilho, não uma barra. **Antes de desenhar progressão, pergunte se o processo realmente impede o
-passo N+1 sem o N** — se não impede, barra é a peça errada.
+🔴 **Linha de progressão só é barra quando o processo é sequencial.** No contrato em andamento nada
+trava nada: dá para finalizar sem nunca ter enviado a aprovação, então `● ○ ● ● ○` (buraco no meio)
+é estado legítimo. Por isso os **trilhos entre os pontos são sempre neutros e só os pontos mudam de
+estado** — trilho preenchido leria "cheguei até aqui", que seria mentira. Cinco luzes num trilho,
+não uma barra. **Antes de desenhar progressão, pergunte se o processo realmente impede o passo N+1
+sem o N** — se não impede, barra é a peça errada.
 
 Duas consequências de desenho que vêm junto:
 
@@ -325,6 +325,9 @@ Duas consequências de desenho que vêm junto:
 - **O que acende por AÇÃO não acende por data.** O pagamento marca ao finalizar (RC-D79), nunca por
   `paymentDate` ter passado — e o faturamento, que marca por data, acende no dia **seguinte**, senão
   contradiz o "Fatura em 12/08" escrito logo abaixo dele na mesma célula.
+- **O marco terminal pode preencher a linha inteira** (RC-D84: finalizar dá tudo por cumprido). Se
+  fizer isso, saiba o que some junto: ali, o buraco da aprovação não enviada deixa de ser visível
+  **e** o aviso do dashboard já tinha sumido pelo filtro de status — o fato sai do app inteiro.
 
 ### Células compostas
 
@@ -423,6 +426,22 @@ Regras:
   O handler faz `preventDefault` + `stopPropagation` e devolve o foco ao trigger.
 - `rowMenuTriggerRef` guarda o `event.currentTarget` para devolver o foco.
 - Item destrutivo (`is-danger`) sempre por último.
+- 🔴 **Item bloqueado escreve o motivo na própria linha** (`.is-blocked` → duas linhas, rótulo +
+  `.fv-row-menu-hint`). Item apagado e mudo é um beco: no toque não há tooltip para socorrer, e o
+  operador não descobre o que fazer. A frase carrega a **saída**, não só o impedimento — "Defina a
+  data de faturamento primeiro", não "Indisponível". Mesma regra do `fv-choice-hint` em `forms` §4.
+
+### Ação travada por regra: esconder não é travar
+
+O "Finalizar" de `/contratos` só existe a partir da data de faturamento (RC-D85). Três exigências
+que andam juntas — falhar em qualquer uma delas deixa a regra pela metade:
+
+1. **O servidor recusa.** Botão escondido não é trava: quem chama a API direto passa. A guarda vai no
+   serviço, com **código próprio de erro** por motivo.
+2. **A UI escreve o porquê**, nos **todos** os lugares onde a ação aparece (aqui foram três: menu ⋯,
+   card do mobile e rodapé do detalhe). Um deles sem a frase é o que o usuário vai encontrar.
+3. **O toast desempata pelo código, não pelo status.** Se a trava devolve o mesmo 409 do conflito de
+   concorrência, a mensagem genérica ("recarregue a página") mente sobre o que aconteceu.
 
 ### O que entra no menu
 

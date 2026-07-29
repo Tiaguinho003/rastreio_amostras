@@ -53,6 +53,8 @@ import {
   AGENDA_CHIP,
   contractAgenda,
   contractAgendaLabel,
+  finalizeBlockedReason,
+  terminalErrorMessage,
   TYPE_LABEL,
 } from './SaleContractCard';
 import { SaleContractDetailsModal } from './SaleContractDetailsModal';
@@ -582,17 +584,32 @@ export function ContratosPanel({ session }: { session: SessionData }) {
         title: direction === 'finalize' ? 'Contrato finalizado' : 'Contrato reaberto',
       });
     } catch (cause) {
-      toast.error({
-        title:
-          cause instanceof ApiError && cause.status === 409
-            ? 'Este contrato foi modificado. Recarregue a página e tente de novo.'
-            : cause instanceof ApiError
-              ? cause.message
-              : 'Falha ao atualizar o contrato.',
-      });
+      toast.error({ title: terminalErrorMessage(cause, 'Falha ao atualizar o contrato.') });
     } finally {
       setTerminalBusy(null);
     }
+  };
+
+  // RC-D85/D86: o "Finalizar" do menu ⋯. Travado, ele vira DUAS linhas — rótulo +
+  // motivo. Item apagado e mudo é um beco: no toque não há tooltip para socorrer, e
+  // a frase carrega a saída ("defina a data"), não só o impedimento.
+  const finalizeMenuItem = (contract: SaleContract) => {
+    const blocked = finalizeBlockedReason(contract);
+    return (
+      <button
+        type="button"
+        role="menuitem"
+        className={`fv-row-menu-item${blocked ? ' is-blocked' : ''}`}
+        disabled={terminalBusy === contract.id || blocked != null}
+        onClick={() => {
+          setRowMenuFor(null);
+          void runTerminal(contract, 'finalize');
+        }}
+      >
+        Finalizar
+        {blocked ? <span className="fv-row-menu-hint">{blocked}</span> : null}
+      </button>
+    );
   };
 
   // --- Chrome (toolbar) ------------------------------------------------------
@@ -898,20 +915,9 @@ export function ContratosPanel({ session }: { session: SessionData }) {
                                 mostra no mobile. Editar, Ágio e Washout ficam no
                                 PAINEL de Detalhes: precisam do contexto do
                                 contrato na tela. */}
-                            {contract.status === 'EMITIDO' && canManage ? (
-                              <button
-                                type="button"
-                                role="menuitem"
-                                className="fv-row-menu-item"
-                                disabled={terminalBusy === contract.id}
-                                onClick={() => {
-                                  setRowMenuFor(null);
-                                  void runTerminal(contract, 'finalize');
-                                }}
-                              >
-                                Finalizar
-                              </button>
-                            ) : null}
+                            {contract.status === 'EMITIDO' && canManage
+                              ? finalizeMenuItem(contract)
+                              : null}
                             {contract.status === 'FINALIZADO' && canManage ? (
                               <button
                                 type="button"

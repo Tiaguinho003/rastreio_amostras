@@ -1,5 +1,7 @@
 'use client';
 
+import { ApiError } from '../../lib/api-client';
+import { todayInputValueBRT } from '../../lib/business-days';
 import type {
   ContractAgenda,
   ContractAgendaKind,
@@ -108,6 +110,44 @@ export const TYPE_LABEL: Record<SaleContractType, string> = {
   FUTURO: 'Futuro',
 };
 
+// RC-D85/D86: "Finalizar" só a partir da data de faturamento — antes dela não houve
+// nota, logo não houve pagamento a declarar. Sem data planejada ("À definir", D144)
+// também não finaliza; a saída é editar o contrato e pôr a data.
+//
+// Devolve o MOTIVO em pt-BR (ou `null` quando pode), porque botão que some sem
+// explicação vira beco. É a fonte única dos três lugares onde o "Finalizar" aparece:
+// menu ⋯ da tabela, card do mobile e rodapé do Detalhes.
+//
+// ⚠️ Espelha `finalizeBlockReason` do `sale-contract-support.js` — a trava de
+// verdade é a de lá (esta só evita o clique). Mexeu numa, mexa na outra. O
+// `todayInputValueBRT` fixa America/Sao_Paulo justamente para os dois não
+// discordarem quando o device está em outro fuso.
+export function finalizeBlockedReason(contract: { invoiceDate: string | null }): string | null {
+  if (!contract.invoiceDate) return 'Defina a data de faturamento primeiro.';
+  const invoiceDayKey = contract.invoiceDate.slice(0, 10);
+  if (invoiceDayKey > todayInputValueBRT()) {
+    return `Só a partir do faturamento, em ${formatContractDate(contract.invoiceDate)}.`;
+  }
+  return null;
+}
+
+// A trava do servidor devolve 409, o mesmo status do conflito de concorrência — e
+// "recarregue a página" seria a frase errada para ela. O código desempata.
+const TERMINAL_ERROR_BY_CODE: Record<string, string> = {
+  SALE_CONTRACT_INVOICE_DATE_MISSING: 'Defina a data de faturamento antes de finalizar.',
+  SALE_CONTRACT_BEFORE_INVOICE_DATE:
+    'Este contrato só pode ser finalizado a partir da data de faturamento.',
+};
+
+export function terminalErrorMessage(cause: unknown, fallback: string): string {
+  if (!(cause instanceof ApiError)) return fallback;
+  const code = (cause.details as { code?: string } | null)?.code;
+  if (code && TERMINAL_ERROR_BY_CODE[code]) return TERMINAL_ERROR_BY_CODE[code];
+  if (cause.status === 409)
+    return 'Este contrato foi modificado. Recarregue a página e tente de novo.';
+  return cause.message;
+}
+
 const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 
 export function snapshotName(snap: Record<string, unknown> | null): string {
@@ -159,6 +199,7 @@ export function SaleContractCard({
 }: SaleContractCardProps) {
   const agenda = contractAgenda(contract);
   const color = agendaColor(agenda);
+  const finalizeBlocked = finalizeBlockedReason(contract);
 
   // Cabecalho (numero + agenda + partes) — compartilhado pelos dois modos.
   const head = (
@@ -254,9 +295,21 @@ export function SaleContractCard({
               RC-D63: Finalizar e Reabrir NAO pedem confirmacao — sao reversiveis, e
               confirmar um toque reversivel e ruido. O washout, que e definitivo,
               continua pedindo motivo (no Detalhes). */}
+          {/* RC-D85/D86: o motivo fica escrito acima das ações — o botão sozinho,
+              apagado, não diz o que fazer. A saída (editar e pôr a data) está na
+              própria frase. */}
+          {contract.status === 'EMITIDO' && canManage && finalizeBlocked ? (
+            <p className="ctr-card-blocked">{finalizeBlocked}</p>
+          ) : null}
+
           <div className="ctr-card-actions">
             {contract.status === 'EMITIDO' && canManage ? (
-              <button type="button" className="ctr-btn ctr-btn-primary" onClick={onFinalizar}>
+              <button
+                type="button"
+                className="ctr-btn ctr-btn-primary"
+                disabled={finalizeBlocked != null}
+                onClick={onFinalizar}
+              >
                 Finalizar
               </button>
             ) : null}

@@ -555,6 +555,14 @@ export function deriveContractPhases(
   // "Fatura em 12/08", e um ponto cheio na mesma celula contradiria a frase ao lado.
   // Sem data ("A definir", D144) nao ha o que afirmar: pendente.
   const invoiceDayPassed = Boolean(invoiceDayKey && todayKey && invoiceDayKey < todayKey);
+  // RC-D84: finalizar da o contrato inteiro por cumprido — a linha enche. E EFEITO,
+  // nao condicao: o portao continua morto (RC-D66), ninguem precisa completar fase
+  // nenhuma para poder finalizar.
+  // ⚠️ Consequencia aceita: contrato finalizado SEM a etiqueta de aprovacao ter
+  // saido passa a mostrar a aprovacao cheia. Como o aviso tambem some ao finalizar
+  // (getDashboardAvisos filtra status='EMITIDO'), o fato sai do app. O Flavio viu
+  // esse caso no preview e escolheu assim.
+  const done = status === 'FINALIZADO';
   return {
     // Washout nao e fase — e o fim. A linha para de valer inteira (a UI esmaece e
     // fecha com ✕), mas os pontos seguem derivados: o que ja tinha acontecido
@@ -565,19 +573,37 @@ export function deriveContractPhases(
       // vazio — e por isso a emissao nunca aparece como pendencia em lugar nenhum.
       { key: 'emissao', state: 'feito' },
       {
+        // O `na` sobrevive ao FINALIZADO de proposito: uma fase que nao existe
+        // neste contrato nao tem como estar completa. "Todas as fases completas"
+        // (RC-D84) e sobre as que se aplicam.
         key: 'aprovacao',
-        state: !requiresApproval ? 'na' : hasApprovalLabel ? 'feito' : 'pendente',
+        state: !requiresApproval ? 'na' : hasApprovalLabel || done ? 'feito' : 'pendente',
       },
       // RC-D76/D81: os dois leem o MESMO `invoiceDate`, entao nunca aparecem em
       // estados diferentes. Sao dois pontos por decisao do Flavio (as fases sao
       // distintas mesmo caindo no mesmo dia), com essa consequencia aceita.
-      { key: 'embarque', state: invoiceDayPassed ? 'feito' : 'pendente' },
-      { key: 'faturamento', state: invoiceDayPassed ? 'feito' : 'pendente' },
+      { key: 'embarque', state: invoiceDayPassed || done ? 'feito' : 'pendente' },
+      { key: 'faturamento', state: invoiceDayPassed || done ? 'feito' : 'pendente' },
       // RC-D79: "Finalizar" = o pagamento entrou. A data e previsao; o ATRASO dela
       // fica na coluna "Situacao" (RC-D83), nao aqui — a linha nao tem vermelho.
-      { key: 'pagamento', state: status === 'FINALIZADO' ? 'feito' : 'pendente' },
+      { key: 'pagamento', state: done ? 'feito' : 'pendente' },
     ],
   };
+}
+
+// RC-D85/D86: "Finalizar" so a partir da DATA DE FATURAMENTO — antes dela nao houve
+// nota, logo nao houve pagamento a declarar. Inclui o proprio dia ("a partir de").
+// RC-D86: sem data planejada ("A definir", D144) tambem nao finaliza — a saida e
+// editar o contrato e por a data, que e a acao certa de qualquer forma.
+//
+// 🔴 Esta e a UNICA trava do "Finalizar". Nao confundir com o portao AP18, que a
+// RC-D66 matou: aquele exigia a APROVACAO enviada e travava por causa de OUTRO
+// objeto. Este olha so uma data do proprio contrato.
+export function finalizeBlockReason({ invoiceDate = null }, todayKey) {
+  const invoiceDayKey = dayKeyOf(invoiceDate);
+  if (!invoiceDayKey) return 'invoice_date_missing';
+  if (todayKey && invoiceDayKey > todayKey) return 'before_invoice_date';
+  return null;
 }
 
 // ------------------------------------------------------------
