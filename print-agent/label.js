@@ -506,13 +506,16 @@ export async function buildCustomLabelLayout(payload) {
   pushValue(valueOf(KEY_ARMAZEM), RIGHT_X, ARM_VALUE_Y, rightMaxW, NAME_FONTS);
   pushLabel('SACAS', RIGHT_X, SACAS_LABEL_Y);
   pushValue(valueOf(KEY_SACAS), RIGHT_X, SACAS_VALUE_Y, rightMaxW, SACAS_FONTS);
-  pushLabel('LOTES', RIGHT_X, LOTES_LABEL_Y);
 
-  // Grade de LOTES: FIXA de 4 colunas (codigos centralizados na celula). Fonte
-  // responsiva pela contagem/tamanho do codigo. Vazio (futuro) = area reservada
-  // em branco. O cap de 8 + "+" e aplicado no backend (a linha ja chega pronta).
+  // LOTES: rotulo + grade FIXA de 4 colunas (codigos centralizados na celula).
+  // Fonte responsiva pela contagem/tamanho do codigo. O cap de 8 + "+" e aplicado
+  // no backend (a linha ja chega pronta).
+  // RC-D96: sem lotes, o campo some INTEIRO — o rotulo tambem. Ate 2026-07-29 o
+  // "LOTES" era incondicional e sobrava orfao sobre a area em branco (contrato
+  // Futuro, ou a vista cujo lote nao declara origem).
   const lots = splitLots(valueOf(KEY_LOTE));
   if (lots.length > 0) {
+    pushLabel('LOTES', RIGHT_X, LOTES_LABEL_Y);
     const cols = LOTS_COLS;
     const rows = Math.ceil(lots.length / cols);
     const gridW = LABEL_W - M_RIGHT - RIGHT_X;
