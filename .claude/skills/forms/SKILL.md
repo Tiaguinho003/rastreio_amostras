@@ -238,6 +238,47 @@ Quatro armadilhas, nesta ordem:
   descartar: o backend recusa (RC-D40, 422 `SELLER_DERIVED_FROM_SAMPLE`) e o front omite. Um campo
   aceito-e-ignorado mente sobre o que faz.
 
+#### Terceira apresentação: travado que MANTÉM a forma do editor
+
+As duas da tabela acima assumem que o valor é um texto. Quando o campo tem um **editor próprio**
+(chips, multi-select), a versão travada é o **mesmo componente em `disabled`**, não um `<p>` — o
+`OriginLotChips` já traz chip sem o ×, sem input e um `—` no vazio (RC-D100, `ApprovalLabelModal`).
+Trocar chips por uma string separada por vírgula faria o operador ler outra coisa que não o dado.
+
+**E travado por MOTIVO escreve o motivo.** Quando o mesmo campo às vezes edita e às vezes não, o
+`lockReason` vem do servidor e vira uma frase (`.alm-field-hint`):
+
+| lockReason        | Frase                                                             |
+| ----------------- | ----------------------------------------------------------------- |
+| `BLEND`           | "É uma liga: a origem vem dos lotes que a compõem."               |
+| `BLEND_COMPONENT` | "Este lote compõe uma liga — editar aqui alteraria a liga junto." |
+| `NO_SAMPLE`       | "Contrato futuro — não há lote vinculado."                        |
+
+É o mesmo princípio do `disabledHint` do `.fv-choice` (§4): opção apagada sem explicação vira beco.
+E o **alvo da escrita vem nulo quando travado** — `sampleId`/`sampleVersion` só chegam se
+`editable` — para que um bug de UI não consiga montar a chamada a partir de um campo que não edita.
+
+#### Campo que grava em OUTRO registro (cascata)
+
+Um campo pode escrever fora do formulário em que está — o Lote de origem da etiqueta grava no
+cadastro do lote, o Nº compra grava no contrato (RC-D99/D100). Quatro regras, e a primeira é a que
+não é óbvia:
+
+- 🔴 **Edite o DADO, nunca a representação recortada dele.** Os chips que o modal mostrava vinham de
+  uma função que corta em 16 chars e troca tudo acima de 8 por um `"+"` de desenho. Salvar de volta o
+  que estava na tela apagaria os lotes que o `"+"` representa — **sem ninguém editar nada**. O estado
+  passou a ser o texto cru; o recorte virou só o que vai ao papel. Onde um campo exibe uma forma
+  **derivada** do valor, a edição tem que ser sobre o valor.
+- **Grave antes do efeito colateral.** O modal grava e só então imprime: se a escrita falha, o papel
+  não sai com um dado que não entrou no sistema. E se o efeito falha **depois** da escrita, a
+  mensagem diz isso ("as alterações foram salvas, mas…") — o event store não desfaz, e calar leva o
+  operador a repetir achando que nada mudou.
+- **Só chame quando MUDOU.** O `updateRegistration` faz o diff e responde 409 "No registration
+  changes detected" para um patch sem mudança.
+- **Um "Limpar" em bloco deixa de ser inócuo.** Ele fazia sentido quando o form era rascunho; com
+  campos que cascateiam, o mesmo botão apaga dado de outro registro num clique (RC-D101 tirou o
+  da etiqueta).
+
 ---
 
 ## §4 `.fv-choice*` — escolher entre poucas opções
@@ -509,4 +550,6 @@ era destruído — manter o estado é a feature, e é também a armadilha.
 - [ ] Escolha de 2–4 opções é campo do form, não superfície própria; bloqueada explica o motivo
 - [ ] Escolha que só a pessoa sabe: sem pré-marcação, `null` inicial, submit travado, 422 no servidor
 - [ ] Opção única = `<select>` nativo
+- [ ] Campo travado: valor solto / caixa recuada / **o próprio editor em `disabled`** (§3) — nunca `<input disabled>`
+- [ ] Campo que cascateia: edita o **dado**, não a forma recortada dele; grava antes do efeito; só chama se mudou (§3)
 - [ ] Textos em pt-BR

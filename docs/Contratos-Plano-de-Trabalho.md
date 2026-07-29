@@ -2,7 +2,7 @@
 
 Status: Em andamento (backlog + decisões + pendências da página `/contratos`)
 Escopo: o backlog, as pendências e o **ledger de decisões** da feature de Contratos (hub `/contratos`: contrato/PDF, Espelho de Corretagem, Financeiro, Aprovações, Embarque). O **estado atual** do que existe vive em `Contratos-Visao-Geral.md`; aqui ficam as decisões (o porquê), as pendências abertas e o histórico condensado.
-Última revisão: 2026-07-29 (**§11 — RC-D92..D95 IMPLEMENTADAS**: o `/financeiro` entra no kit FV — desktop vira **tabela**, os quatro estados viram a **KPI row clicável que é o filtro** (o `totalCommission` sai por ser a soma deles) e o acordeão do card morre. Fecha a **2ª rodada da RC-F6**. Antes, no mesmo dia: **§10 — RC-D87..D91**, o washout **pergunta** se haverá cobrança de corretagem e a resposta — não mais o tipo — decide o Financeiro (revoga a D145); o lote deixa de desfazer venda e de trocar de dono com contrato. **§9 — RC-D84..D86**: finalizar significa que o contrato inteiro aconteceu, e só existe a partir da data de faturamento. **§8 — RC-D74..D79**: status e fase são dois conceitos; embarque e faturamento são o MESMO DIA. **§7 — RC-D69..D73**: a seleção de lote vira **campo** e a criação à vista cai para dois passos. Anterior: 2026-07-28, **§6 — RC-D62..D68**: o contrato deixa de ser máquina de status e vira **agenda**)
+Última revisão: 2026-07-29 (**§12 — RC-D96..D101 IMPLEMENTADAS**: a etiqueta de aprovação deixa de ser write-only — só **Nº compra** e **Lotes de origem** são editáveis, e os dois **gravam de volta** (contrato e cadastro do lote) antes de imprimir; o lote **trava** quando é liga ou componente de liga, e o campo edita o **texto cru**, nunca os chips recortados; lote vazio some do papel. Antes, no mesmo dia: **§11 — RC-D92..D95**, o `/financeiro` entra no kit FV — desktop vira **tabela**, os quatro estados viram a **KPI row clicável que é o filtro** (o `totalCommission` sai por ser a soma deles) e o acordeão do card morre. Fecha a **2ª rodada da RC-F6**. Antes, no mesmo dia: **§10 — RC-D87..D91**, o washout **pergunta** se haverá cobrança de corretagem e a resposta — não mais o tipo — decide o Financeiro (revoga a D145); o lote deixa de desfazer venda e de trocar de dono com contrato. **§9 — RC-D84..D86**: finalizar significa que o contrato inteiro aconteceu, e só existe a partir da data de faturamento. **§8 — RC-D74..D79**: status e fase são dois conceitos; embarque e faturamento são o MESMO DIA. **§7 — RC-D69..D73**: a seleção de lote vira **campo** e a criação à vista cai para dois passos. Anterior: 2026-07-28, **§6 — RC-D62..D68**: o contrato deixa de ser máquina de status e vira **agenda**)
 Documentos relacionados: `Contratos-Visao-Geral.md` (documento-mãe / estado atual), `Dashboard-Visao-Geral.md`, `API-e-Contratos.md`, `Auditoria-Navegacao-por-Papel.md`
 
 > **Divisão de papéis:** a `Contratos-Visao-Geral.md` é a **verdade viva** (o que existe hoje). Este plano guarda **decisões (por quê), pendências (o que falta) e o backlog**. O histórico completo de sessões (S1–S91 etc.) e a prosa superada foram para o **Git** (docs antigos removidos em 2026-07-13); o ledger no apêndice condensa cada decisão à resolução final.
@@ -1436,6 +1436,101 @@ de âmbar leria como outro estado. `/samples`, que tem um cartão só, não escr
   uma limpeza de 8 pontos do arquivo com a mudança que precisa ser conferida na tela. É uma
   varredura própria — está registrado nas skills `data-tables` §1 e `design-system`.
 
+## 12. A etiqueta de aprovação deixa de ser write-only (RC-D96..D101) — 2026-07-29
+
+> **Fonte:** o Flavio, depois de perguntar como a etiqueta funcionava hoje: _"Vamos deixar apenas
+> alguns campos editaveis... apeanas o campo de Lotes de origem pode ser editavel, e gostaria que ele
+> editasse as informações nos detalhes do lote em cascata, verifique se há alguma situação ou algum
+> perigo... Alem do campo de lotes de origem ser editavel, acredito que deixar o campo de Numero de
+> compra tambem editavel com cascata de edição para o contrato seja uma boa ideia."_
+
+### 12.1 O problema
+
+A etiqueta era **write-only**: cinco campos editáveis pré-preenchidos do contrato, o lote de origem
+read-only, e o "Imprimir" gravava só o job de impressão + a linha de auditoria. Nada do que se
+editava ali voltava ao sistema. O efeito prático é o papel divergir do cadastro sem ninguém saber —
+e o campo que mais divergia era justamente o **Nº compra**, que chega _depois_ do contrato e é na
+etiqueta que aparece.
+
+E, no papel, lote vazio imprimia o rótulo "LOTES" órfão sobre uma área em branco: o `pushLabel` era
+incondicional e só a grade dependia de haver lotes.
+
+### 12.2 A verificação de risco que ele pediu
+
+Ele não pediu a cascata: pediu que se **verificasse** se ela é perigosa. As duas respostas foram
+opostas.
+
+**Nº compra → contrato: seguro**, com uma armadilha. O único caminho de escrita que existia era o
+`emitSaleContract` ("Editar"), que **re-resolve a etapa 2 inteira** — re-snapshota partes, banco e
+armazéns com os valores _atuais_ dos cadastros, emite `SALE_UPDATED` no lote e grava um
+`SaleContractExport`, que a timeline mostra como **"EDIÇÃO"**. Trocar um número no papel não pode
+re-congelar o contrato. Mas o molde certo já existia: o `setSaleContractApprovalFlag`, um
+`updateMany` estreito com `expectedVersion`.
+
+**Lote de origem → cadastro do lote: perigoso**, por cinco motivos, e o pior deles não precisava de
+ninguém editar nada:
+
+1. 🔴 **O round-trip já era destrutivo.** Os chips do modal vinham do `splitOriginLotForLabel`, que
+   corta cada código em 16 chars e, acima de 8, devolve **7 + `"+"`** — e o `+` é sentinela de
+   desenho, não lote. Salvar de volta o que estava na tela gravaria `"L1, …, L7, +"` no cadastro.
+2. 🔴 **Liga: o auto-pin.** Editar a origem de uma liga seta `blendOriginLotPinned` e ela **para de
+   re-derivar para sempre** — efeito permanente saindo de uma tela de impressão.
+3. 🔴 **Componente de liga: a propagação.** Editar propaga para todas as ligas ancestrais, e o
+   `updateRegistration` só aceita com `confirmHarvestPropagation` (409 `BLEND_HARVEST_PROPAGATION_REQUIRED`).
+4. O lote **não aceita UPDATE, aceita EVENTO** — exige a `version` do lote e um motivo de correção.
+5. Um lote pode ter **N contratos** (`sample_id` é índice, não unique).
+
+Escolha dele, entre travar-nos-casos-perigosos, construir-o-fluxo-de-confirmação e não-cascatear:
+**travar**. O que a trava elimina são o 2 e o 3; o 1 se resolve invertendo o que o campo edita.
+
+### 12.3 Decisões (ledger RC, continuação)
+
+| #           | Decisão                                                                                                                                                              |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **RC-D96**  | Lote vazio → o papel não imprime **nem o rótulo**: o campo LOTES some inteiro                                                                                        |
+| **RC-D97**  | O modal mostra **todos** os campos, inclusive o Lote de origem vazio (sai o "Sem lote de origem.")                                                                   |
+| **RC-D98**  | Só **Nº compra** e **Lotes de origem** são editáveis; os outros quatro viram leitura, com uma nota única dizendo que vêm do contrato                                 |
+| **RC-D99**  | O Nº compra **cascateia para o contrato** por escrita estreita: sem re-snapshot da etapa 2 e sem linha "EDIÇÃO" na timeline                                          |
+| **RC-D100** | O Lote de origem **cascateia para o cadastro do lote**, e **trava com o motivo escrito** quando é liga, componente de liga, contrato Futuro ou status fora da janela |
+| **RC-D101** | O botão **"Limpar" sai**: com quatro campos travados ele só zeraria os dois que cascateiam — viraria um botão de apagar dado do cadastro                             |
+
+### 12.4 O que foi implementado
+
+- **Papel** (`print-agent/label.js`): o `pushLabel('LOTES')` entrou no `if (lots.length > 0)`.
+- **Prefill**: `buildApprovalPrefill` devolve `contractVersion` e o bloco
+  `originLot { editable, lockReason, sampleId, sampleVersion }`. O handler seleciona `isBlend`,
+  `status` e `version` do lote e faz **um** `sampleBlendComponent.findFirst` (índice
+  `idx_blend_component_origin`). Travado, o **alvo vem nulo** — um bug de UI não consegue montar uma
+  chamada de escrita a partir de um campo que não pode escrever.
+- **Endpoint**: `setSaleContractPurchaseNumber` (rota `/sale-contracts/:id/purchase-number`),
+  idempotente, congelado fora de `EMITIDO`, normalizando pelo `optionalText` do emit.
+- **Modal**: os quatro travados renderizam **valor**, não input desabilitado (`forms` §3); o campo de
+  lotes passa a ser o **`OriginLotChips`** — o mesmo editor do detalhe do lote — sobre o texto cru; o
+  submit grava **antes** de imprimir; o "Limpar" saiu (lápides no CSS para `.alm-lots-readonly`,
+  `.alm-lot-chip`, `.alm-lots-empty` e `.nsv2-clear-btn`, que perdeu o último consumidor).
+- **Envio**: `normalizeCustomLabelLines` recorta a linha LOTE pelo `splitOriginLotForLabel`.
+
+### 12.5 GOTCHAs desta rodada
+
+- 🔴 **O campo edita o DADO, nunca a representação recortada dele.** O estado do lote é
+  `originLotText` (cru e inteiro); `prefill.lots` virou só o que vai ao papel. Essa inversão é o que
+  torna a cascata segura — sem ela, um simples "Imprimir" num lote de 9+ códigos apagaria 5 deles.
+- 🔴 **O recorte migrou do prefill para o envio, e passou a ser a MESMA função nos dois.** Antes, o
+  `normalizeCustomLabelLines` tinha um split próprio (`[,\n]+`) que discordava do
+  `splitOriginLotForLabel` e do `deriveBlendOriginLot` (`[\s,;]+`). Com o modal mandando texto livre,
+  duas regras de quebra convivendo seria o bug esperando a primeira colagem com espaço.
+- **A liga TEM lote de origem.** O comentário do handler afirmava o contrário (`declaredOriginLot`
+  nulo) desde antes da derivação reativa; hoje ela vem preenchida pela somatória das origens. Foi
+  corrigido — e é justamente na liga que o `"+"` aparece mais, o que fazia dela o pior lugar
+  possível para estrear uma cascata.
+- **Gravar ANTES de imprimir, e dizer quando só a gravação passou.** Se a escrita falha, o papel não
+  sai com um dado que não entrou no sistema. Se a impressão falha depois, o dado ficou — e o lote é
+  event-sourced, não se desfaz: a mensagem diz "as alterações foram salvas, mas…", senão o operador
+  reimprime achando que nada mudou.
+- **O "Limpar" morreu por consequência, não por decisão de layout.** Ele fazia sentido quando os
+  cinco campos eram rascunho de papel; com quatro travados e dois cascateando, o mesmo botão passaria
+  a apagar o Nº compra do contrato e a origem do lote num clique.
+
 ## Apêndice A — Ledger de decisões (condensado)
 
 > Resolução final de cada decisão; as **superadas** apontam para o que as substituiu. O histórico completo (Contexto→Opções→Proposta + sessões) está no Git.
@@ -1644,7 +1739,7 @@ de âmbar leria como outro estado. `/samples`, que tem um cartão só, não escr
 - **AP30** — Tab segue CC6/CC15 (todos os não-PROSPECTOR; rótulo de nav por papel; operacional ganha 2 abas Embarque+Aprovações); lista não-escopada (AP10); "Ver contrato" escopado (D110).
 - **AP-P1** — Dispensada (AP15): "provável recusa" não vira superfície in-app (rotulação externa/BI); AP24 expõe só o nº de envios neutro.
 - **AP-P2** — Estado "atrasado" adiado como feature futura (fácil no embarque via `invoiceDate` — o Modelo X/EMB22 não tem campo `shipmentDate`; delicado na aprovação por falta de data-limite exata); por ora só "pendente".
-- **AP-P3 (PENDENTE, 2026-07-16)** — **Unificar os dois lot-splitters** (revisão específica futura, pedido do Flavio; achado 🟢 da AP-higiene). Dois helpers quebram uma string de lotes com **separadores diferentes**: `normalizeCustomLabelLines` (`backend-api.js`, `split(/[,\n]+/)` — vírgula/newline) e `splitOriginLotForLabel` (`sale-contract-support.js`, `split(/[\s,;]+/)` — espaço/vírgula/; — o **traço saiu em 2026-07-19** pra preservar códigos como `PA-01`). **Bem menos urgente** agora: a colisão que rachava código pelo hífen sumiu e, com a etiqueta read-only (Lote de origem sempre juntado por ", "), o `[,\n]+` do outro helper faz round-trip limpo. **Latente** (alimentam superfícies distintas — o custom-lines do modal vs a quebra do Lote de origem do prefill — sem colisão real). **Decidir:** unificar num separador canônico OU documentar por que diferem de propósito. (A "válvula de escape" — desmarcar antes do 1º envio — NÃO é pendente: foi **descartada** na AP32 a favor da mão única pura.)
+- ~~**AP-P3 (PENDENTE, 2026-07-16)** — Unificar os dois lot-splitters~~ — ✅ **RESOLVIDA em 2026-07-29 pela RC-D100 (§12)**, e não por escolha de higiene: virou obrigatória. Os dois helpers quebravam a string de lotes com separadores **diferentes** — `normalizeCustomLabelLines` (`[,\n]+`) e `splitOriginLotForLabel` (`[\s,;]+`, o canônico, compartilhado com `deriveBlendOriginLot` e o `OriginLotChips`). A nota de 2026-07-16 dizia que era "latente" porque a etiqueta era read-only e o Lote de origem chegava sempre juntado por `", "`; **assim que o campo virou editável, o texto passou a chegar livre** e duas regras de quebra convivendo viraram o bug esperando a primeira colagem com espaço. O `normalizeCustomLabelLines` passou a **chamar** o `splitOriginLotForLabel` — a regra (separador + 16 chars + 7 + `"+"`) vive num lugar só. (A "válvula de escape" — desmarcar antes do 1º envio — nunca foi pendente: foi **descartada** na AP32 a favor da mão única pura.)
 - **AP31 (2026-07-15)** — **Aviso de "aprovação a enviar" (re-liga o `approvalReminderLeadDays`).** O lead-time, retido **sem consumidor** desde a remoção do lembrete de calendário (DSB-D9), volta a ter uso: alimenta a janela de um **aviso** no novo **card de Avisos** do dashboard (**DSB-D19**, `Dashboard-Plano-de-Trabalho.md`). **Regra (binária, não fan-out):** o aviso existe enquanto `requires_approval=true AND status='EMITIDO' AND NOT EXISTS(approval_label_log) AND (invoice_date IS NULL OR invoice_date <= hoje_BRT + COALESCE(approval_reminder_lead_days,0) dias)` — reusa o predicado da worklist **G0** + o índice `idx_sale_contract_requires_approval_status_invoice` (ambos já existem → **sem migration**). **Some** quando a etiqueta é gerada (≥1 no `approval_label_log`) — e naturalmente já sai se o contrato deixa EMITIDO (faturado/washout). **"À definir" (D144): SEMPRE avisa** (sem prazo) — um contrato marcado + sem etiqueta + sem data é, se qualquer coisa, **mais** urgente; coerente com a worklist G0 (que já lista os sem data, `NULLS LAST`). O feed antigo os **escondia** (`invoiceDate: { not: null }`); aqui o predicado inclui `invoice_date IS NULL`. **Escopo aberto**, todos os não-PROSPECTOR (= worklist, AP10). Colapsa o _fan-out_ impreciso que motivou o DSB-D9 (o mesmo contrato borrado por N dias do calendário) num **flag binário** (pendente → some). O texto de urgência ("vence esta semana/este mês/em N dias", "sem data" p/ À definir) e a apresentação vivem na DSB-D19.
 - **AP32 (2026-07-16)** — **Aprovação vira latch de mão única + botão "Solicitar aprovação" (reforma AP20/AP23; fecha o furo do "Editar").** `requiresApproval` passa a ser **irreversível** uma vez "Sim": Não→Sim é permitido, Sim→Não **nunca** — nem antes do 1º envio (endurece a AP20, que só travava após o envio). **Motivo:** o "Editar" (`emitSaleContract` → `_resolveEmitData`) regravava o sinal do payload **sem** a trava do toggle, e como o portão do faturar é `if (requiresApproval)` (AP18), dava pra desmarcar em `EMITIDO` e **zerar o portão** (achado 🔴; sem teste). Em vez de duplicar a trava, o modelo colapsa: (a) o **`emitSaleContract` deixa de tocar** `requiresApproval` (preserva o do banco — as 3 rotas compartilham `_resolveEmitData`, mas só o emit strippa; criar-à-vista/futuro seguem gravando, **Shape B**); (b) o marcar-depois deixa de ser via Editar e vira um **botão "Solicitar aprovação"** no Detalhes (só quando "Não" + `EMITIDO` + gerencia), com **confirmação** (é definitivo); (c) o `setSaleContractApprovalFlag` vira **latch-only** — rejeita `false` incondicional (409 `APPROVAL_FLAG_LOCKED`), idempotente em já-"Sim" (**não re-seta o lead**), Não→Sim grava `true` + `approvalReminderLeadDays=30`. **Criação mantém a escolha Sim/Não** (Shape B; "Sim" já nasce travado). O **lead** segue editável pela etapa 2 quando "Sim" (não é portão, só a janela do card de Avisos, AP31); o latch nunca mais o apaga — **colateral 🟢:** o reset do toggle a cada uso (que virou efeito real após a AP31) deixa de existir. No **Editar** a aprovação vira **read-only**. Congelamento por status da AP20 (só `EMITIDO`, `APPROVAL_FLAG_NOT_EDITABLE`) mantido. **Sem migration** (regra/gate; contratos já-"Sim" seguem "Sim"). A "válvula de escape" (permitir desmarcar antes do 1º envio) foi **descartada** a favor da mão única pura (pedido do Flavio).
 - **AP33 (2026-07-16)** — **Worklist de Aprovações alinha o "cancelado" ao Financeiro (`type='FUTURO'`).** O bucket G2 (`WASH_OUT`) do `listApprovalContracts` filtrava só por `status` (sem `type`), então um **à vista** cancelado por washout **aparecia** na worklist como "cancelado" — mas o Financeiro o **esconde** (D145: à vista washout não paga corretagem, sai por `WASHOUT_BILLABLE={status:'WASH_OUT',type:'FUTURO'}`). As duas abas discordavam do que é "cancelado" (achado 🟡). **Fix:** a G2 passa a filtrar `AND type='FUTURO'` (espelha `isSpotWashout`/`WASHOUT_BILLABLE`), fechando o princípio do D147 ("o washout ramifica por type, alinhado ao Financeiro/Espelho") — que não havia alcançado a worklist. À vista washout segue visível só em `/contratos` (status Wash-out). **Sem migration.** ⚠️ **O PREDICADO mudou na RC-D89 (§10):** o G2 passou a filtrar `washout_billable IS TRUE`, junto com o Financeiro. O **princípio** do AP33 é o que valia e segue valendo: "cancelado" tem que significar a mesma coisa nas duas abas.
