@@ -3435,6 +3435,144 @@ if (!databaseUrl || !databaseReachable) {
     );
   });
 
+  // ---- RC-D99: cascata do "Nº compra" da etiqueta de aprovação -------------
+  // O número da compra chega DEPOIS do contrato e aparece na etiqueta, então é
+  // de lá que ele entra no sistema. Escrita ESTREITA — a razão de existir do
+  // método é justamente NÃO ser o "Editar".
+
+  test('setSaleContractPurchaseNumber: grava, bumpa version e aceita vazio (null)', async () => {
+    const c = await mkApprovalContract({ requiresApproval: true });
+    const v0 = await verOf(c);
+
+    const set = await saleContractService.setSaleContractPurchaseNumber(
+      c,
+      { purchaseNumber: '  OC-4471  ', expectedVersion: v0 },
+      adminActor
+    );
+    assert.equal(set.contract.purchaseNumber, 'OC-4471'); // trim do normalizador do emit
+    assert.equal(await verOf(c), v0 + 1);
+
+    // Vazio apaga (a coluna é opcional) — remover o número é tão legítimo
+    // quanto pôr, e o modal manda o campo inteiro, não um diff.
+    const cleared = await saleContractService.setSaleContractPurchaseNumber(
+      c,
+      { purchaseNumber: '', expectedVersion: v0 + 1 },
+      adminActor
+    );
+    assert.equal(cleared.contract.purchaseNumber, null);
+  });
+
+  test('setSaleContractPurchaseNumber: idempotente — valor igual não gasta version', async () => {
+    // Reimprimir sem mexer no número é o caso comum; gastar uma version aí faria
+    // a próxima gravação do MESMO modal bater em conflito.
+    const c = await mkApprovalContract({ requiresApproval: true });
+    await saleContractService.setSaleContractPurchaseNumber(
+      c,
+      { purchaseNumber: 'OC-1', expectedVersion: await verOf(c) },
+      adminActor
+    );
+    const v = await verOf(c);
+    const again = await saleContractService.setSaleContractPurchaseNumber(
+      c,
+      { purchaseNumber: 'OC-1', expectedVersion: v },
+      adminActor
+    );
+    assert.equal(again.contract.purchaseNumber, 'OC-1');
+    assert.equal(await verOf(c), v);
+  });
+
+  test('setSaleContractPurchaseNumber: 409 em version defasada e fora de EMITIDO; 404 inexistente', async () => {
+    const c = await mkApprovalContract({ requiresApproval: true });
+    const stale = await verOf(c);
+    await saleContractService.setSaleContractPurchaseNumber(
+      c,
+      { purchaseNumber: 'OC-A', expectedVersion: stale },
+      adminActor
+    );
+    await assert.rejects(
+      () =>
+        saleContractService.setSaleContractPurchaseNumber(
+          c,
+          { purchaseNumber: 'OC-B', expectedVersion: stale },
+          adminActor
+        ),
+      (err) => err.status === 409 && err.details?.code === 'SALE_CONTRACT_VERSION_CONFLICT'
+    );
+
+    // Congela junto com a etiqueta, que só existe em EMITIDO.
+    const done = await mkApprovalContract({ requiresApproval: true, status: 'FINALIZADO' });
+    const doneVersion = await verOf(done);
+    await assert.rejects(
+      () =>
+        saleContractService.setSaleContractPurchaseNumber(
+          done,
+          { purchaseNumber: 'OC-C', expectedVersion: doneVersion },
+          adminActor
+        ),
+      (err) => err.status === 409 && err.details?.code === 'PURCHASE_NUMBER_NOT_EDITABLE'
+    );
+
+    await assert.rejects(
+      () =>
+        saleContractService.setSaleContractPurchaseNumber(
+          randomUUID(),
+          { purchaseNumber: 'OC-D', expectedVersion: 0 },
+          adminActor
+        ),
+      (err) => err.status === 404 && err.details?.code === 'SALE_CONTRACT_NOT_FOUND'
+    );
+  });
+
+  test('setSaleContractPurchaseNumber: 403 PROSPECTOR', async () => {
+    const c = await mkApprovalContract({ requiresApproval: true });
+    const v = await verOf(c);
+    const prospector = { ...commercialActor, role: 'PROSPECTOR', actorUserId: randomUUID() };
+    await assert.rejects(
+      () =>
+        saleContractService.setSaleContractPurchaseNumber(
+          c,
+          { purchaseNumber: 'OC-X', expectedVersion: v },
+          prospector
+        ),
+      (err) => err.status === 403
+    );
+  });
+
+  test('🔴 setSaleContractPurchaseNumber NÃO re-snapshota nem deixa "EDIÇÃO" na timeline', async () => {
+    // A razão de o método existir. O "Editar" (emitSaleContract) re-resolveria a
+    // etapa 2 inteira — re-congelando partes/banco/armazém com os valores ATUAIS
+    // dos cadastros — e gravaria um SaleContractExport, que a timeline mostra
+    // como "EDIÇÃO". Trocar um número no papel não pode fazer nada disso.
+    const buyerId = randomUUID();
+    await createBuyerClient(buyerId);
+    const created = await saleContractService.createFutureSaleContract(
+      await createFutureInput(buyerId),
+      adminActor
+    );
+    const id = created.contract.id;
+    const before = await prisma.saleContract.findUnique({
+      where: { id },
+      select: { sellerSnapshot: true, buyerSnapshot: true, sellerBankSnapshot: true },
+    });
+    const exportsBefore = await prisma.saleContractExport.count({ where: { saleContractId: id } });
+
+    await saleContractService.setSaleContractPurchaseNumber(
+      id,
+      { purchaseNumber: 'OC-SEM-RASTRO', expectedVersion: await verOf(id) },
+      adminActor
+    );
+
+    const after = await prisma.saleContract.findUnique({
+      where: { id },
+      select: { sellerSnapshot: true, buyerSnapshot: true, sellerBankSnapshot: true },
+    });
+    assert.deepEqual(after, before); // nenhum snapshot foi re-congelado
+    assert.equal(
+      await prisma.saleContractExport.count({ where: { saleContractId: id } }),
+      exportsBefore // nenhuma linha nova -> a timeline não ganha "EDIÇÃO"
+    );
+  });
+
   // RC-D66: o portão AP18 morreu — a aprovação não trava mais nada. Mas o LATCH
   // continua: um contrato que virou "Sim" não volta pra "Não" nem pelo Editar, e é
   // ele que mantém o aviso de pé (o card de Avisos e a agenda RC-D68 leem daí).

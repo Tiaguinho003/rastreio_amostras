@@ -602,6 +602,75 @@ test('APPROVAL_ELIGIBLE_STATUSES = so EMITIDO (portao AP21)', () => {
   assert.deepEqual([...APPROVAL_ELIGIBLE_STATUSES], ['EMITIDO']);
 });
 
+// RC-D99/D100: o prefill carrega o que as duas CASCATAS precisam pra escrever —
+// a version do contrato e, pro lote, se a edicao e permitida e onde ela cai.
+
+test('buildApprovalPrefill: lote comum editavel carrega o alvo da cascata (RC-D100)', () => {
+  const prefill = buildApprovalPrefill({
+    purchaseNumber: 'CP-9',
+    contractNumber: '0003/26',
+    sellerSnapshot: { displayName: 'Vendedor' },
+    sellerWarehouseSnapshot: { displayName: 'Armazem' },
+    quantitySacks: 10,
+    originLotText: 'PA-01 PA-02',
+    contractVersion: 7,
+    originLotLockReason: null,
+    sampleId: '11111111-1111-4111-8111-111111111111',
+    sampleVersion: 3,
+  });
+  assert.equal(prefill.contractVersion, 7);
+  assert.equal(prefill.originLot.editable, true);
+  assert.equal(prefill.originLot.lockReason, null);
+  assert.equal(prefill.originLot.sampleId, '11111111-1111-4111-8111-111111111111');
+  assert.equal(prefill.originLot.sampleVersion, 3);
+});
+
+test('buildApprovalPrefill: travado zera o ALVO — o modal nao tem onde escrever', () => {
+  // Vale pros 4 motivos; o alvo some junto com a permissao pra que um bug de UI
+  // nao consiga montar uma chamada de escrita a partir de um campo travado.
+  for (const lockReason of ['NO_SAMPLE', 'BLEND', 'BLEND_COMPONENT', 'SAMPLE_STATUS']) {
+    const prefill = buildApprovalPrefill({
+      purchaseNumber: null,
+      contractNumber: '0004/26',
+      sellerSnapshot: { displayName: 'Vendedor' },
+      sellerWarehouseSnapshot: null,
+      quantitySacks: 10,
+      originLotText: 'PA-01',
+      contractVersion: 2,
+      originLotLockReason: lockReason,
+      sampleId: '22222222-2222-4222-8222-222222222222',
+      sampleVersion: 5,
+    });
+    assert.equal(prefill.originLot.editable, false, lockReason);
+    assert.equal(prefill.originLot.lockReason, lockReason);
+    assert.equal(prefill.originLot.sampleId, null, lockReason);
+    assert.equal(prefill.originLot.sampleVersion, null, lockReason);
+    // O texto continua vindo: travado ainda EXIBE o que vai pro papel.
+    assert.equal(prefill.originLotText, 'PA-01', lockReason);
+  }
+});
+
+test('buildApprovalPrefill: lots e o RECORTE do papel, originLotText e o dado inteiro', () => {
+  // A razao de o modal editar sobre o texto e nao sobre os chips: com 12
+  // codigos, `lots` perde 5 deles atras de um "+" que nao e lote nenhum.
+  const twelve = Array.from({ length: 12 }, (_, i) => `L${i + 1}`).join(' ');
+  const prefill = buildApprovalPrefill({
+    purchaseNumber: null,
+    contractNumber: '0005/26',
+    sellerSnapshot: { displayName: 'Vendedor' },
+    sellerWarehouseSnapshot: null,
+    quantitySacks: 10,
+    originLotText: twelve,
+    contractVersion: 1,
+    originLotLockReason: null,
+    sampleId: '33333333-3333-4333-8333-333333333333',
+    sampleVersion: 1,
+  });
+  assert.deepEqual(prefill.lots, ['L1', 'L2', 'L3', 'L4', 'L5', 'L6', 'L7', '+']);
+  assert.equal(prefill.originLotText, twelve);
+  assert.equal(prefill.originLotText.split(/[\s,;]+/).length, 12);
+});
+
 // ---------------------------------------------------------------------------
 // Fase J (D125): buildContractTimeline — agregacao pura do timeline do modal
 // de Detalhes (criacao/edicoes, agio, aprovacoes, marcos, espelhos + legados).
