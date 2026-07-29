@@ -781,13 +781,18 @@ export class SaleContractService {
     // pra deixar o campo de sacas so-leitura no "Editar". So consulta se ha sample.
     // RC-D37: a mesma consulta traz o DONO ATUAL do lote — e ele, nao o vendedor
     // gravado, que sera emitido no "Editar"; a tela precisa mostrar o que vai sair.
+    // RC-D72: e o NUMERO do lote, que o "Editar" mostra no campo travado. O
+    // contrato guarda so o sampleId; sem isto a tela dizia "Lote" e nao dizia
+    // qual.
     let sampleIsBlend = null;
     let sampleOwner = null;
+    let sampleLotNumber = null;
     if (row.sampleId) {
       const sample = await this.prisma.sample.findUnique({
         where: { id: row.sampleId },
         select: {
           isBlend: true,
+          internalLotNumber: true,
           ownerClientId: true,
           // `displayName` nao e coluna — o nome sai do buildClientDisplayName
           // sobre personType + fullName/tradeName/legalName.
@@ -803,6 +808,7 @@ export class SaleContractService {
         },
       });
       sampleIsBlend = sample?.isBlend ?? null;
+      sampleLotNumber = sample?.internalLotNumber ?? null;
       sampleOwner = sample?.ownerClientId
         ? {
             clientId: sample.ownerClientId,
@@ -817,6 +823,7 @@ export class SaleContractService {
         agenda: await this._agendaFor(row),
         brokers: brokers.map(toSaleContractBrokerView),
         sampleIsBlend,
+        sampleLotNumber,
         sampleOwner,
       },
     };

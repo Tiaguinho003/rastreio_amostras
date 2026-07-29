@@ -530,6 +530,31 @@ if (!databaseUrl || !databaseReachable) {
     }
   });
 
+  // RC-D72: o "Editar" mostra o lote num campo TRAVADO. O contrato guarda so o
+  // sampleId, entao o NUMERO tem que sair da leitura do detalhe — senao a tela
+  // diz "Lote" e nao diz qual.
+  test('RC-D72 detalhe: contrato com lote devolve o numero dele; Futuro devolve null', async () => {
+    const sampleId = randomUUID();
+    const buyerId = randomUUID();
+    await createClassifiedSample({ id: sampleId, lotNumber: '20777', declaredSacks: 10 });
+    await createBuyerClient(buyerId);
+    const sample = await queryService.requireSample(sampleId);
+    const vista = await sell(sampleId, sample.version, buyerId);
+
+    const detalheVista = await saleContractService.getSaleContract(vista.contract.id, adminActor);
+    assert.equal(detalheVista.contract.sampleLotNumber, '20777');
+
+    // Futuro nao tem lote: nao ha numero, e o campo nem chega a ser renderizado.
+    const futuro = (
+      await saleContractService.createFutureSaleContract(
+        await createFutureInput(buyerId),
+        adminActor
+      )
+    ).contract;
+    const detalheFuturo = await saleContractService.getSaleContract(futuro.id, adminActor);
+    assert.equal(detalheFuturo.contract.sampleLotNumber, null);
+  });
+
   // =========================================================================
   // RC-F6: a lista de /contratos virou servidor-side. Antes o front baixava ate
   // 200 com query VAZIA e filtrava/buscava/contava em memoria.
