@@ -601,17 +601,23 @@ export interface FinanceiroReceivable {
   brokers: FinanceiroBroker[];
 }
 
+// RC-D93: um número por estado — corretagem somada + quantos contratos. É o que
+// alimenta os quatro cartões de KPI, que na página são também o filtro.
+export interface FinanceiroKpi {
+  count: number;
+  value: number;
+}
+
 export interface FinanceiroListResponse {
   items: FinanceiroReceivable[];
   // Revisão do Pagamento (FN4): cursor keyset OPACO (base64url {g,pd,seq}); null =
   // última página. O front trata como string opaca (só ecoa de volta).
   nextCursor: string | null;
-  // Total de corretagem a receber do conjunto que casa com a busca (server-side).
-  totalCommission: number;
-  // Revisão do Pagamento (FN6): "N vencidos · R$ X" — contagem + corretagem dos
-  // vencidos (não pagos + paymentDate < hoje), no mesmo escopo/busca.
-  overdueCount: number;
-  overdueCommission: number;
+  // Os quatro estados, sempre os quatro, no escopo da BUSCA e independentes do filtro
+  // ativo e do cursor — clicar num cartão não mexe nos outros três. Substituem o
+  // `totalCommission` (que virou a soma deles) e o par `overdueCount/overdueCommission`
+  // (que virou o cartão "Vencido").
+  kpis: Record<FinanceiroPaymentState, FinanceiroKpi>;
 }
 
 // Aprovação (AP26): estado derivado da worklist (chip). Sem enum no banco.

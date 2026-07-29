@@ -259,9 +259,9 @@ export class SaleContractService {
   // Financeiro (Fase F): lista a corretagem A RECEBER por fechamento. Relatorio
   // DERIVADO (sem persistencia): TODOS os contratos congelados (EMITIDO/
   // FINALIZADO), inclusive os SEM corretagem (P24/D92 — e o unico lugar onde o total do
-  // contrato aparece) E os em WASH_OUT do FUTURO (D105 refinada pela D145: o
-  // corretor recebe a comissao no washout so no FUTURO; o fisico cancelado
-  // nao paga e sai do Financeiro). SEM rateio ÷N (D136 removeu a "cota por
+  // contrato aparece) E os em WASH_OUT que COBRAM (D105 refinada pela RC-D89: quem
+  // decide e a resposta dada no washout, `washoutBillable`; quem respondeu "nao
+  // cobrar" sai do Financeiro). SEM rateio ÷N (D136 removeu a "cota por
   // corretor"): o valor por fechamento = a corretagem TOTAL (vendedor + comprador);
   // os co-corretores sao listados so como atribuicao. ACESSO (escopo aberto
   // 2026-07-13, own-only revogado): RC-D3 fecha a carteira no ADMIN — dentro dela
@@ -323,30 +323,33 @@ export class SaleContractService {
     // cancelamento, nao mais conforme o `type`. Quem respondeu "nao cobrar" — e quem
     // foi cancelado antes desta coluna existir — fica fora da lista E do total.
     const WASHOUT_BILLABLE = { status: 'WASH_OUT', washoutBillable: true };
+    // RC-D93: os quatro estados sao UMA definicao so, lida pelo filtro (que escolhe os
+    // grupos) e pelo KPI (que os conta). Cartao e filtro nao podem discordar sobre o
+    // que e "vencido" — com duas expressoes paralelas, discordariam no primeiro ajuste.
+    // Sao uma PARTICAO: disjuntos entre si e cobrindo o antigo `totalCommission`
+    // (EMITIDO ∪ FINALIZADO ∪ washout que cobra), por isso ele saiu da resposta.
+    const STATE_WHERE = {
+      vencido: { AND: [UNPAID, { paymentDate: { lt: brtToday } }] },
+      a_vencer: {
+        AND: [UNPAID, { OR: [{ paymentDate: { gte: brtToday } }, { paymentDate: null }] }],
+      },
+      recebida: { status: 'FINALIZADO' },
+      cancelado: WASHOUT_BILLABLE,
+    };
     let groups;
     if (filter === 'vencido') {
-      groups = [
-        { g: 0, where: { AND: [UNPAID, { paymentDate: { lt: brtToday } }] }, orderBy: G0_ORDER },
-      ];
+      groups = [{ g: 0, where: STATE_WHERE.vencido, orderBy: G0_ORDER }];
     } else if (filter === 'a_vencer') {
-      groups = [
-        {
-          g: 0,
-          where: {
-            AND: [UNPAID, { OR: [{ paymentDate: { gte: brtToday } }, { paymentDate: null }] }],
-          },
-          orderBy: G0_ORDER,
-        },
-      ];
+      groups = [{ g: 0, where: STATE_WHERE.a_vencer, orderBy: G0_ORDER }];
     } else if (filter === 'recebida') {
-      groups = [{ g: 1, where: { status: 'FINALIZADO' }, orderBy: ARCHIVE_ORDER }];
+      groups = [{ g: 1, where: STATE_WHERE.recebida, orderBy: ARCHIVE_ORDER }];
     } else if (filter === 'cancelado') {
-      groups = [{ g: 2, where: WASHOUT_BILLABLE, orderBy: ARCHIVE_ORDER }];
+      groups = [{ g: 2, where: STATE_WHERE.cancelado, orderBy: ARCHIVE_ORDER }];
     } else {
       groups = [
         { g: 0, where: UNPAID, orderBy: G0_ORDER },
-        { g: 1, where: { status: 'FINALIZADO' }, orderBy: ARCHIVE_ORDER },
-        { g: 2, where: WASHOUT_BILLABLE, orderBy: ARCHIVE_ORDER },
+        { g: 1, where: STATE_WHERE.recebida, orderBy: ARCHIVE_ORDER },
+        { g: 2, where: STATE_WHERE.cancelado, orderBy: ARCHIVE_ORDER },
       ];
     }
 
@@ -375,39 +378,41 @@ export class SaleContractService {
       if (rows.length === need) break;
     }
 
-    // Cabecalho (FN6): corretagem total ("Total a receber") + vencidos ("N vencidos ·
-    // R$ X"). Ambos por filterWhere (busca), INDEPENDENTES do filtro FN5 ativo e do
-    // cursor — o cabecalho e um resumo estavel de todos os fechamentos (D136 — sem rateio ÷N).
-    const [sums, overdue] = await Promise.all([
-      this.prisma.saleContract.aggregate({
-        // D145: washout so entra no total quando FUTURO (o fisico cancelado nao cobra).
-        where: {
-          AND: [
-            filterWhere,
-            { OR: [{ status: { in: ['EMITIDO', 'FINALIZADO'] } }, WASHOUT_BILLABLE] },
-          ],
-        },
-        _sum: { sellerBrokerageValue: true, buyerBrokerageValue: true },
-      }),
-      this.prisma.saleContract.aggregate({
-        where: { AND: [filterWhere, UNPAID, { paymentDate: { lt: brtToday } }] },
-        _count: { _all: true },
-        _sum: { sellerBrokerageValue: true, buyerBrokerageValue: true },
-      }),
-    ]);
+    // Cabecalho (RC-D93): um agregado por ESTADO — corretagem e contagem de "a vencer",
+    // "vencido", "recebida" e "cancelado". Eles alimentam os quatro cartoes de KPI, que
+    // sao tambem o filtro da pagina; por isso todos por filterWhere (a BUSCA) e
+    // INDEPENDENTES do filtro FN5 ativo e do cursor: clicar num cartao filtra a lista e
+    // nao pode mexer nos outros tres numeros. Sem rateio ÷N (D136): o valor por
+    // fechamento e a corretagem TOTAL (vendedor + comprador).
+    //
+    // Substitui o "Total a receber" + "N vencidos" do FN6: o total virou a SOMA dos
+    // quatro (a particao e exata) e o "vencidos" virou um dos cartoes.
+    const KPI_KEYS = ['a_vencer', 'vencido', 'recebida', 'cancelado'];
+    const kpiAggregates = await Promise.all(
+      KPI_KEYS.map((key) =>
+        this.prisma.saleContract.aggregate({
+          where: { AND: [filterWhere, STATE_WHERE[key]] },
+          _count: { _all: true },
+          _sum: { sellerBrokerageValue: true, buyerBrokerageValue: true },
+        })
+      )
+    );
     const round2 = (n) => Math.round(n * 100) / 100;
-    const totalCommission = round2(
-      Number(sums._sum.sellerBrokerageValue ?? 0) + Number(sums._sum.buyerBrokerageValue ?? 0)
-    );
-    const overdueCount = overdue._count._all;
-    const overdueCommission = round2(
-      Number(overdue._sum.sellerBrokerageValue ?? 0) + Number(overdue._sum.buyerBrokerageValue ?? 0)
-    );
+    const kpis = {};
+    KPI_KEYS.forEach((key, i) => {
+      const agg = kpiAggregates[i];
+      kpis[key] = {
+        count: agg._count._all,
+        value: round2(
+          Number(agg._sum.sellerBrokerageValue ?? 0) + Number(agg._sum.buyerBrokerageValue ?? 0)
+        ),
+      };
+    });
 
     const hasMore = pageEntries.length > limit;
     const page = hasMore ? pageEntries.slice(0, limit) : pageEntries;
     if (page.length === 0) {
-      return { items: [], nextCursor: null, totalCommission, overdueCount, overdueCommission };
+      return { items: [], nextCursor: null, kpis };
     }
     const last = page[page.length - 1];
     const nextCursor = hasMore
@@ -440,9 +445,7 @@ export class SaleContractService {
         buildReceivableView(e.row, brokersByContract.get(e.row.id) ?? [], todayKey)
       ),
       nextCursor,
-      totalCommission,
-      overdueCount,
-      overdueCommission,
+      kpis,
     };
   }
 

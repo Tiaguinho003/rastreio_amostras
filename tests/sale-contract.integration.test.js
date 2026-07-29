@@ -1917,6 +1917,14 @@ if (!databaseUrl || !databaseReachable) {
     return { actor: { ...commercialActor, actorUserId: userId }, brokerId };
   }
 
+  // RC-D93: a resposta do Financeiro devolve os QUATRO estados (`kpis`), nao mais um
+  // "totalCommission". O total continua existindo — e a soma deles, porque os quatro
+  // `where` sao uma particao exata do que o antigo total somava. Este helper existe
+  // pra que os testes que falam de TOTAL continuem falando de total.
+  const kpiTotal = (res) =>
+    Math.round(Object.values(res.kpis).reduce((sum, k) => sum + k.value, 0) * 100) / 100;
+  const kpiCount = (res) => Object.values(res.kpis).reduce((sum, k) => sum + k.count, 0);
+
   test('Financeiro: ADMIN vê os fechamentos elegíveis com a corretagem total + corretores (D136)', async () => {
     const { contractId } = await setupConfirmedContract({ lotNumber: '23010' });
 
@@ -1953,7 +1961,7 @@ if (!databaseUrl || !databaseReachable) {
     // co-corretores visíveis + total = corretagem total de TODOS os fechamentos (2 × 30)
     const mineItem = res.items.find((i) => i.id === mine.contractId);
     assert.equal(mineItem.brokers[0].brokerId, myBrokerId);
-    assert.equal(res.totalCommission, 60);
+    assert.equal(kpiTotal(res), 60);
   });
 
   test('Financeiro (escopo aberto): ADMIN sem Broker vinculado vê TODOS os fechamentos', async () => {
@@ -1962,7 +1970,7 @@ if (!databaseUrl || !databaseReachable) {
     const res = await saleContractService.listBrokerReceivables({}, orphan);
     assert.equal(res.items.length, 1);
     assert.equal(res.items[0].id, contractId);
-    assert.equal(res.totalCommission, 30);
+    assert.equal(kpiTotal(res), 30);
   });
 
   test('Financeiro (D136): total = corretagem total dos fechamentos (sem rateio)', async () => {
@@ -1978,7 +1986,7 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(item.commissionTotal, 30); // corretagem cheia do contrato (2 lados)
     assert.equal(item.brokers.length, 2); // co-corretores visíveis (só nomes)
     assert.equal(item.brokers[0].share, undefined); // D136: sem valor por corretor
-    assert.equal(res.totalCommission, 30); // corretagem TOTAL dos fechamentos dele (NÃO ÷N)
+    assert.equal(kpiTotal(res), 30); // corretagem TOTAL dos fechamentos dele (NÃO ÷N)
   });
 
   test('Financeiro (escopo aberto): busca por corretor acha contratos de todos', async () => {
@@ -2063,8 +2071,10 @@ if (!databaseUrl || !databaseReachable) {
     const spotItem = res.items.find((i) => i.id === spot.contractId);
     assert.ok(spotItem, 'à vista que respondeu "cobrar" DEVE aparecer no Financeiro');
     assert.equal(spotItem.paymentState, 'cancelado');
-    // O total do cabeçalho conta o mesmo conjunto da lista.
-    assert.equal(res.totalCommission, spotItem.commissionTotal);
+    // O KPI "Cancelado" conta o mesmo conjunto da lista: um contrato, a corretagem
+    // dele. Quem respondeu "não cobrar" não entra nem na lista nem no número.
+    assert.equal(res.kpis.cancelado.count, 1);
+    assert.equal(res.kpis.cancelado.value, spotItem.commissionTotal);
     // O filtro "Cancelado" lista o mesmo conjunto.
     const canc = await saleContractService.listBrokerReceivables(
       { filter: 'cancelado' },
@@ -2092,30 +2102,41 @@ if (!databaseUrl || !databaseReachable) {
       undefined,
       'WASH_OUT com washoutBillable nulo fica fora do Financeiro'
     );
+    assert.equal(res.kpis.cancelado.count, 0, 'e fora do KPI "Cancelado" junto');
+    assert.equal(res.kpis.cancelado.value, 0);
   });
 
-  test('Financeiro (S86): item traz paymentDate e a resposta traz totalCommission', async () => {
+  test('Financeiro (S86): item traz paymentDate e a resposta traz os KPIs', async () => {
     const { contractId } = await setupConfirmedContract({ lotNumber: '24010' });
     const res = await saleContractService.listBrokerReceivables({}, adminActor);
     const item = res.items.find((i) => i.id === contractId);
     assert.ok(item);
     assert.equal(item.paymentDate, '2026-07-20T00:00:00.000Z'); // paymentDate default do sell()
-    assert.equal(res.totalCommission, 30); // único contrato: 2% + 1% de 1000
+    assert.equal(kpiTotal(res), 30); // único contrato: 2% + 1% de 1000
     assert.equal(res.nextCursor, null); // uma página só
   });
 
-  test('Financeiro (S86): totalCommission respeita a busca', async () => {
+  // O contrato do KPI-como-filtro: clicar num cartão filtra a LISTA e não pode mexer
+  // nos outros três números — senão os cartões mentiriam assim que um fosse ligado.
+  test('Financeiro (RC-D93): os KPIs seguem a busca e ignoram o filtro ativo', async () => {
     const a = await setupConfirmedContract({ lotNumber: '24020' });
     await setupConfirmedContract({ lotNumber: '24021' });
     const all = await saleContractService.listBrokerReceivables({}, adminActor);
-    assert.equal(all.totalCommission, 60); // 2 contratos x 30
+    assert.equal(kpiTotal(all), 60); // 2 contratos x 30
+
+    const comFiltro = await saleContractService.listBrokerReceivables(
+      { filter: 'recebida' },
+      adminActor
+    );
+    assert.equal(comFiltro.items.length, 0); // nenhum FINALIZADO
+    assert.deepEqual(comFiltro.kpis, all.kpis, 'o filtro não mexe nos KPIs');
 
     const numA = (await saleContractService.getSaleContract(a.contractId, adminActor)).contract
       .contractNumber;
     const filtered = await saleContractService.listBrokerReceivables({ search: numA }, adminActor);
     assert.equal(filtered.items.length, 1);
     assert.equal(filtered.items[0].id, a.contractId);
-    assert.equal(filtered.totalCommission, 30); // total segue a busca
+    assert.equal(kpiTotal(filtered), 30); // a BUSCA, essa sim, recorta os KPIs
   });
 
   test('Financeiro (S86): pagina por cursor (limit + cursor, sem sobreposição)', async () => {
@@ -2126,7 +2147,7 @@ if (!databaseUrl || !databaseReachable) {
     const page1 = await saleContractService.listBrokerReceivables({ limit: 2 }, adminActor);
     assert.equal(page1.items.length, 2);
     assert.notEqual(page1.nextCursor, null);
-    assert.equal(page1.totalCommission, 90); // agregado do conjunto inteiro (3 x 30)
+    assert.equal(kpiTotal(page1), 90); // agregado do conjunto inteiro (3 x 30), não da página
 
     const page2 = await saleContractService.listBrokerReceivables(
       { limit: 2, cursor: page1.nextCursor },
@@ -2214,9 +2235,26 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(byId[aVenc.contractId].paymentState, 'a_vencer');
     assert.equal(byId[recebida.contractId].paymentState, 'recebida');
     assert.equal(byId[canc.contractId].paymentState, 'cancelado');
-    // FN6: 1 vencido, corretagem 30 (2% + 1% de 1000)
-    assert.equal(res.overdueCount, 1);
-    assert.equal(res.overdueCommission, 30);
+    // RC-D93: um KPI por estado — cada um conta o contrato daquele estado e soma a
+    // corretagem DELE (comparada com o item, não com um número escrito à mão: o
+    // cancelado aqui é Futuro e tem outra corretagem). O antigo par "N vencidos ·
+    // R$ X" do cabeçalho é hoje o cartão `vencido`, e o antigo `totalCommission` é a
+    // soma dos quatro: a partição é exata, por isso ele saiu da resposta em vez de
+    // conviver com eles.
+    for (const [key, id] of [
+      ['vencido', venc.contractId],
+      ['a_vencer', aVenc.contractId],
+      ['recebida', recebida.contractId],
+      ['cancelado', canc.contractId],
+    ]) {
+      assert.equal(res.kpis[key].count, 1, `KPI ${key} conta 1`);
+      assert.equal(res.kpis[key].value, byId[id].commissionTotal, `KPI ${key} soma a corretagem`);
+    }
+    assert.equal(
+      kpiTotal(res),
+      res.items.reduce((sum, i) => sum + i.commissionTotal, 0)
+    );
+    assert.equal(kpiCount(res), res.items.length);
   });
 
   test('Financeiro (FN5): filtros por estado, independentes do cabeçalho', async () => {
@@ -2260,9 +2298,18 @@ if (!databaseUrl || !databaseReachable) {
       recebidas.items.map((i) => i.id),
       [recebida.contractId]
     );
-    // o cabeçalho (total + vencidos) independe do filtro FN5 ativo
-    assert.equal(vencidos.totalCommission, 90); // 3 x 30
-    assert.equal(vencidos.overdueCount, 1);
+    // RC-D93: cada cartão conta exatamente o que o filtro homônimo lista — o cartão É
+    // o filtro, e os dois lêem a MESMA expressão no serviço.
+    for (const [key, res] of [
+      ['vencido', vencidos],
+      ['a_vencer', aVencer],
+      ['recebida', recebidas],
+    ]) {
+      assert.equal(res.kpis[key].count, res.items.length, `KPI ${key} = tamanho da lista`);
+    }
+    // e os KPIs independem do filtro FN5 ativo (o conjunto inteiro, 3 x 30)
+    assert.equal(kpiTotal(vencidos), 90);
+    assert.equal(vencidos.kpis.vencido.count, 1);
   });
 
   test('Financeiro (FN5): busca por comprador (case-insensitive, sem vazar)', async () => {
@@ -3142,7 +3189,9 @@ if (!databaseUrl || !databaseReachable) {
     assert.ok(item, 'contrato "à definir" aparece no Financeiro');
     assert.equal(item.paymentState, 'a_vencer');
     assert.equal(item.paymentDate, null);
-    assert.equal(res.overdueCount ?? 0, 0);
+    // e o KPI concorda com o chip: conta em "a vencer", não em "vencido"
+    assert.equal(res.kpis.vencido.count, 0);
+    assert.equal(res.kpis.a_vencer.count, 1);
   });
 
   // ---- Aprovacao: worklist da sub-aba (AP25-AP28, F3) ---------------------------
