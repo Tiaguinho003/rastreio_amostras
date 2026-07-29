@@ -169,27 +169,52 @@ escopada com todos eles (`.client-lookup-shell input`, `.ctr-lotfield-shell inpu
 
 ### Campo travado — o valor existe, a edição não
 
-Três casos, um desenho só: o valor **pertence a outro registro** (Vendedor = dono do lote, RC-D37),
-o valor **é do sistema** (Nº do contrato, gerado na emissão; Tipo, decidido pelo botão que abriu o
-painel — RC-D70), ou o valor **só se decide uma vez** (o Lote, escolhido na criação e imutável no
-Editar — RC-D72).
+Três casos: o valor **pertence a outro registro** (Vendedor = dono do lote, RC-D37), o valor **é do
+sistema** (Nº do contrato, gerado na emissão; Tipo, decidido pelo botão que abriu o painel — RC-D70),
+ou o valor **só se decide uma vez** (o Lote, escolhido na criação e imutável no Editar — RC-D72).
 
-Em nenhum deles o campo é input desabilitado: vira **valor + instrução**. Sem ação no painel — não há
-o que clicar, então não pode parecer clicável. Molde em `SaleContractEtapa2Modal`:
+Em nenhum deles o campo é `<input disabled>` — o navegador o desbota e ele continua parecendo um
+controle. **Duas apresentações, e quem escolhe é a VIZINHANÇA da linha** (RC-D73):
+
+| A linha é...                                  | Apresentação                       | Classe              |
+| --------------------------------------------- | ---------------------------------- | ------------------- |
+| **toda travada** (Nº do contrato + Tipo)      | valor solto, sem caixa             | `.ctr-locked-value` |
+| **mista** — divide com um controle de verdade | a caixa do kit, superfície recuada | `.ctr-locked-field` |
 
 ```tsx
+{
+  /* linha toda travada: valor solto */
+}
+<div className="fv-form-field">
+  <span className="fv-form-label">Nº do contrato</span>
+  <p className="ctr-locked-value">{displayContractNumber}</p>
+  <span className="ctr-locked-hint">Gerado na emissão.</span>
+</div>;
+
+{
+  /* linha mista: o Vendedor divide com a filial, que é um select de verdade */
+}
 <div className={fieldClass('seller')}>
   <span className="fv-form-label">Vendedor</span>
-  <p className="ctr-locked-value">{seller?.displayName ?? 'Sem produtor'}</p>
-  <span className="ctr-locked-hint">
-    É o dono do lote. Para trocar, edite o dono no cadastro do lote.
-  </span>
-</div>
+  <p className="ctr-locked-field" aria-disabled="true">
+    {seller?.displayName ?? 'Sem produtor'}
+  </p>
+</div>;
 ```
 
-`.ctr-locked-value` tem o peso do texto do formulário (0.92rem/600, `--ink`); `.ctr-locked-hint` é a
-instrução (0.74rem, `--muted`), e é **opcional** — o Tipo não tem, porque "À vista" não deixa dúvida
-sobre por que não se edita.
+**Por que a vizinhança decide.** Valor solto ao lado de uma caixa lê como **campo faltando**, não
+como campo resolvido — o olho procura o controle que sumiu. Numa linha inteiramente travada não há
+com o que comparar, e a caixa vira moldura vazia. A regra é a mesma dos dois lados: **parecer o que
+é**.
+
+`.ctr-locked-value` tem o peso do texto do formulário (0.92rem/600, `--ink`). `.ctr-locked-field`
+copia a geometria de `.fv-form-field input` — um `<p>` não é alcançado por aquele seletor, então ela
+**não vem por herança** — e troca só o fundo para `--fv-canvas`; sem `:focus`, com `cursor: default`
+e `aria-disabled`, que é o "não clicável" que o desenho sozinho não diz.
+
+`.ctr-locked-hint` é a instrução (0.74rem, `--muted`) e é **opcional**: só existe quando há o que
+fazer em outro lugar ou algo a saber. Some quando a resposta é óbvia — "À vista" não precisa explicar
+por que não se edita, e o Vendedor perdeu a dele a pedido do Flavio.
 
 🔴 **Travado não é a mesma coisa que fora do formulário.** Já houve a tentativa oposta: juntar tudo o
 que não se edita num **cartão** no topo (RC-D59, morto na RC-D70). O que aquilo consertava era o

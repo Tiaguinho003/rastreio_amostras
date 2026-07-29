@@ -1440,15 +1440,19 @@ export function SaleContractEtapa2Modal({
                   </span>
                   {/* RC-D37: com lote, o vendedor é o dono do lote e o campo
                     não abre. Trocá-lo aqui transferia o lote no ato de
-                    emitir — agora a troca se faz onde ela pertence, no
-                    cadastro do lote. */}
+                    emitir — a troca se faz onde ela pertence, no cadastro do
+                    lote.
+
+                    RC-D73: mas ele tem a FORMA dos campos vizinhos. Ele divide
+                    a linha com a filial do vendedor, que é um select de
+                    verdade; como texto solto ao lado de um controle, lia como
+                    campo faltando em vez de campo resolvido. `aria-disabled` +
+                    `cursor: default` mantêm o "não clicável" que o desenho
+                    sozinho não diz. */}
                   {hasLot ? (
-                    <>
-                      <p className="ctr-locked-value">{seller?.displayName ?? 'Sem produtor'}</p>
-                      <span className="ctr-locked-hint">
-                        É o dono do lote. Para trocar, edite o dono no cadastro do lote.
-                      </span>
-                    </>
+                    <p className="ctr-locked-field" aria-disabled="true">
+                      {seller?.displayName ?? 'Sem produtor'}
+                    </p>
                   ) : (
                     <ClientLookupField
                       session={session}

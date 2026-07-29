@@ -2,7 +2,7 @@
 
 Status: Em andamento (backlog + decisões + pendências da página `/contratos`)
 Escopo: o backlog, as pendências e o **ledger de decisões** da feature de Contratos (hub `/contratos`: contrato/PDF, Espelho de Corretagem, Financeiro, Aprovações, Embarque). O **estado atual** do que existe vive em `Contratos-Visao-Geral.md`; aqui ficam as decisões (o porquê), as pendências abertas e o histórico condensado.
-Última revisão: 2026-07-29 (**§7 — RC-D69..D72 IMPLEMENTADAS**: a seleção de lote deixa de ser passo e vira **campo obrigatório** da Identificação — a criação à vista cai para **dois passos**, o cartão de identidade morre e o Editar mostra o lote travado. Anterior: 2026-07-28, **§6 — RC-D62..D68**: o contrato deixa de ser máquina de status e vira **agenda** — três situações (`EMITIDO`/`FINALIZADO`/`WASH_OUT`), o embarque morre inteiro, a aprovação não trava nada e o `/financeiro` vira leitura. Antes, no mesmo dia: §5.10–§5.16, a RC-F5 e a 1ª rodada da RC-F6. Anterior: 2026-07-27, §5.9 — RC-F1+F4)
+Última revisão: 2026-07-29 (**§7 — RC-D69..D73 IMPLEMENTADAS**: a seleção de lote deixa de ser passo e vira **campo obrigatório** da Identificação — a criação à vista cai para **dois passos**, o cartão de identidade morre e o Editar mostra o lote travado. Anterior: 2026-07-28, **§6 — RC-D62..D68**: o contrato deixa de ser máquina de status e vira **agenda** — três situações (`EMITIDO`/`FINALIZADO`/`WASH_OUT`), o embarque morre inteiro, a aprovação não trava nada e o `/financeiro` vira leitura. Antes, no mesmo dia: §5.10–§5.16, a RC-F5 e a 1ª rodada da RC-F6. Anterior: 2026-07-27, §5.9 — RC-F1+F4)
 Documentos relacionados: `Contratos-Visao-Geral.md` (documento-mãe / estado atual), `Dashboard-Visao-Geral.md`, `API-e-Contratos.md`, `Auditoria-Navegacao-por-Papel.md`
 
 > **Divisão de papéis:** a `Contratos-Visao-Geral.md` é a **verdade viva** (o que existe hoje). Este plano guarda **decisões (por quê), pendências (o que falta) e o backlog**. O histórico completo de sessões (S1–S91 etc.) e a prosa superada foram para o **Git** (docs antigos removidos em 2026-07-13); o ledger no apêndice condensa cada decisão à resolução final.
@@ -901,7 +901,7 @@ reversível é ruído. O washout continua pedindo motivo, porque continua defini
 - **`.next/types` guarda stub de rota apagada.** Depois de deletar rotas, `typecheck` acusa módulo
   inexistente até `rm -rf .next/types` — não é erro de código.
 
-## 7. O lote vira campo (RC-D69..D72) — 2026-07-29
+## 7. O lote vira campo (RC-D69..D73) — 2026-07-29
 
 > **Fonte:** o Flavio olhou o fluxo que o operador de fato faz e pediu para reduzir a quantidade de
 > fases do preenchimento à vista, unificando a seleção de lote com o formulário: _"quero que a
@@ -926,12 +926,13 @@ lado**.
 
 ### 7.2 Decisões (ledger RC, continuação)
 
-| #      | Decisão                                                                                                                                                        |
-| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| RC-D69 | A seleção de lote deixa de ser passo e vira **campo com dropdown de busca, obrigatório**. À vista cai para **dois passos**: formulário → documento             |
-| RC-D70 | **O cartão de identidade (RC-D59) morre.** Nº do contrato e Tipo viram **campos travados** — `.ctr-locked-value` (valor com rótulo), não input desabilitado    |
-| RC-D71 | **Safra e saldo não viram campo.** O produtor já é o **Vendedor** travado (RC-D37) e o saldo já é o **valor inicial** do campo Sacas (RC-D31)                  |
-| RC-D72 | **No Editar o lote aparece travado**, com o número. `getSaleContract` passa a devolver `sampleLotNumber` — a dívida que a RC-D59 tinha registrado e não pagara |
+| #      | Decisão                                                                                                                                                                          |
+| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| RC-D69 | A seleção de lote deixa de ser passo e vira **campo com dropdown de busca, obrigatório**. À vista cai para **dois passos**: formulário → documento                               |
+| RC-D70 | **O cartão de identidade (RC-D59) morre.** Nº do contrato e Tipo viram **campos travados** — `.ctr-locked-value` (valor com rótulo), não input desabilitado                      |
+| RC-D71 | **Safra e saldo não viram campo.** O produtor já é o **Vendedor** travado (RC-D37) e o saldo já é o **valor inicial** do campo Sacas (RC-D31)                                    |
+| RC-D72 | **No Editar o lote aparece travado**, com o número. `getSaleContract` passa a devolver `sampleLotNumber` — a dívida que a RC-D59 tinha registrado e não pagara                   |
+| RC-D73 | O **Vendedor travado ganha a caixa do kit** (`.ctr-locked-field`) e **perde a instrução**. Quem escolhe entre as duas apresentações do campo travado é a **vizinhança da linha** |
 
 ### 7.3 A Identificação
 
@@ -972,7 +973,32 @@ Sacas nasce.
 - **Backend**: `internalLotNumber` no `select` que `getSaleContract` já fazia; `sampleLotNumber` no
   `SaleContractDetail`. Teste de integração cobrindo à vista (o número) e Futuro (`null`).
 
-### 7.5 Achados do caminho
+### 7.5 O campo travado ganha uma segunda forma (RC-D73)
+
+Pedido do Flavio depois de ver a tela: _"deixe o valor do vendedor como um campo normal como os
+outros, porém não clicável e sem o aviso sobre a edição do vendedor"_.
+
+O Vendedor divide a linha com a **filial do vendedor**, que é um `<select>` de verdade. Valor solto
+ao lado de uma caixa lê como **campo faltando** — o olho procura o controle que sumiu — e não como
+campo resolvido. Na linha do Nº do contrato + Tipo o problema não existe: ali tudo é travado, não há
+com o que comparar, e a caixa viraria moldura vazia.
+
+Então a decisão não é "valor solto **ou** caixa", é **a vizinhança da linha escolhe**:
+
+| A linha é...                              | Apresentação                       | Classe              |
+| ----------------------------------------- | ---------------------------------- | ------------------- |
+| toda travada (Nº do contrato + Tipo)      | valor solto, sem caixa             | `.ctr-locked-value` |
+| mista — divide com um controle de verdade | a caixa do kit, superfície recuada | `.ctr-locked-field` |
+
+`.ctr-locked-field` copia a geometria de `.fv-form-field input` (um `<p>` não é alcançado por aquele
+seletor, então ela não vem por herança) e troca **só o fundo** para `--fv-canvas`; sem `:focus`, com
+`cursor: default` e `aria-disabled`. Isso não recria o **pseudo-campo** que a RC-D59 matou: aquilo
+era `<input disabled>`, que o navegador desbota e que continua parecendo um controle esperando texto.
+
+⚠️ **O Lote no Editar está na mesma situação** — divide a linha com o Nº de compra, que é editável —
+e **ficou como valor solto**, porque o pedido nomeou só o Vendedor. Decisão dele.
+
+### 7.6 Achados do caminho
 
 - 🔴 **Limpar o campo precisava de tratamento que trocar de lote não precisava.** O efeito de
   hidratação é chaveado pelo **id** do lote e zerava vendedor/filial/conta **dentro** do `if (spot)`.

@@ -28050,6 +28050,7 @@ body.is-selection-mode .mobile-tabbar {
 .bottom-sheet.ctr-form-sheet .fv-form-field.is-field-error .client-lookup-shell input,
 .bottom-sheet.ctr-form-sheet .fv-form-field.is-field-error .ctr-lotfield-shell input,
 .bottom-sheet.ctr-form-sheet .fv-form-field.is-field-error .bms-control,
+.bottom-sheet.ctr-form-sheet .fv-form-field.is-field-error .ctr-locked-field,
 .bottom-sheet.ctr-form-sheet .fv-form-field.is-field-error .ctr-approval-btn {
   border-color: rgba(196, 92, 92, 0.55);
 }
@@ -28069,6 +28070,30 @@ body.is-selection-mode .mobile-tabbar {
   color: var(--muted);
   font-size: 0.74rem;
   line-height: 1.35;
+}
+/* RC-D73: campo travado com a FORMA dos vizinhos. O `.ctr-locked-value` acima le
+   como valor solto, o que serve quando a linha inteira e travada (Nº do contrato
+   + Tipo) — mas nao quando ele divide a linha com um controle de verdade (o
+   Vendedor ao lado da filial). Aqui o desenho e o do kit; o que muda e so a
+   superficie recuada, que e o unico sinal de "nao da pra escrever aqui".
+   Geometria colada em `.fv-form-field input` de proposito: um `<p>` nao e
+   alcancado por aquele seletor, entao ela nao vem por heranca. */
+.ctr-locked-field {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  min-height: 2.62rem;
+  margin: 0;
+  padding: clamp(0.5rem, 2vw, 0.62rem) clamp(0.6rem, 2.4vw, 0.78rem);
+  border: 1px solid var(--fv-line-strong);
+  border-radius: var(--fv-radius);
+  background: var(--fv-canvas);
+  font-size: 0.88rem;
+  font-weight: 400;
+  color: var(--ink);
+  line-height: 1.3;
+  cursor: default;
 }
 /* RC-D37: banner de estado do formulario (o dono do lote mudou -> o vendedor
    acompanhou e filial/banco foram esvaziados). Divide o slot do topo com o
