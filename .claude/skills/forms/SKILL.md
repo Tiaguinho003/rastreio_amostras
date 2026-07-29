@@ -280,6 +280,34 @@ sinais de "isso é passo ou campo?".
 **Opção bloqueada escreve o motivo** no `fv-choice-hint` (`disabledHint`). Cartão apagado sem
 explicação vira um beco.
 
+### Escolha obrigatória SEM pré-marcação
+
+O padrão do kit é ter um valor inicial. A exceção: **quando a escolha decide algo que só a pessoa
+sabe, não ter padrão é a decisão certa** — um default seria o sistema respondendo no lugar dela.
+Molde em `SaleContractLifecycleDialog` (RC-D89, "Haverá cobrança de corretagem?" no washout):
+
+```tsx
+const [billable, setBillable] = useState<boolean | null>(null); // null = não respondeu
+const canSubmit = !saving && reason.trim() !== '' && billable !== null;
+```
+
+Três exigências que andam juntas:
+
+- **`null` como estado inicial**, não `false`. O que trava o submit é a **ausência** de resposta;
+  "não" é uma resposta como qualquer outra.
+- **O submit fica travado até responder** (`forms` §5: validação de forma no `submitDisabled`) — não
+  se descobre que faltava clicando.
+- 🔴 **A dica diz a CONSEQUÊNCIA, não repete o rótulo.** "Sim, cobrar" / _"Continua no Financeiro e
+  emite espelho."_ — é o que a pessoa precisa para escolher. Dica que parafraseia o rótulo ocupa
+  espaço e não decide nada.
+- **O servidor exige o mesmo**, e com código próprio (`..._REQUIRED`, 422): botão travado não é
+  trava. E ele aceita **só booleano de verdade** — um `undefined` que virasse `false` seria um "não"
+  que ninguém escolheu.
+
+Vale para o `radiogroup` acima e para o `<select>` nativo (aí o placeholder é uma `<option disabled>`
+sem valor). Se a escolha é **definitiva**, ela merece a mesma superfície do resto do que não se
+desfaz — no molde, o diálogo do washout, junto do motivo.
+
 ---
 
 ## §5 Submit
@@ -479,5 +507,6 @@ era destruído — manter o estado é a feature, e é também a armadilha.
 - [ ] `dirty` → confirm `.is-scrim-none.is-compact` + `dragDisabled` (form que nasce preenchido: `touched` explícito, não conteúdo)
 - [ ] Guard no `onDismissAttempt`, nunca no `onClose` (`containers` §3)
 - [ ] Escolha de 2–4 opções é campo do form, não superfície própria; bloqueada explica o motivo
+- [ ] Escolha que só a pessoa sabe: sem pré-marcação, `null` inicial, submit travado, 422 no servidor
 - [ ] Opção única = `<select>` nativo
 - [ ] Textos em pt-BR
