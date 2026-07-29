@@ -1061,7 +1061,7 @@ status bastam para 5 fases: as fases com ação já se resolvem no status ou num
 | **RC-D75** | **A regra da §8.2**: fase tem ação quando o ato deixa registro que o sistema já observa; não deixando, é só uma data                                                                                            |
 | **RC-D76** | 🔴 **Embarque e faturamento são o MESMO DIA** — regra do negócio, sem exceção (a nota acompanha a carga). O embarque volta como **segunda leitura do `invoiceDate`**: sem coluna, sem migration, sem campo novo |
 | **RC-D77** | No quadro de fases, embarque e faturamento ganham **✓ quando a data passa**                                                                                                                                     |
-| **RC-D78** | **Nenhum rótulo muda**: formulário, PDF, lista, calendário e card de Avisos seguem dizendo "faturamento". O embarque existe em **um lugar só** — o quadro de fases do detalhe                                   |
+| **RC-D78** | **Nenhum rótulo muda**: formulário, PDF, lista, calendário e card de Avisos seguem dizendo "faturamento". O embarque existe em **um lugar só** — o quadro de fases (que a RC-D80 move para a lista)             |
 | **RC-D79** | **"Finalizar" significa "o pagamento entrou"** — confirma o que já vale (`/financeiro` move para "Recebida" ao finalizar)                                                                                       |
 
 > ⚠️ **A RC-D77 foi escolhida contra a minha recomendação.** Eu propus "só a data, sem marca", porque
@@ -1083,7 +1083,52 @@ por outro caminho: a agenda derivada **é** a fase.
 - **Embarque / Faturamento** — nada além da linha nova no quadro de fases.
 - **Pagamento** — nada. Segue sendo o único atraso do app (RC-D64).
 - **Dashboard** — nada. Card de Avisos e calendário ficam como estão.
-- **Falta construir:** o **quadro de fases no detalhe**, que é a **RC-F2**.
+- **Falta construir:** o **quadro de fases**, que a §8.5 move do detalhe para a **lista**.
+
+### 8.5 O quadro de fases é uma linha na lista (RC-D80..D83) — 2026-07-29
+
+> **Fonte:** o Flavio descreveu a concepção dele e pediu conferência: _"o quadro de fases é a
+> representação de qual fase foi concluída e qual é a próxima, e minha ideia é que cada card de
+> contrato tenha uma linha que representa as fases, essa linha é preenchida conforme as datas e
+> ações (aprovação e finalização)"_.
+
+**A concepção está certa no essencial** — a fase é derivada das datas mais os dois registros de ação,
+e a linha mostra onde o contrato está. O que ela não prevê é a consequência do modelo da §6:
+
+> 🔴 **Não é uma barra de progresso — são cinco luzes.** Cada fase acende pelo **seu próprio
+> critério**, independente das outras. Não é defeito do desenho: é o modelo em que **nada trava
+> nada**.
+
+Quatro estados legítimos hoje, todos alcançáveis sem erro do operador:
+
+```
+Normal (hoje 13/08 · fat. 12/08 · pag. 25/08)     ●━━●━━●━━●━━○
+Finalizado sem enviar a aprovação (RC-D66)        ●━━○━━●━━●━━●   ← buraco no meio
+Pagou adiantado (finalizou em 05/08)              ●━━●━━○━━○━━●   ← cheio na ponta
+Contrato sem aprovação (requiresApproval=false)   ●━━━━━●━━●━━○   ← 4 pontos
+Reaberto (RC-D63)                                 ●━━●━━●━━●━━○   ← o último voltou
+Washout                                           ●━━●━━╳          ← não é fase, é o fim
+```
+
+| #          | Decisão                                                                                                                                                                                             |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **RC-D80** | O quadro de fases **não é peça do detalhe** — é uma **linha de progressão no item da lista**. Preenche por **data** (embarque, faturamento) e por **registro** (emissão, aprovação, pagamento)      |
+| **RC-D81** | **Cinco pontos sempre**, mesmo com embarque e faturamento no mesmo dia (RC-D76). Consequência aceita: dois pontos que **nunca** aparecem em estados diferentes                                      |
+| **RC-D82** | **Desktop apenas.** O card do celular não recebe a linha — segue com o chip de situação e o acordeão                                                                                                |
+| **RC-D83** | A linha **convive** com a Situação (RC-D68), não a substitui: a linha diz **onde está**, a Situação diz **quando é o próximo compromisso** — com a data e o vermelho do atraso, que a linha não tem |
+
+> ⚠️ A RC-D81 foi escolhida contra a minha recomendação (fundir os dois num marco só na linha, e
+> manter as cinco fases separadas onde há espaço). O Flavio quer as fases tratadas como distintas em
+> todo lugar. **Consequência aceita:** dois dos cinco pontos são, na prática, um.
+
+**Em aberto — o desenho específico, adiado pelo Flavio** ("por enquanto assim, o design mais
+específico faremos depois"):
+
+- **Tabela × card no desktop.** Ele pediu a linha "no card", mas o desktop **deixou de ser card
+  ontem** (`654d971`, RC-D43 — virou `.fv-table` de 5 colunas) e ele ainda não viu isso rodando.
+  Decide depois de conferir. Se ficar tabela, a linha entra na coluna Situação; se voltar a card,
+  a RC-D43 é desfeita e cabe o dinheiro que ela cortou (total, preço/saca).
+- **Como a linha desenha o buraco**, o passo para trás (Reabrir) e o washout.
 
 ## Apêndice A — Ledger de decisões (condensado)
 
