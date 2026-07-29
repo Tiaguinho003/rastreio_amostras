@@ -2,7 +2,7 @@
 
 Status: Em andamento (backlog + decisões + pendências da página `/contratos`)
 Escopo: o backlog, as pendências e o **ledger de decisões** da feature de Contratos (hub `/contratos`: contrato/PDF, Espelho de Corretagem, Financeiro, Aprovações, Embarque). O **estado atual** do que existe vive em `Contratos-Visao-Geral.md`; aqui ficam as decisões (o porquê), as pendências abertas e o histórico condensado.
-Última revisão: 2026-07-27 (**§5.9 — RC-F1+F4 IMPLEMENTADAS**: `/financeiro` é página própria ADMIN, `/contratos` é página única, `/embarques` foi extinta. Antes, no mesmo dia: §5 ledger RC e §5.8 fluxo de criação. Anterior: 2026-07-14, D146 — cascata contrato-à-vista → lote/venda)
+Última revisão: 2026-07-28 (**§6 — RC-D62..D68 IMPLEMENTADAS**: o contrato deixa de ser máquina de status e vira **agenda** — três situações (`EMITIDO`/`FINALIZADO`/`WASH_OUT`), o embarque morre inteiro, a aprovação não trava nada e o `/financeiro` vira leitura. Antes, no mesmo dia: §5.10–§5.16, a RC-F5 e a 1ª rodada da RC-F6. Anterior: 2026-07-27, §5.9 — RC-F1+F4)
 Documentos relacionados: `Contratos-Visao-Geral.md` (documento-mãe / estado atual), `Dashboard-Visao-Geral.md`, `API-e-Contratos.md`, `Auditoria-Navegacao-por-Papel.md`
 
 > **Divisão de papéis:** a `Contratos-Visao-Geral.md` é a **verdade viva** (o que existe hoje). Este plano guarda **decisões (por quê), pendências (o que falta) e o backlog**. O histórico completo de sessões (S1–S91 etc.) e a prosa superada foram para o **Git** (docs antigos removidos em 2026-07-13); o ledger no apêndice condensa cada decisão à resolução final.
@@ -11,19 +11,20 @@ Documentos relacionados: `Contratos-Visao-Geral.md` (documento-mãe / estado atu
 
 ## 1. Estado geral
 
-Contrato à vista + futuro, o hub com 4 sub-abas (Central F1/F2), a reforma de Aprovações ("o portão", AP1–AP30) e o Embarque (EMB1–EMB34, incluindo a **FASE 2 EMB30/EMB31** — transporte/responsável + retenção de fotos 15d, migration `20260716120000`) estão **implementados ponta a ponta** — gates verdes (lint/format/typecheck/unit/integração) — em `main`, **não pushados**, **aguardando validação no device**.
+Contrato à vista + futuro, a criação repensada (RC-F5) e a moldura institucional da lista (1ª rodada da RC-F6) estão **implementados ponta a ponta** — gates verdes (lint/format/typecheck/unit/integração/build) — em `main`, **não pushados**, **aguardando validação no device**.
+
+> ⚠️ **A §6 (2026-07-28) mudou a natureza do contrato.** Ele **não é mais máquina de status**: são **três situações** (`EMITIDO` · `FINALIZADO` · `WASH_OUT`) e uma **agenda derivada** das datas do documento. **Faturar, Pagar e Embarcar não existem mais**; o embarque inteiro (EMB1–EMB34) foi apagado, a aprovação não trava nada (AP18 revogado) e o `/financeiro` virou leitura. Tudo o que o ledger abaixo diz sobre `FATURADO`, `PAGO`, embarque e portões é **histórico**.
 
 > **Split 2026-07-13 + ACESSO UNIFICADO 2026-07-15:** o hub `/contratos` virou **2 páginas** — `/contratos` (Contratos + Financeiro, gestão) e `/embarques` (Embarque + Aprovações, operação). Desde 2026-07-15 **ambas abertas a todo não-PROSPECTOR** (`CONTRATOS_ROLES`/`FINANCEIRO_ROLES` = `NON_PROSPECTOR_ROLES`; a gestão era ADMIN+COMMERCIAL). O ledger histórico abaixo (D110/D135/D140, CC6, AP9/AP27, EMB26) descreve os gates **da época** — a fonte do estado atual é `Contratos-Visao-Geral.md` §2.
 
-> ⚠️ **A §5 (RC, 2026-07-27) reorganizou esta casca.** A **primeira parte já está no código** (§5.9: `/financeiro` é página própria ADMIN, `/contratos` é página única sem sub-abas, `/embarques` é redirect e os painéis dela foram apagados). O que **ainda não** está: as fases desenhadas dentro do contrato (RC-F2), a lista virando worklist (RC-F3), a criação repensada (RC-F5) e o ciclo FV (RC-F6). O parágrafo acima descreve a casca **anterior** — a atual está na §5.9.
+> ⚠️ **A §5 (RC, 2026-07-27) reorganizou esta casca.** Já estão no código: `/financeiro` é página própria ADMIN, `/contratos` é página única sem sub-abas, `/embarques` é redirect (§5.9); a criação virou painel de 3 passos (§5.10–§5.16); a lista entrou no kit FV (§5.12). O que **ainda não** está: a RC-F2 e a RC-F3 — **as duas re-escopadas pela §6**, porque não há mais 5 fases para desenhar.
 
 ## 2. Pendências abertas
 
 - **P27 — Layout e design das páginas de Contrato** (Fase G): **ENDEREÇADA pela §5 (RC)** desde 2026-07-27. A parte de _disposição das páginas_ virou o ledger RC-D1..D12; a parte de _layout e design_ é a **RC-F6** (ciclo FV), que só começa depois de as páginas estarem organizadas — ordem pedida pelo Flavio.
 - **P28 — Gestão das 3 listas cadastráveis** (Modalidade / Forma de pagamento / Embalagem): renomear / inativar / reordenar (`sortOrder`) — adiada (D95; hoje só existe "+ Adicionar").
-- **AP-P2 — Estado "atrasado" na Aprovação**: adiado como feature futura (sem data-limite exata; fácil no Embarque via `invoiceDate`, delicado na Aprovação). Por ora só "pendente".
-- **Validação no device:** todo o fluxo acima (à vista/futuro, hub, portão de aprovação, embarque) precisa do ✅ no aparelho.
-- **Build:** `next dev` ativo → o build fica para a validação no device.
+- ~~**AP-P2 — Estado "atrasado" na Aprovação**~~ — **FECHADA pela RC-D64 (§6)**: atraso passa a existir **só no `paymentDate`**. A aprovação não atrasa: o aviso aparece na janela do lead e se recolhe sozinho.
+- **Validação no device:** todo o fluxo (à vista/futuro, criação em 3 passos, lista FV, finalizar/reabrir) precisa do ✅ no aparelho.
 
 ## 3. Dívidas / fora do escopo desta consolidação
 
@@ -57,28 +58,30 @@ Três fatos reenquadram o trabalho:
 
 ### 5.2 Decisões (ledger RC)
 
-| #         | Decisão                                                                                                                                                                                                                                                                                                                                                                                               |
-| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **RC-D1** | `/contratos` perde as sub-abas e vira **página única**; **`/financeiro` vira página própria** (hoje é redirect). Derruba a casca inteira do hub: **CC3** (redirect), **CC10** (item de nav único — o `FINANCEIRO_NAV_ITEM` volta), **CC4** (o `?tab=` de `/contratos`), **CC8/CC9** (ordem e default das abas) e o resto da **CC15**. **CC1** permanece: `/contratos` segue sendo a rota do contrato. |
-| **RC-D2** | **`/embarques` morre** — a rota vira redirect → `/contratos`, no padrão que o repo já usa em `/financeiro`, `/samples/[id]` e `/clients/[id]`.                                                                                                                                                                                                                                                        |
-| **RC-D3** | Acesso: **Contratos = os 5 não-PROSPECTOR** (inalterado); **Financeiro = ADMIN**. Seria a **primeira** rota ADMIN-only do domínio — hoje nenhuma é.                                                                                                                                                                                                                                                   |
-| **RC-D4** | **Dinheiro continua visível a todos dentro do contrato.** O gate é de **rota, não de campo**: o backend segue devolvendo os valores; o ADMIN-only protege só a carteira.                                                                                                                                                                                                                              |
-| **RC-D5** | **`FINANCEIRO_ROLES` se parte em dois**: carteira (ADMIN) × feeds de calendário (não-PROSPECTOR). Sem isso, 4 dos 5 papéis perderiam o pagamento no calendário do dashboard.                                                                                                                                                                                                                          |
-| **RC-D6** | **"Pagar" migra** do card do Financeiro para a fase Pagamento do contrato — **revoga a D137**. Sem isso, só o ADMIN fecharia o ciclo do dinheiro.                                                                                                                                                                                                                                                     |
-| **RC-D7** | Ordem visual das fases = **operacional**: Emissão → Aprovação → **Embarque** → Faturamento → Pagamento. Contraria a ordem dos portões (embarque trava o PAGO), que segue valendo no backend — o café sobe no caminhão antes de faturar, e a tela conta o que acontece.                                                                                                                                |
-| **RC-D8** | A fase é **derivada**, nunca persistida — sem coluna, sem migration, sem trigger. Coerente com a D77 ("o Financeiro é view derivada, sem schema próprio").                                                                                                                                                                                                                                            |
-| **RC-D9** | **A lista de contratos absorve as duas worklists**: filtro por fase calculado no servidor, com keyset e contadores estáveis.                                                                                                                                                                                                                                                                          |
-| RC-D10    | Decorrência de RC-D1: a **geração da etiqueta de aprovação** passa a morar no contrato — **revoga AP29/CC7** ("a sub-aba é a única porta"). A recuperação inline no portão do faturar (AP18) permanece.                                                                                                                                                                                               |
-| RC-D11    | Decorrência de RC-D1: a **confirmação de embarque** passa a morar no contrato — **revoga EMB20/EMB26/CC7** ("a casa do embarque é a sub-aba"). O portão do pagar (EMB28/EMB33) permanece.                                                                                                                                                                                                             |
-| RC-D12    | **A criação do contrato entra no escopo** (Etapa 2 + LotPicker) — **reabre a RD11**, que a deixara de fora aguardando specs do Flavio.                                                                                                                                                                                                                                                                |
+| #             | Decisão                                                                                                                                                                                                                                                                                                                                                                                               |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **RC-D1**     | `/contratos` perde as sub-abas e vira **página única**; **`/financeiro` vira página própria** (hoje é redirect). Derruba a casca inteira do hub: **CC3** (redirect), **CC10** (item de nav único — o `FINANCEIRO_NAV_ITEM` volta), **CC4** (o `?tab=` de `/contratos`), **CC8/CC9** (ordem e default das abas) e o resto da **CC15**. **CC1** permanece: `/contratos` segue sendo a rota do contrato. |
+| **RC-D2**     | **`/embarques` morre** — a rota vira redirect → `/contratos`, no padrão que o repo já usa em `/financeiro`, `/samples/[id]` e `/clients/[id]`.                                                                                                                                                                                                                                                        |
+| **RC-D3**     | Acesso: **Contratos = os 5 não-PROSPECTOR** (inalterado); **Financeiro = ADMIN**. Seria a **primeira** rota ADMIN-only do domínio — hoje nenhuma é.                                                                                                                                                                                                                                                   |
+| **RC-D4**     | **Dinheiro continua visível a todos dentro do contrato.** O gate é de **rota, não de campo**: o backend segue devolvendo os valores; o ADMIN-only protege só a carteira.                                                                                                                                                                                                                              |
+| **RC-D5**     | **`FINANCEIRO_ROLES` se parte em dois**: carteira (ADMIN) × feeds de calendário (não-PROSPECTOR). Sem isso, 4 dos 5 papéis perderiam o pagamento no calendário do dashboard.                                                                                                                                                                                                                          |
+| ~~**RC-D6**~~ | ⚠️ **REVOGADA pela RC-D67 (§6)** — "Pagar" não migrou: **morreu**. O que fecha o ciclo do dinheiro hoje é o **Finalizar**, no contrato, aberto a todo não-PROSPECTOR — o efeito pretendido, por outro caminho. Original: "Pagar" migra do card do Financeiro para a fase Pagamento do contrato, revogando a D137.                                                                                     |
+| **RC-D7**     | Ordem visual das fases = **operacional**: Emissão → Aprovação → **Embarque** → Faturamento → Pagamento. Contraria a ordem dos portões (embarque trava o PAGO), que segue valendo no backend — o café sobe no caminhão antes de faturar, e a tela conta o que acontece.                                                                                                                                |
+| **RC-D8**     | A fase é **derivada**, nunca persistida — sem coluna, sem migration, sem trigger. Coerente com a D77 ("o Financeiro é view derivada, sem schema próprio").                                                                                                                                                                                                                                            |
+| **RC-D9**     | **A lista de contratos absorve as duas worklists**: filtro por fase calculado no servidor, com keyset e contadores estáveis.                                                                                                                                                                                                                                                                          |
+| RC-D10        | Decorrência de RC-D1: a **geração da etiqueta de aprovação** passa a morar no contrato — **revoga AP29/CC7** ("a sub-aba é a única porta"). A recuperação inline no portão do faturar (AP18) permanece.                                                                                                                                                                                               |
+| RC-D11        | Decorrência de RC-D1: a **confirmação de embarque** passa a morar no contrato — **revoga EMB20/EMB26/CC7** ("a casa do embarque é a sub-aba"). O portão do pagar (EMB28/EMB33) permanece.                                                                                                                                                                                                             |
+| RC-D12        | **A criação do contrato entra no escopo** (Etapa 2 + LotPicker) — **reabre a RD11**, que a deixara de fora aguardando specs do Flavio.                                                                                                                                                                                                                                                                |
 
 ### 5.3 Em aberto — travam a fase que depende delas
 
-- **RC-A1 — a superfície do contrato.** Painel lateral de 620px (hoje; realinhamento validado em 2026-07-20, RD9/F3), página própria `/contratos/[id]`, ou híbrido. **Trava a RC-F2.** Peso da escolha: o ciclo FV **matou** as páginas de detalhe de lote e cliente em favor do overlay — uma página de contrato seria a exceção, justificada por ser o único detalhe que concentra 5 fases com ação.
+- **RC-A1 — a superfície do contrato.** Painel lateral de 620px (hoje; realinhamento validado em 2026-07-20, RD9/F3), página própria `/contratos/[id]`, ou híbrido. **Trava a RC-F2.** ⚠️ **A §6 aliviou a escolha**: o detalhe não concentra mais 5 fases com ação — é documento + agenda + histórico. O argumento a favor da página própria enfraqueceu.
 - ~~**RC-A2 — o card "Aprovações enviadas"**~~ — **FECHADA em 2026-07-27 pela RC-D26**: morre, e leva o `RecentSendsCard` junto (era o último consumidor vivo dele). Ver §5.9.
-- **RC-A3 — o embarque não deixa rastro no histórico.** Nenhuma das 5 tabelas de auditoria registra a confirmação e `buildContractTimeline` não trata o caso — virando fase de primeira classe, o histórico dela fica mudo. Achado desta análise. Opções: linha derivada de `shippedAt` (molde dos marcos legados, D123) ou log próprio.
+- ~~**RC-A3 — o embarque não deixa rastro no histórico**~~ — **MORREU COM O EMBARQUE** (RC-D65, §6). Não há mais confirmação a registrar.
 
 ### 5.4 O modelo de fases
+
+> ⚠️ **Ledger histórico — REVOGADO pela RC-D62 (§6).** As linhas de Embarque, Faturamento e Pagamento descrevem capacidades que **não existem mais**; `FATURADO` e `PAGO` saíram do enum. Ficou de pé só a ideia de derivar em vez de persistir (RC-D8), que virou a **agenda** da RC-D68.
 
 Toda fase é derivada de campos existentes (RC-D8):
 
@@ -96,6 +99,8 @@ Os **portões não mudam** (RC-D7 muda só a ordem visual): aprovação segue tr
 A derivação nasce **função pura compartilhada** front/back, no molde de `deriveApprovalState` / `deriveShipmentState` / `deriveReceivablePaymentState` — que hoje vivem separadas em `sale-contract-support.js` e não se conhecem.
 
 ### 5.5 Destino de cada capacidade
+
+> ⚠️ **Ledger histórico.** As linhas **Confirmar embarque**, **Pago** e **Faturado** foram **revogadas pela RC-D62/RC-D65 (§6)** — as três capacidades deixaram de existir. As demais valem.
 
 | Hoje                                            | Vai para                                                       |
 | ----------------------------------------------- | -------------------------------------------------------------- |
@@ -116,9 +121,9 @@ A derivação nasce **função pura compartilhada** front/back, no molde de `der
 **RC-F1 — o Financeiro sai.** ✅ **IMPLEMENTADA em 2026-07-27** (ver §5.9).
 Escopo original: `app/financeiro/page.tsx` deixa de ser redirect e vira a página; `FINANCEIRO_ROLES` se parte em dois nos dois lados (`lib/roles.ts:90`, `sale-contract-service.js:73`; **3 consumidores**: `service:152` carteira, `service:647` feed de pagamento, `DashboardDesktop.tsx:49` `canPay`); "Pagar" migra para o contrato; a nav ganha o item — o ícone `'financeiro'` do `NavIcon` (`AppShell.tsx:262`) já existe e está **órfão** desde o split. `/contratos` perde a barra de abas. Sem tocar embarque nem aprovação.
 
-**RC-F2 — as fases entram no contrato.** Depende de **RC-A1**. As duas ações que faltam (`ApprovalLabelModal`, `ShipmentConfirmationModal`) passam a ser alcançáveis do contrato, além dos portões reativos que já as abrem (`SaleContractLifecycleDialog.tsx:284,299`). A derivação de fase nasce como função pura com teste unitário **antes** de qualquer UI.
+**RC-F2 — as fases entram no contrato.** ⚠️ **RE-ESCOPADA pela §6.** A premissa caiu: **não há mais 5 fases para desenhar**, e as duas ações que ela ia acomodar acabaram (`ShipmentConfirmationModal` apagado, `ApprovalLabelModal` sem portão que o chame de volta). O que sobrou: o detalhe do contrato = **documento + agenda + o que de fato aconteceu**, e a `deriveContractAgenda` já nasceu como função pura com teste unitário (§6.3). Segue dependendo da **RC-A1** — que ficou mais leve.
 
-**RC-F3 — a lista vira worklist.** O maior pedaço de backend. `listSaleContracts` é reescrito com fase no SQL e keyset particionado, no molde dos três `$queryRaw` que já existem (`listApprovalContracts`, `listShipmentContracts`, `listBrokerReceivables`). 🟡 **O encanamento já está de pé** — a RC-D45 (§5.12) levou busca, filtros e paginação por cursor para o servidor. **Falta a FASE**: derivação em SQL, keyset particionado por grupo e os contadores por fase (que são também os números da faixa de KPI que a F6 deixou de fora).
+**RC-F3 — a lista vira worklist.** ⚠️ **RE-ESCOPADA pela §6.** A worklist não é mais "contratos na fase X", é **"contratos com algo por vir"** — a agenda da RC-D68. 🟡 **O encanamento está de pé** (RC-D45, §5.12: busca, filtros e paginação por cursor no servidor). **Falta** decidir se a agenda vira ordenação/filtro **no SQL** — hoje ela é derivada em JS depois do `findMany`, o que basta para a página corrente mas não para ordenar a lista inteira por urgência nem para os contadores da faixa de KPI. Ficou muito menor: a expressão caiu de 7 campos para 5, e sumiram o anti-join de embarque e o keyset particionado por grupo.
 
 **RC-F4 — `/embarques` morre.** ✅ **IMPLEMENTADA em 2026-07-27, ANTECIPADA** — o roteiro a punha depois da RC-F2, e o Flavio escolheu juntá-la à F1 (RC-D21). Viável porque as duas ações que só a worklist oferecia mudaram de casa no mesmo passo (RC-D25). Ver §5.9. Dependia da RC-A2, fechada pela RC-D26.
 Escopo original: Rota vira redirect; `EmbarquePanel`, `AprovacoesPanel`, `EmbarqueCard`, `AprovacaoCard` apagados; deep-links re-apontados (`AvisosCard.tsx:23`, `EventsCalendarCard.tsx:58`, `HeaderAvatarMenu.tsx:168`, `AppShell.tsx:99-126`); `contractsHubTabs`/`contractTabRoute` removidos de `lib/roles.ts`; CSS morto varrido. ⚠️ **No mesmo passo, `Dashboard-Visao-Geral.md`** — a Visão Geral de contratos (§11) obriga a atualizá-la a cada mudança de rota, nome de aba ou valor de `?tab=`, e a RC muda os três.
@@ -129,13 +134,13 @@ Escopo original: Rota vira redirect; `EmbarquePanel`, `AprovacoesPanel`, `Embarq
 
 ### 5.7 Gargalos e riscos (achados do levantamento)
 
-- **A fase corrente é expressão de 7 campos** (`status`, `requiresApproval`, `count(ApprovalLabelLog)`, `requiresShipment`, `shippedAt`, `invoiceDate`, `paymentDate`). Filtrar e paginar por ela exige `CASE` + anti-join em SQL, não `findMany`. Os índices necessários **já existem** (`prisma/schema.prisma:900-919`).
+- ~~**A fase corrente é expressão de 7 campos**~~ — **a §6 derrubou dois** (`requiresShipment`, `shippedAt`). A **agenda** é expressão de 5 (`status`, `requiresApproval`, `count(ApprovalLabelLog)`, `invoiceDate`, `paymentDate`) e já roda em JS (`deriveContractAgenda`). Levá-la ao SQL para ordenar/filtrar segue exigindo `CASE` + anti-join — mas sem o anti-join de embarque.
 - ~~**Hoje a lista de contratos não pagina** — carrega até 500 e filtra no navegador. É o gargalo que a RC-F3 resolve; sem ela, os contadores de fase mentiriam ao passar do teto.~~ ✅ **Resolvido pela RC-D45** (§5.12): busca, filtros e paginação por cursor no servidor, `total` do filtro inteiro. Os contadores **por fase** seguem dependendo da RC-F3.
 - **`SALE_CONTRACT_VIEW_SELECT` é allow-list do Prisma** — campo novo que não entre nela volta `undefined`, e isso só aparece no teste de integração.
-- **`confirmShipment` não incrementa `version` de propósito** (`sale-contract-shipment-service.js:218-221`), para o portão do pagar seguir com a mesma `expectedVersion`. Invariante frágil, coberta por teste (`sale-contract.integration.test.js:498`) — não quebrar ao mudar de superfície.
-- **As rotas de embarque e aprovação são auth-only**, sem gate de papel algum; os handlers de etiqueta têm exceção deliberada de posse com selects mínimos (`backend-api.js:1258-1264`) — **nunca reusar a view completa** ali (vazaria financeiro + PII).
-- **CSS**: `.ctr-*` (87 classes) e `.cc-tabs` são exclusivos do escopo; `.emb-*` (25) sobrevive parcialmente (a galeria de fotos do Detalhes usa); `.fin-*` (37) é o kit de worklist dos quatro painéis e sobrevive no Financeiro.
-- **118 testes de integração** cobrem o domínio; os dois portões estão em `:1038` e `:1073`. A suíte **trunca o banco local** — `db:seed` depois, sempre.
+- ~~**`confirmShipment` não incrementa `version` de propósito**~~ — a invariante frágil **morreu junto com a função** (RC-D65). O `sale-contract-shipment-service.js` não existe mais.
+- **As rotas de aprovação são auth-only**, sem gate de papel algum; os handlers de etiqueta têm exceção deliberada de posse com selects mínimos (`backend-api.js`) — **nunca reusar a view completa** ali (vazaria financeiro + PII).
+- **CSS**: `.ctr-*` e `.cc-tabs` são exclusivos do escopo; `.emb-*` ficou **morto** com a §6 (a galeria de fotos do Detalhes era o último consumidor) — varrer; `.fin-*` é o kit de worklist e sobrevive no Financeiro.
+- **A suíte de integração trunca o banco local** — `db:seed` depois, sempre.
 - **Nenhum JSON Schema cobre contratos** — reorganizar não quebra nada validado em CI.
 
 ### 5.8 Fluxo 1 — criação do contrato à vista (RC-D13..D20)
@@ -208,14 +213,14 @@ Duas consequências da ordem nova:
 Primeira implementação do ciclo: o Flavio pediu para parar de decidir no abstrato e ver o
 resultado rodando. Alvo = **reorganização das páginas**, não redesenho (que é a RC-F6, por último).
 
-| #          | Decisão                                                                                                                                                                                           |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **RC-D21** | Escopo da 1ª fase = **RC-F1 + RC-F4 juntas**, antecipando a F4. Consequência aceita e resolvida pela RC-D25.                                                                                      |
-| **RC-D22** | **"Pagar" vai para o card da lista**, ao lado de Faturado — e **continua** no Financeiro para o ADMIN. Executa a RC-D6; **revoga a D137**.                                                        |
-| **RC-D23** | **Todo chip do calendário aponta para o contrato** (`/contratos?details=<id>&highlight=<id>`), para os 5 papéis. `contractsHubTabs`, `contractTabRoute` e `ContractsHubTab` removidos.            |
-| **RC-D24** | A página Financeiro nasce com o **painel intacto**, só trocando de casca. O chrome FV vem na RC-F6, junto com `/contratos`.                                                                       |
-| **RC-D25** | **"Gerar etiqueta" e "Confirmar embarque" vão para as seções Aprovação e Embarque do detalhe** — que eram read-only. Executa RC-D10/RC-D11 (revoga AP29, EMB20, EMB26). É a **semente da RC-F2**. |
-| **RC-D26** | O card **"Aprovações enviadas" morre**, e leva o `RecentSendsCard` junto. **Fecha a RC-A2.**                                                                                                      |
+| #              | Decisão                                                                                                                                                                                                                        |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **RC-D21**     | Escopo da 1ª fase = **RC-F1 + RC-F4 juntas**, antecipando a F4. Consequência aceita e resolvida pela RC-D25.                                                                                                                   |
+| ~~**RC-D22**~~ | ⚠️ **REVOGADA pela RC-D67 (§6)** — Faturar e Pagar sumiram do card; no lugar deles o menu ⋯ tem **Finalizar/Reabrir**. Original: "Pagar" vai para o card da lista, ao lado de Faturado, e continua no Financeiro para o ADMIN. |
+| **RC-D23**     | **Todo chip do calendário aponta para o contrato** (`/contratos?details=<id>&highlight=<id>`), para os 5 papéis. `contractsHubTabs`, `contractTabRoute` e `ContractsHubTab` removidos.                                         |
+| **RC-D24**     | A página Financeiro nasce com o **painel intacto**, só trocando de casca. O chrome FV vem na RC-F6, junto com `/contratos`.                                                                                                    |
+| **RC-D25**     | **"Gerar etiqueta" e "Confirmar embarque" vão para as seções Aprovação e Embarque do detalhe** — que eram read-only. Executa RC-D10/RC-D11 (revoga AP29, EMB20, EMB26). É a **semente da RC-F2**.                              |
+| **RC-D26**     | O card **"Aprovações enviadas" morre**, e leva o `RecentSendsCard` junto. **Fecha a RC-A2.**                                                                                                                                   |
 
 **O que mudou de fato**
 
@@ -738,9 +743,159 @@ Lógica, validações e payload — nada mudou; a rodada é de apresentação. T
 os fatos do lote no modo Editar (requisição nova) e a prévia de números ao vivo (era a RC-D14/D16,
 revogadas: quem confere hoje é o passo do documento).
 
+## 6. De máquina de status a agenda (RC-D62..D68) — 2026-07-28
+
+> **Reformulação de fundo, pedida pelo Flavio depois de olhar a rotina dos funcionários da Safras.**
+> Muda a natureza do contrato no app — e, com ela, o escopo da RC-F2 e da RC-F3, que ainda não
+> tinham sido construídas. **Implementada no mesmo dia.**
+
+### 6.1 O problema
+
+O contrato pedia que alguém **registrasse fatos que o sistema não consegue observar**: "foi
+faturado", "foi pago", "embarcou (+ fotos)". O Flavio concluiu que essas marcas não iam acontecer
+com disciplina — e que **um registro que às vezes não é feito é pior que nenhum**, porque o sistema
+passa a afirmar algo falso ("nunca foi faturado") e a decidir em cima disso: chips de atrasado,
+portões que travam, worklists que mentem.
+
+O código já expunha a linha divisória. Havia dois tipos de registro no domínio:
+
+| Registro              | Como era gravado                                     | Natureza       |
+| --------------------- | ---------------------------------------------------- | -------------- |
+| Contrato emitido      | você gera o PDF porque precisa do PDF                | **subproduto** |
+| Aprovação enviada     | você imprime a etiqueta → `ApprovalLabelLog`         | **subproduto** |
+| Espelho gerado        | você gera o espelho porque precisa mandar            | **subproduto** |
+| Ágio/deságio          | muda dinheiro no documento                           | **subproduto** |
+| Washout               | cascata de cancelar a venda no lote; as sacas voltam | **subproduto** |
+| **Faturado**          | um botão cujo único efeito era dizer "faturado"      | escrituração   |
+| **Pago**              | idem                                                 | escrituração   |
+| **Embarcado + fotos** | idem, mais subir fotos                               | escrituração   |
+
+**O card de Avisos (AP31/DSB-D19) já era o modelo**: nasce de dado que o contrato já carrega
+(`requiresApproval` + `invoiceDate` + lead) e **some sozinho** quando a etiqueta aparece. Ninguém
+marca nada. É a forma que o contrato inteiro passou a ter.
+
+Chegou na hora certa: a **RC-F2** (fases dentro do contrato) e a **RC-F3** (lista vira worklist) são
+exatamente o que a ideia questiona, e **nenhuma das duas tinha sido construída**. Nada deste domínio
+está em produção — a migration `20260702120000` registra por escrito que a feature nunca foi
+deployada, e prod parou em 25/06 enquanto todas as migrations de status são de 07/xx.
+
+### 6.2 Decisões (ledger RC, continuação)
+
+| #          | Decisão                                                                                                                                                                                       |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **RC-D62** | O contrato tem **três situações**: `EMITIDO` (em andamento) · `FINALIZADO` · `WASH_OUT` (cancelado). **Faturar, Pagar e Embarcar deixam de existir** — somem `FATURADO` e `PAGO`              |
+| **RC-D63** | **"Finalizar" é UM toque, sem formulário de data, e é REVERSÍVEL** ("Reabrir"). Rompe a **D122** de propósito: ali o marco era registro auditado; aqui é sinalizador de conveniência          |
+| **RC-D64** | **Atraso só existe no `paymentDate`** — é a única data que uma ação (finalizar) resolve. `invoiceDate` vira lembrete puro: passou o dia, o aviso se recolhe                                   |
+| **RC-D65** | **O embarque morre inteiro**: confirmação, fotos, transporte/responsável, `requiresShipment`, o portão EMB28 e os eventos de embarque do calendário. Revoga **EMB1–EMB34**                    |
+| **RC-D66** | **A aprovação não trava nada.** Fica o aviso que se resolve sozinho ao gerar a etiqueta. Revoga o portão **AP18** (o latch AP32 e a worklist AP25–AP28 permanecem)                            |
+| **RC-D67** | **O `/financeiro` vira leitura.** A corretagem sai da fila quando o contrato é finalizado. Revoga **RC-D6**, **RC-D22**, **D137** e **FN7** (o "Pago" que morava lá); 'pago' → **'recebida'** |
+| **RC-D68** | **O finalizado FICA na lista**, com marca discreta. A coluna "Situação" mostra, para quem está em andamento, **o próximo compromisso** em vez de um rótulo de fase                            |
+
+#### Por que "Finalizado" funciona onde "Pago" não funcionava
+
+Finalizar **também** é escrituração — ninguém precisa dela para fazer o próprio trabalho, então às
+vezes vai ser esquecida. O que muda é o **custo do esquecimento**. Esquecer o "Faturado" fazia o
+sistema afirmar uma mentira e travar um portão. Esquecer o "Finalizado" só deixa uma linha a mais na
+lista: o dado não apodrece, só envelhece. E a marca é reversível justamente porque não é fato
+auditado — um toque errado não pode ser definitivo.
+
+#### O desenho da coluna "Situação" (RC-D68)
+
+```
+Nº          Partes                Sacas   Situação
+──────────────────────────────────────────────────────────────
+0042/2026   Sta.Rita → Cafeeira    300    Aprovação a enviar
+0041/2026   Boa Vista → Import     150    Fatura em 12/08
+0039/2026   Sto.Ant → Cafeeira     200    Pagamento venceu 02/08
+0037/2026   Palmeiras → Export     120    —
+0035/2026   Serra Azul → Cafeeira  180    Finalizado
+0031/2026   Fazenda Boa → Import   250    Cancelado
+```
+
+O rótulo de situação só aparece nos **estados terminais**. Para o contrato em andamento a coluna
+mostra o que vem a seguir, derivado das datas que o documento já imprime — nenhuma manutenção. A
+precedência: `cancelado` → `finalizado` → `aprovacao` → `pagamento_vencido` → `faturamento` →
+`pagamento` → `nenhum`.
+
+> ⚠️ O Flavio escolheu **"fica, só marcado"** contra a recomendação de tirar o finalizado da lista
+> padrão. Consequência aceita: a lista cresce indefinidamente e finalizar não dá retorno visual
+> imediato. O filtro por situação (já existente) cobre quem quiser ver só os em andamento.
+
+### 6.3 O que foi feito
+
+**Schema** (`20260728120000_contract_status_finalizado`, destrutiva). Enum recriado (Postgres não
+dropa valor — 3ª vez neste domínio), com mapeamento defensivo `FATURADO → EMITIDO` e
+`PAGO → FINALIZADO`. Saem as colunas `invoiced_at`, `paid_at`, `shipped_at`, `requires_shipment`,
+`shipment_carrier`, `shipment_responsible_user_id`, `shipment_responsible_name` e
+`contract_modality.requires_shipment`; sai a tabela `sale_contract_shipment_photo` e o tipo
+`ShipmentCarrier`. `invoice_date`/`payment_date` **ficam**: são campos do DOCUMENTO, e viraram a
+agenda.
+
+**Sem coluna nova.** "Quem finalizou e quando" vem do `SaleContractStatusLog`, que já grava
+`toStatus` + ator + data. Reabrir grava uma linha de volta para `EMITIDO` — vira histórico, não
+apagamento. E é por isso que coluna não serviria: na segunda passada ela estaria mentindo sobre a
+primeira.
+
+**Domínio.** Nascem `finalizeSaleContract()` / `reopenSaleContract()` (motor comum
+`_flipContractStatus`); morrem `invoiceSaleContract()`, `paySaleContract()`,
+`listShipmentContracts()`, `getDashboardShipmentEvents()` e o arquivo inteiro
+`sale-contract-shipment-service.js`. Nasce **`deriveContractAgenda`** em `sale-contract-support.js`,
+consumida pela lista (`_withAgenda`, batch de etiquetas por página) **e** pelo detalhe
+(`_agendaFor`, count por contrato) — para os dois nunca divergirem.
+
+> **Desvio do plano, deliberado:** `deriveContractAgenda` devolve `{ kind, dayKey }`, **não**
+> `{ kind, dayKey, label }`. A frase em pt-BR precisa da data formatada, e formatar data é do front
+> (`contractAgendaLabel`, em `SaleContractCard.tsx`). Os eventos do calendário mantêm o `label` do
+> backend porque o consumidor deles é um card genérico por `typeKey`.
+
+**Calendário.** Sobram `contract_invoice` (sempre previsto — RC-D64) e
+`contract_payment_due`/`contract_payment_overdue`. Somem `contract_invoice_done`,
+`contract_invoice_overdue`, `contract_payment_paid` e os três de embarque. Os feeds carregam **só
+contrato EMITIDO**: finalizado e cancelado não têm o que lembrar.
+
+**Front.** `SaleContractCard` troca a barra/selo de status pela **agenda** (paleta `AGENDA_COLOR`:
+âmbar pede ação, azul só lembra, vermelho venceu, verde/cinza acabou); `ContratosPanel` troca a
+coluna Status por **Situação** e o menu ⋯ ganha Finalizar/Reabrir; `SaleContractDetailsModal` perde
+a seção Embarque inteira e ganha os dois botões no rodapé, além de um 2º selo com o compromisso;
+`SaleContractLifecycleDialog` vira **só washout**; `ShipmentConfirmationModal` apagado;
+`ContractsFilterButton` passa a três situações. `/financeiro` fica sem botão nenhum.
+
+**Confirmação:** Finalizar e Reabrir **não pedem** — são reversíveis, e confirmar um toque
+reversível é ruído. O washout continua pedindo motivo, porque continua definitivo.
+
+### 6.4 Efeito no roteiro
+
+- **RC-F2** (fases dentro do contrato) — **re-escopada**: não há mais 5 fases para desenhar. O
+  detalhe é documento + agenda + o que de fato aconteceu. A **RC-A1** volta à mesa com muito menos
+  a acomodar.
+- **RC-F3** (lista vira worklist) — **re-escopada**: a worklist não é mais "contratos na fase X", é
+  "contratos com algo por vir". O encanamento servidor-side da RC-D45 serve; falta decidir se a
+  agenda vira ordenação/filtro no SQL.
+- **RC-A3** (o embarque não deixa rastro no histórico) — **morreu com o embarque**.
+- **§5.4 (o modelo de fases) e §5.5 (destino de cada capacidade)** viraram ledger histórico: as
+  linhas de Embarque, Faturamento e Pagamento descrevem coisa que não existe mais.
+
+### 6.5 Achados do caminho
+
+- 🔴 **A migration é destrutiva e prod nunca viu esta feature** — mas isso é afirmação de doc.
+  **Antes de aplicar em produção**, conferir no banco que `sale_contract` não tem linha com
+  `status IN ('FATURADO','PAGO')` nem `shipped_at` não-nulo. Apagar coluna merece a checagem.
+- **O Espelho não foi tocado.** `assertEspelhoEligible` lê `SALE_CONTRACT_STATUSES`, que continua
+  existindo — agora com 3 valores. O bloqueio do à-vista em washout (D145) segue de pé.
+- **`ContractModality.requiresShipment` tinha exatamente um leitor** (o snapshot do emit, EMB21) e
+  nenhuma UI nem seed. Morreu com o resto sem deixar buraco.
+- **`confirmShipment` não bumpava `version` de propósito** (invariante frágil registrada na §5.7) —
+  a invariante morreu junto com a função que a exigia.
+- **Renomear o filtro do Financeiro exigiu tocar os dois lados**: `RECEIVABLE_FILTERS` no servidor e
+  `FinanceiroFilter` no front. Um só teria dado 422 silencioso no filtro "Recebida".
+- **`.next/types` guarda stub de rota apagada.** Depois de deletar rotas, `typecheck` acusa módulo
+  inexistente até `rm -rf .next/types` — não é erro de código.
+
 ## Apêndice A — Ledger de decisões (condensado)
 
 > Resolução final de cada decisão; as **superadas** apontam para o que as substituiu. O histórico completo (Contexto→Opções→Proposta + sessões) está no Git.
+
+> ⚠️ **A §6 (RC-D62..D68) revogou um bloco inteiro deste apêndice.** Ficaram históricas: **D106**, **D122**, **D137** (o ciclo `EMITIDO→FATURADO→PAGO` e o botão "Pago"), **AP18** (o portão do faturar), **AP29** na parte da recuperação inline, e a **A.4 inteira — EMB1 a EMB34**. Também a **RC-D6** e a **RC-D22** (§5.2/§5.9). Elas ficam registradas porque explicam **por que** o modelo mudou; nada disso existe no código.
 
 ### A.1 Contrato / Financeiro / Espelho (D1–D146)
 
@@ -845,7 +1000,7 @@ revogadas: quem confere hoje é o passo do documento).
 - **D99–D103** — (descartadas — sub-decisões da Fase H de e-mail, com D98).
 - **D104** — "Excluir" removido: Washout é a única quebra (contrato nunca é apagado; número fica registrado).
 - **D105** — Washout ainda paga corretagem: `WASH_OUT` segue no Financeiro e elegível ao Espelho. _(revisada pela D145: passa a valer **só para o FUTURO** — o físico cancelado não paga corretagem.)_
-- **D106** — Pagamento só após faturamento: ciclo linear `EMITIDO → FATURADO → PAGO` (sem pular; o Desfazer saiu na D122).
+- ~~**D106**~~ ⚠️ **REVOGADA pela RC-D62 (§6)** — não há mais ciclo: `EMITIDO` → `FINALIZADO` (reversível). Original: pagamento só após faturamento, ciclo linear `EMITIDO → FATURADO → PAGO` (sem pular; o Desfazer saiu na D122).
 - **D107** — Aprovação (etiqueta) = marco pós-emissão auditado no contrato, ortogonal ao status; reusa `customPrintJob`.
 - **D108** — Detalhes do contrato = MODAL grande (não página); card mantém o acordeão + botão "Detalhes" (implementado na Fase J).
 - **D109** — Refino do Espelho: exige corretagem no lado (409 `ESPELHO_NO_BROKERAGE`) + re-busca do contrato fresco no modal.
@@ -862,7 +1017,7 @@ revogadas: quem confere hoje é o passo do documento).
 - **D115/D116 SUPERADOS (etiqueta espelha a origem, 2026-07-19/20):** os **lotes** da etiqueta viraram **read-only** — espelham `Sample.declaredOriginLot` (que na criação/edição virou **chips**, componente `OriginLotChips`; storage 100→2000). O operador não edita mais os lotes ao imprimir (**fonte única**; corrigir = editar o **lote** (chips) ou a **liga** e reimprimir; futuro sem amostra = sem lotes). `splitOriginLotForLabel` passou de `[-\s,;]+` para **`[\s,;]+`** (o traço **NÃO** separa mais — `PA-01` sobrevive; a barra também não) + cap de exibição **8 + "+"** (o armazenamento guarda todos). Layout **em 2 colunas** no `print-agent/label.js` (`buildCustomLabelLayout`, auto-ajuste TSPL). Os 5 campos de valor (compra/fechamento/produtor/armazém/sacas) **seguem editáveis** no modal. Origem da **liga** virou **derivada da somatória** dos componentes + editável/pinável — ver `Liga-Plano` (log 2026-07-20). Commits `0c969c1`..`035cbff` (NÃO pushados; migration `20260719120000`).
 - **D120** — Modal de Detalhes: molde do modal de emissão, seções read-only 2-col, header nº+selo+tipo, Histórico em largura total; COMMERCIAL vê tudo nos dele (D86 vale só no Financeiro).
 - **D121** — Card ENXUTO (avançar status + Aprovação + Detalhes); Editar/Ágio/Deságio/Washout/Visualizar migram pro modal (revisa D87).
-- **D122** — "Desfazer" removido do sistema (backend + UI); ciclo só pra frente, engano só se corrige por Washout.
+- ~~**D122**~~ ⚠️ **ROMPIDA DE PROPÓSITO pela RC-D63 (§6)** — "Reabrir" desfaz o "Finalizar". A D122 valia para marcos **auditados** (faturar/pagar); finalizar é sinalizador de conveniência, e um toque errado não pode ser definitivo. O **Washout continua sem desfazer**. Original: "Desfazer" removido do sistema (backend + UI); ciclo só pra frente, engano só se corrige por Washout.
 - **D123** — Marcos Faturar/Pagar/Washout gravam ator+quando em `SaleContractStatusLog` (marcos antigos só com data).
 - **D124** — Geração do Espelho auditada em `SaleContractEspelhoLog` (contrato+side+ator+quando); resolve D71 (download do PDF segue sem rastro).
 - **D125** — Timeline v1 agrega criação/edições + ágio + aprovações + marcos + espelho, ordem desc, "há X tempo + quem + o quê" (endpoint agregador novo).
@@ -877,7 +1032,7 @@ revogadas: quem confere hoje é o passo do documento).
 - **D134** — Fase de CONFERÊNCIA no Espelho (`EspelhoConferenciaModal`) entre seleção e prévia; toggle Vendedor|Comprador aqui + "Ver detalhes" vai-e-volta com o Detalhes.
 - **D135** — (superada por D140 — Financeiro aberto: COMMERCIAL vê TODOS os fechamentos).
 - **D136** — Rateio ÷N removido: card mostra corretagem total + só nomes dos corretores; o total do cabeçalho = "Corretagem total" (rótulo unificado pela D140).
-- **D137** — Botão "Pago" (`FATURADO`→`PAGO`) migrou do card do contrato pro card do Financeiro (acesso igual; "Faturar" segue no contrato).
+- ~~**D137**~~ ⚠️ **REVOGADA pela RC-D67 (§6)** — o botão morreu nas duas casas; `/financeiro` é leitura pura. Original: botão "Pago" (`FATURADO`→`PAGO`) migrou do card do contrato pro card do Financeiro (acesso igual; "Faturar" segue no contrato).
 - **D138** — Pagamento do contrato vira evento do card de Eventos do dashboard (agendado no `paymentDate` / realizado no `paidAt`), escopado como o Financeiro (detalhes E21–E27 no `Dashboard-Visao-Geral.md`).
 - **D139** — `ClientAttachment.unitId` (anulável) vincula o anexo a uma filial `ClientUnit`; vínculo definitivo via `PATCH`, não move o arquivo.
 - **D140** — Escopo aberto do COMMERCIAL (own-only revogado; supera D110 e D135): ADMIN e COMMERCIAL veem e GERENCIAM TODOS os contratos, o Financeiro e o feed de pagamento — a posse por `Broker.userId` deixou de restringir (o backend removeu os 3 helpers de posse + o escopo inline das listas). Relaxa também o "nos dele" da D120, o "só nos dele" da AP9, o escopo da D138 e o "Ver contrato escopado" da AP27/AP30/EMB26 (passam a abrir a ADMIN+COMMERCIAL em qualquer contrato). Rótulo do Financeiro unificado em "Corretagem total". Motivo: simplificar o desenvolvimento; a corretagem não é dado por-corretor no schema (vive no `SaleContract`, 2 pontas — sem coluna de valor em `SaleContractBroker`), então abrir não expõe "cota alheia". Lookup inline segue ADMIN-only (D94).
@@ -929,7 +1084,7 @@ revogadas: quem confere hoje é o passo do documento).
 - **AP15** — Identidade laranja `#f97316` e rótulo "a enviar" seguem na worklist/card; o dot no calendário do dashboard saiu com DSB-D9.
 - **AP16** — Envios de aprovação num card dedicado "Aprovações enviadas" (nº do contrato + comprador, inerte); desde DSB-D14 (2026-07-14) o card mora no **topo da sub-aba Aprovações** de `/embarques` (saiu do dashboard); ver `Contratos-Visao-Geral.md` §7 e `Dashboard-Visao-Geral.md` §7.2.
 - **AP17** — Gerar etiqueta exige contrato marcado "Sim" (409 `APPROVAL_CONTRACT_NOT_MARKED`); reverte AP8.
-- **AP18** — Faturar exige ≥1 etiqueta enviada (422 `CONTRACT_APPROVAL_REQUIRED` em `invoiceSaleContract`); pagar herda.
+- ~~**AP18**~~ ⚠️ **REVOGADA pela RC-D66 (§6)** — a aprovação não trava nada; virou aviso que se resolve sozinho ao sair a etiqueta. O latch **AP32** e a worklist **AP25–AP28** permanecem. Original: faturar exige ≥1 etiqueta enviada (422 `CONTRACT_APPROVAL_REQUIRED` em `invoiceSaleContract`); pagar herda.
 - **AP19** — Washout isento do portão (contrato marcado sem envio pode ir a `WASH_OUT`).
 - **AP20** — Desmarcar (Sim→Não) só em `EMITIDO` e sem envio; após o 1º envio trava em "Sim" (409 `APPROVAL_FLAG_LOCKED`). _(endurecida pela **AP32**: Sim→Não vira **impossível sempre** — latch de mão única; o "Editar" deixa de tocar o sinal.)_
 - **AP21** — Portão no faturar (pagar herda); portas listam só marcados; elegibilidade de geração = só `EMITIDO` (`APPROVAL_ELIGIBLE_STATUSES = [EMITIDO]`); etiqueta gerada = proxy da amostra enviada.
@@ -950,7 +1105,9 @@ revogadas: quem confere hoje é o passo do documento).
 - **AP33 (2026-07-16)** — **Worklist de Aprovações alinha o "cancelado" ao Financeiro (`type='FUTURO'`).** O bucket G2 (`WASH_OUT`) do `listApprovalContracts` filtrava só por `status` (sem `type`), então um **à vista** cancelado por washout **aparecia** na worklist como "cancelado" — mas o Financeiro o **esconde** (D145: à vista washout não paga corretagem, sai por `WASHOUT_BILLABLE={status:'WASH_OUT',type:'FUTURO'}`). As duas abas discordavam do que é "cancelado" (achado 🟡). **Fix:** a G2 passa a filtrar `AND type='FUTURO'` (espelha `isSpotWashout`/`WASHOUT_BILLABLE`), fechando o princípio do D147 ("o washout ramifica por type, alinhado ao Financeiro/Espelho") — que não havia alcançado a worklist. À vista washout segue visível só em `/contratos` (status Wash-out). **Sem migration.**
 - **AP-higiene (2026-07-16, pós-AP29):** removidos comentários stale (porta /samples / "avulsa" em `ApprovalLabelModal`, `normalizeCustomLabelLines`, `buildApprovalPrefill`), o **picker dormente** `/approval-labels/contracts` (rota+handler `listApprovalContractOptions`+tipo `ApprovalContractOption`+mapper, sem caller — o sub-route `.../prefill` fica) e o **branch "Voltar" morto** do `ApprovalLabelModal` (2 callers passavam `null`). Os **dois lot-splitters** com separadores diferentes (`,\n` vs `-\s,;`) ficam para revisão específica futura (**AP-P3**, fora desta leva).
 
-### A.4 Embarque (EMB1–EMB34; EMB30/EMB31 = FASE 2, IMPLEMENTADA 2026-07-16)
+### A.4 Embarque (EMB1–EMB34) — ⚠️ REVOGADA INTEIRA pela RC-D65 (§6)
+
+> **O embarque não existe mais no app.** Apagados: confirmação, fotos (`SaleContractShipmentPhoto`), transporte/responsável (EMB30/EMB31), `requiresShipment`, `shippedAt`, o portão EMB28, as 5 rotas, o `sale-contract-shipment-service.js`, a worklist e os 3 eventos de calendário. Migration `20260728120000`. O ledger abaixo fica pelo **porquê** — registrar embarque era escrituração pura (§6.1), e a Safras não ia fazer.
 
 - **EMB1** — Embarque é evento NOVO e distinto do faturamento (café carregado no caminhão; mesmo dia por padrão, datas podem divergir).
 - **EMB2** — Gate pela MODALIDADE (não pelo tipo), via flag `requiresShipment` da `ContractModality` (EMB21): semeada `true` em Retirar/Posto, `false` em Disponível. _(A flag tem default `false` no schema — uma modalidade criada à mão nasce **sem** embarque até P28 dar editor da flag; não é "qualquer outra = com embarque".)_

@@ -36,14 +36,15 @@
 >
 > 1. **`/embarques` NAO EXISTE mais.** Virou `redirect('/contratos')` server-side. Saiu
 >    da sidenav e do menu do avatar de **todos** os papeis. As sub-abas Embarque e
->    Aprovacoes foram apagadas com ela — as duas acoes que so elas ofereciam ("Gerar
->    etiqueta" e "Confirmar embarque") passaram para o **detalhe do contrato** (RC-D25).
+>    Aprovacoes foram apagadas com ela — "Gerar etiqueta" passou para o **detalhe do
+>    contrato** (RC-D25) e "Confirmar embarque" **deixou de existir** (RC-D65, 2026-07-28:
+>    o embarque foi apagado inteiro).
 > 2. **`/financeiro` deixou de ser redirect e virou pagina propria — SO ADMIN**
 >    (RC-D3, `FINANCEIRO_ROLES = ['ADMIN']`). E a **primeira rota ADMIN-only** do dominio
 >    de contratos depois de `/users`. Os outros 4 nao-PROSPECTOR nao veem o item de nav e
 >    caem no `/dashboard` pelo guard. **O gate e de rota, nao de campo** (RC-D4): dentro
->    do contrato todos continuam vendo valores e corretagem, e o botao **"Pago"** ficou
->    aberto aos 5 papeis no card da lista (RC-D22).
+>    do contrato todos continuam vendo valores e corretagem, e **Finalizar/Reabrir**
+>    (RC-D62, que substituiu o "Pago" da RC-D22) estao abertos aos 5 papeis.
 > 3. **A sidenav desktop agora e:** Inicio · Lotes · Relatorios · Cadastros · Contratos
 >    (`CONTRATOS_ROLES`) · **Financeiro (`FINANCEIRO_ROLES` = ADMIN)** · Usuarios (ADMIN).
 >    Onde o corpo diz "Embarques", leia "Financeiro, e so para o ADMIN". As contagens de

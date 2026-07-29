@@ -2,7 +2,7 @@
 
 Status: Ativo (documento-mãe / verdade viva do funcionamento atual)
 Escopo: o que a página `/dashboard` faz hoje — fluxo, layout desktop e mobile, disponibilidade por papel, cards, rotas de API, projeções de banco e regras de negócio
-Última revisão: 2026-07-14 (DSB-D14 — dashboard só com o calendário)
+Última revisão: 2026-07-28 (**RC-D62..D65** — o feed de **embarque** foi apagado e o calendário ficou com **2 feeds**: pagamento e faturamento, os dois só de contrato `EMITIDO`; sumiram os eventos de "realizado" e o atraso do faturamento. Anterior: 2026-07-14, DSB-D14 — dashboard só com o calendário)
 Documentos relacionados: `Dashboard-Plano-de-Trabalho.md` (backlog e próximas mudanças), `API-e-Contratos.md`, `Auditoria-Navegacao-por-Papel.md`, `Produto-e-Fluxos.md`
 
 > **Como este documento se mantém vivo:** a cada implementação concluída e validada no ciclo de revisão do dashboard, esta Visão Geral é atualizada no mesmo passo. As decisões e o backlog vivem no `Dashboard-Plano-de-Trabalho.md`; aqui fica **só o estado atual**.
@@ -13,7 +13,7 @@ Documentos relacionados: `Dashboard-Plano-de-Trabalho.md` (backlog e próximas m
 
 O dashboard é a **home pós-login** de todos os papéis. Ele tem duas naturezas distintas:
 
-- **Dashboard padrão** — para os 5 papéis não-PROSPECTOR (ADMIN, COMMERCIAL, CLASSIFIER, REGISTRATION, CADASTRO). Desde **DSB-D14 (2026-07-14)** apresenta o **calendário de Eventos** (desktop): pagamento, embarque e faturamento de contratos; e desde **DSB-D19 (2026-07-15)** o **card de Avisos** à direita (aprovação a enviar — §7.4). Os demais cards saíram: o donut "Lotes disponíveis" foi **apagado do sistema**; "Amostras enviadas" migrou pra página de **Lotes** (`/samples`) — e de lá **saiu do produto** no redesenho FV, ver §7.2 — e "Aprovações enviadas" pra aba **Aprovações** de `/embarques` — de onde **também saiu do produto** em 2026-07-27, quando a RC-D26 extinguiu a aba (ver §7.2).
+- **Dashboard padrão** — para os 5 papéis não-PROSPECTOR (ADMIN, COMMERCIAL, CLASSIFIER, REGISTRATION, CADASTRO). Desde **DSB-D14 (2026-07-14)** apresenta o **calendário de Eventos** (desktop): pagamento e faturamento de contratos (o feed de **embarque** saiu na RC-D65, 2026-07-28); e desde **DSB-D19 (2026-07-15)** o **card de Avisos** à direita (aprovação a enviar — §7.4). Os demais cards saíram: o donut "Lotes disponíveis" foi **apagado do sistema**; "Amostras enviadas" migrou pra página de **Lotes** (`/samples`) — e de lá **saiu do produto** no redesenho FV, ver §7.2 — e "Aprovações enviadas" pra aba **Aprovações** de `/embarques` — de onde **também saiu do produto** em 2026-07-27, quando a RC-D26 extinguiu a aba (ver §7.2).
 - **Dashboard do PROSPECTOR** — um app restrito e dedicado (a "casa" do papel de campo): registro de visitas/informes, contadores do dia e a lista dos próprios informes. Nada além disso.
 
 A escolha entre os dois é feita em `app/dashboard/page.tsx` pelo papel do usuário logado.
@@ -66,18 +66,16 @@ Rótulos de papel (`lib/roles.ts` → `USER_ROLE_LABELS`):
 | ------------------------------------------ | :---: | :--------: | :--------: | :----------: | :------: | :--------: |
 | Dashboard padrão (mobile+desktop)          |  ✅   |     ✅     |     ✅     |      ✅      |    ✅    |     —      |
 | Card **Eventos** — feed de **pagamento**   |  ✅   |     ✅     |     ✅     |      ✅      |    ✅    |     —      |
-| Card **Eventos** — feed de **embarque**    |  ✅   |     ✅     |     ✅     |      ✅      |    ✅    |     —      |
-| Card **Eventos** — feed de **faturamento** |  ✅   |     ✅     |    ✅¹     |     ✅¹      |   ✅¹    |     —      |
+| Card **Eventos** — feed de **faturamento** |  ✅   |     ✅     |     ✅     |      ✅      |    ✅    |     —      |
 | Card **Avisos** (aprovação a enviar, D19)  |  ✅   |     ✅     |     ✅     |      ✅      |    ✅    |     —      |
 | Dashboard do PROSPECTOR                    |   —   |     —      |     —      |      —       |    —     |     ✅     |
 
-¹ Operacionais (Classificação/Impressão/Cadastro) **veem** o chip de faturamento, mas ele é **inerte** (não abrem a aba Contratos — DSB-D11).
+_(O feed de **embarque** foi **apagado** em 2026-07-28 — RC-D65. O chip inerte da DSB-D11 acabou na RC-D23: todo chip abre o contrato, para todos os papéis.)_
 
 Regras que geram a matriz:
 
 - **Feed de pagamento do card de Eventos** → `FINANCEIRO_ROLES` = **`NON_PROSPECTOR_ROLES`** (todo papel menos PROSPECTOR; **ACESSO UNIFICADO 2026-07-15** — era ADMIN + COMMERCIAL). Todos veem os pagamentos de **TODOS** os contratos (escopo aberto — own-only revogado, D140; sem recorte por `Broker.userId`). Só o PROSPECTOR não chama o endpoint.
-- **Feed de embarque** → **sem gate de papel**: todos os não-PROSPECTOR veem tudo (auth-only; o único bloqueio é o allowlist central que barra o PROSPECTOR). _(O feed de **aprovação** — lembrete "a enviar" — foi **REMOVIDO** em 2026-07-12, DSB-D9; a data era imprecisa.)_
-- **Feed de faturamento (DSB-D11)** → **sem gate de papel** (auth-only, como o embarque): todos os não-PROSPECTOR **veem** o evento. Mas o chip só **navega** (→ aba Contratos) para quem abre essa aba (ADMIN/COMMERCIAL); para os operacionais é **rótulo inerte**. Ver §7.3.
+- **Feed de faturamento (DSB-D11)** → **sem gate de papel** (auth-only): todos os não-PROSPECTOR veem o evento **e** abrem o contrato pelo chip (RC-D23). Ver §7.3. _(O feed de **aprovação** — lembrete "a enviar" — foi **REMOVIDO** em 2026-07-12, DSB-D9, a data era imprecisa; o de **embarque**, em 2026-07-28, RC-D65.)_
 
 > ℹ️ **Cards que saíram do dashboard:** "Classificação pendente" migrou pra `/samples` como card só-visualização (2026-07-12, DSB-D2; "Cadastros pendentes" foi removido). Em **DSB-D14 (2026-07-14)** saíram os três da top row: o donut **"Lotes disponíveis" foi APAGADO do sistema** (rota, backend, componente e teste); **"Amostras enviadas"** migrou pro topo do sheet de `/samples` e **"Aprovações enviadas"** pro topo da aba Aprovações de `/embarques` (os dois **desktop-only**, mesmo `RecentSendsCard`). **Os dois já morreram desde então** — e com o segundo foi o `RecentSendsCard` inteiro (RC-D26). Detalhes no `Dashboard-Plano-de-Trabalho.md`.
 
@@ -159,20 +157,21 @@ Os dois cards continuam existindo, **fora do dashboard** (desktop-only, mesmo co
 
 - **Layout (DSB-D18, 2026-07-14):** calendário **MENSAL** — grade **7×N domingo-first** (N = 4/5/6 semanas, `buildMonthGrid`) com **todos os dias do mês**, navegação ◀ ▶ de **mês em mês** + botão "Hoje"; rótulo do header = "julho de 2026" (`formatMonthLabel`). Cada dia mostra os **eventos dentro da própria célula** (chips coloridos por **estado**, DSB-D10; rótulo truncado); dias com muitos eventos **rolam por dentro** da célula. **Não há painel** de dia selecionado. "Hoje" destacado com anel. Datas em BRT (helpers em `lib/dashboard-calendar.ts`). _(Supera a "1 semana de dias úteis" do DSB-D4/D7.)_
 - **Fins de semana e pontas (DSB-D18):** sáb/dom **aparecem levemente esmaecidos** (`is-weekend` — o negócio não agenda ações neles, regra de contrato em `API-e-Contratos.md`; evento ali é legado/borda e mostra no **dia REAL** — o roll `rollWeekendToWeekday` do DSB-D7 foi **removido**). Os dias dos **meses vizinhos** que fecham as semanas (`is-outside`) aparecem esmaecidos **com** os seus eventos. A **janela buscada** cobre a **grade inteira** (28–42 dias).
-- **3 feeds mesclados client-side** no `DashboardDesktop` (a janela visível é emitida pelo card via `onWindowChange` → o pai busca a **grade do mês** — DSB-D18):
+- **2 feeds mesclados client-side** no `DashboardDesktop` (a janela visível é emitida pelo card via `onWindowChange` → o pai busca a **grade do mês** — DSB-D18):
 
-  | Feed        | typeKey                                                                       | Visibilidade                                                                     | Fonte                        |
-  | ----------- | ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ---------------------------- |
-  | Pagamento   | `contract_payment_due` / `contract_payment_overdue` / `contract_payment_paid` | Todos os não-PROSPECTOR (2026-07-15; era ADMIN + COMMERCIAL)                     | `getDashboardPaymentEvents`  |
-  | Embarque    | `contract_shipment` / `contract_shipment_done` / `contract_shipment_overdue`  | Todos os não-PROSPECTOR                                                          | `getDashboardShipmentEvents` |
-  | Faturamento | `contract_invoice` / `contract_invoice_overdue` / `contract_invoice_done`     | Todos os não-PROSPECTOR (chip inerte p/ quem não abre a aba Contratos — DSB-D11) | `getDashboardInvoiceEvents`  |
+  | Feed        | typeKey                                             | Visibilidade                                                 | Fonte                       |
+  | ----------- | --------------------------------------------------- | ------------------------------------------------------------ | --------------------------- |
+  | Pagamento   | `contract_payment_due` / `contract_payment_overdue` | Todos os não-PROSPECTOR (2026-07-15; era ADMIN + COMMERCIAL) | `getDashboardPaymentEvents` |
+  | Faturamento | `contract_invoice` (**sempre previsto** — RC-D64)   | Todos os não-PROSPECTOR                                      | `getDashboardInvoiceEvents` |
+
+  > ⚠️ **RC-D62/D64/D65 (2026-07-28):** o feed de **embarque** foi apagado; e os `typeKey` de realizado/atrasado sumiram junto com as ações que os produziam — `contract_payment_paid`, `contract_invoice_done` e `contract_invoice_overdue` **não existem mais**. **Só o pagamento atrasa**; o faturamento é lembrete puro. Os dois feeds carregam **só contrato `EMITIDO`** — finalizado e cancelado não têm o que lembrar.
 
   > **DSB-D9 (2026-07-12):** o feed de **aprovação** (lembrete "a enviar", `contract_approval_due`) foi **REMOVIDO** do card de Eventos — a data em que a aprovação deve ser enviada não é exata (o lembrete fazia _fan-out_ do mesmo contrato sobre vários dias), então preferiu-se não exibir informação imprecisa. Removido ponta a ponta (endpoint `/dashboard/approval-events`, `getDashboardApprovalEvents`, `bucketApprovalReminders`/`buildApprovalReminderEvent`, feed no front, chip). A **aba Aprovações** (worklist do "portão") e o card **"Aprovações enviadas"** continuavam então — os dois morreram na RC-D26/RC-D2; os campos `requiresApproval`/`approvalReminderLeadDays` do contrato **permanecem** (a worklist usa `requiresApproval`; o lead-time deixou de alimentar qualquer lembrete).
 
-- **Cores por ESTADO + legenda (DSB-D10):** a **cor** do chip identifica só o **estado** — 🔵 azul `#2563eb` = **previsto**, 🔴 vermelho `#dc2626` = **atrasado**, 🟢 verde `#15803d` = **realizado** (3 cores; a borda-esquerda usa `--chip-color` via **`data-state`**, não mais `data-type`). O **nome do tipo** no rótulo é que diferencia os eventos: `pagamento · nº · comprador`, `embarque · nº · comprador` — o pagamento **ganhou o prefixo** `pagamento ·` (antes era só `nº · comprador`). O estado vai também no `aria-label`/`title` do chip (a11y: não depende só da cor). Uma **legenda** (`.dd-events-legend`) sob o header explica as 3 cores. `state` é derivado do `typeKey` nos builders — tipos novos herdam a cor certa sem regra de CSS nova.
-- **Navegação pura (sem ação no card):** cada **chip** de evento (dentro da célula do dia) é um link para o **próprio contrato** — `/contratos?details=<id>&highlight=<id>` (**RC-D23**, 2026-07-27), igual para pagamento, embarque e faturamento, e igual para os 5 papéis. Antes cada tipo apontava para a sub-aba dona (`contractTabRoute`) e a **DSB-D11** apagava o link quando o papel não abria aquela aba; com as fases dentro do contrato não há aba nem papel a checar, e `navTabForEvent`/`navigableTabs`/`contractTabRoute` foram removidos. A **ação** (pagar/faturar/confirmar) mora na casa: o contrato. A lista atrás **pisca/rola** até ele (`useContractHighlight` — Contratos e Financeiro).
-- **Chip inerte por papel (DSB-D11):** se a aba-dona não é visível ao papel (ex.: faturamento → Contratos, oculta aos operacionais), o chip vira **rótulo sem link** — o pai passa `navigableTabs` (= `contractsHubTabs(role)`) e o `eventHref` só linka p/ aba visível. Assim o operacional **vê** o faturamento (auth-only) mas não navega a uma aba que não tem.
-- **Refetch dos 3 feeds:** em foco/visibilidade (sem throttle) e quando a janela do card muda.
+- **Cores por ESTADO + legenda (DSB-D10):** a **cor** do chip identifica só o **estado** — 🔵 azul `#2563eb` = **previsto**, 🔴 vermelho `#dc2626` = **atrasado** (o verde de **realizado** ficou sem produtor na RC-D62, mas o mapa segue de pé; a borda-esquerda usa `--chip-color` via **`data-state`**, não mais `data-type`). O **nome do tipo** no rótulo é que diferencia os eventos: `pagamento · nº · comprador`, `faturamento · nº · comprador` — o pagamento **ganhou o prefixo** `pagamento ·` (antes era só `nº · comprador`). O estado vai também no `aria-label`/`title` do chip (a11y: não depende só da cor). Uma **legenda** (`.dd-events-legend`) sob o header explica as 3 cores. `state` é derivado do `typeKey` nos builders — tipos novos herdam a cor certa sem regra de CSS nova.
+- **Navegação pura (sem ação no card):** cada **chip** de evento (dentro da célula do dia) é um link para o **próprio contrato** — `/contratos?details=<id>&highlight=<id>` (**RC-D23**, 2026-07-27), igual para pagamento e faturamento, e igual para os 5 papéis. Antes cada tipo apontava para a sub-aba dona (`contractTabRoute`) e a **DSB-D11** apagava o link quando o papel não abria aquela aba; não há mais aba nem papel a checar, e `navTabForEvent`/`navigableTabs`/`contractTabRoute` foram removidos. O chip **lembra**; quem responde é o contrato — onde hoje a única ação de ciclo é **Finalizar** (RC-D62). A lista atrás **pisca/rola** até ele (`useContractHighlight` — Contratos e Financeiro).
+- ~~**Chip inerte por papel (DSB-D11)**~~ — **morreu na RC-D23**: todo chip abre o contrato, para todos os papéis. Não há mais aba-dona a checar.
+- **Refetch dos 2 feeds:** em foco/visibilidade (sem throttle) e quando a janela do card muda.
 
 ### 7.4 Avisos (`AvisosCard`) — desktop-only, coluna à direita do calendário (DSB-D19)
 
@@ -188,28 +187,27 @@ Os dois cards continuam existindo, **fora do dashboard** (desktop-only, mesmo co
 
 Todas são `GET`, delegam ao backend via `executeBackend('<methodName>', …)` e estão **fora** do `PROSPECTOR_ALLOWED_API_METHODS` → o PROSPECTOR recebe **403** (allowlist central em `src/auth/prospector-access.js`, enforcement em `resolveActorContext`).
 
-| Rota                         | methodName                   | Gate                     | Parâmetros              | Cache                                  | Resposta                                                        |
-| ---------------------------- | ---------------------------- | ------------------------ | ----------------------- | -------------------------------------- | --------------------------------------------------------------- |
-| `/dashboard/pending`         | `getDashboardPending`        | Auth                     | —                       | —                                      | `{ classificationPending: { total } }` (count-only — DSB-H4/H5) |
-| `/dashboard/payment-events`  | `getDashboardPaymentEvents`  | Não-PROSPECTOR (service) | `?from&to` (YYYY-MM-DD) | `private, max-age=30, must-revalidate` | `{ events: Record<dayKey, evento[]> }`                          |
-| `/dashboard/shipment-events` | `getDashboardShipmentEvents` | Auth (não-PROSPECTOR)    | `?from&to`              | `private, max-age=30, must-revalidate` | `{ events: Record<dayKey, evento[]> }`                          |
-| `/dashboard/invoice-events`  | `getDashboardInvoiceEvents`  | Auth (não-PROSPECTOR)    | `?from&to`              | `private, max-age=30, must-revalidate` | `{ events: Record<dayKey, evento[]> }`                          |
-| `/dashboard/avisos`          | `getDashboardAvisos`         | Auth (não-PROSPECTOR)    | —                       | `private, max-age=30, must-revalidate` | `{ items: aviso[] }` (aprovação a enviar — DSB-D19; ver §7.4)   |
+| Rota                        | methodName                  | Gate                     | Parâmetros              | Cache                                  | Resposta                                                        |
+| --------------------------- | --------------------------- | ------------------------ | ----------------------- | -------------------------------------- | --------------------------------------------------------------- |
+| `/dashboard/pending`        | `getDashboardPending`       | Auth                     | —                       | —                                      | `{ classificationPending: { total } }` (count-only — DSB-H4/H5) |
+| `/dashboard/payment-events` | `getDashboardPaymentEvents` | Não-PROSPECTOR (service) | `?from&to` (YYYY-MM-DD) | `private, max-age=30, must-revalidate` | `{ events: Record<dayKey, evento[]> }`                          |
+| `/dashboard/invoice-events` | `getDashboardInvoiceEvents` | Auth (não-PROSPECTOR)    | `?from&to`              | `private, max-age=30, must-revalidate` | `{ events: Record<dayKey, evento[]> }`                          |
+| `/dashboard/avisos`         | `getDashboardAvisos`        | Auth (não-PROSPECTOR)    | —                       | `private, max-age=30, must-revalidate` | `{ items: aviso[] }` (aprovação a enviar — DSB-D19; ver §7.4)   |
 
+_(`/dashboard/shipment-events` foi **removido** em 2026-07-28 com o embarque inteiro — RC-D65.)_
 _(`/dashboard/approval-events` foi **removido** em DSB-D9 — mas a ideia **voltou** como `/dashboard/avisos` (DSB-D19), um card binário de Avisos, não feed de calendário; ver §7.4.)_
 _(`/dashboard/sales-availability` foi **removido** e `/dashboard/recent-sends` foi **dividido e movido** em DSB-D14 — os envios agora saem de `GET /samples/recent-sends` (`getSampleRecentSends`, `{ items }` top-40) e `GET /sale-contracts/approvals/recent-sends` (`getApprovalRecentSends`, `{ items }` top-40), ambos auth-only com o mesmo cache `private, max-age=30, must-revalidate`, consumidos pelas páginas donas — ver §7.2.)_
 
-Definições dos handlers: `src/api/v1/backend-api.js`. Implementações: `src/samples/sample-query-service.js` (pending, recent-sample-sends) e `src/sale-contracts/sale-contract-service.js` (payment, shipment, invoice, recent-approval-sends).
+Definições dos handlers: `src/api/v1/backend-api.js`. Implementações: `src/samples/sample-query-service.js` (pending, recent-sample-sends) e `src/sale-contracts/sale-contract-service.js` (payment, invoice, avisos, recent-approval-sends).
 
 > **`/dashboard/pending` não é mais consumido pelo dashboard** (2026-07-12, DSB-D2) — só o card só-visualização de `/samples` (`ClassificationPendingCard`) o usa, lendo apenas `.total`. **Enxugado pra count-only no check-up (DSB-H4/H5):** saíram os `items` (findMany até 500, mapeado e descartado) e o `clientsIncomplete` (`client.count` com near-full scan), que eram payload morto; agora é um `sample.count`. O nome "dashboard" é dívida consciente até a revisão de Lotes/Clientes.
 
 **Regras dos feeds de eventos (backend):**
 
-- **Pagamento:** agendado = `EMITIDO`/`FATURADO` com `paymentDate` na janela; realizado = `PAGO` com `paidAt` na janela; `WASH_OUT` fora. Todo **não-PROSPECTOR** vê os pagamentos de **todos** os contratos (escopo aberto — D140; `FINANCEIRO_ROLES = NON_PROSPECTOR_ROLES` desde 2026-07-15; sem recorte por `Broker.userId`). Vencidos reclassificados por "hoje BRT" (dot vermelho).
-- **Embarque:** agendado = `requiresShipment` + `EMITIDO`/`FATURADO` + não embarcado, no `invoiceDate` (vermelho se o dia passar); realizado = embarcado (`shippedAt` na janela).
-- **Faturamento (DSB-D11):** agendado = `EMITIDO` no `invoiceDate` (vermelho se o dia passar); realizado = `FATURADO`/`PAGO` no `invoicedAt` (dia REAL do faturamento, não no `invoiceDate`). Auth-only (todos os não-PROSPECTOR, sem escopo por corretor — como o embarque). `id` namespaced (`invoice:`). Índices `idx_sale_contract_status_invoice_date` / `_status_invoiced_at`.
-- **Fim de semana (DSB-D18):** o roll de fim de semana do DSB-D7 (`rollWeekendToWeekday`) foi **removido** — os buckets (`bucketPaymentEvents`/`bucketShipmentEvents`/`bucketInvoiceEvents`) agrupam no **dia real**; o calendário mensal mostra sáb/dom. A validação de contrato que recusa datas de ação em fim de semana (`assertBusinessDate`, 422 `WEEKEND_DATE`) **permanece** — evento em sáb/dom é legado/borda.
-- **Escopo por papel dos feeds:** **nenhum** feed é mais escopado por corretor — pagamento, embarque e faturamento são todos **auth-only por papel** (o COMMERCIAL vê contratos de **outros** corretores: nº + comprador + datas; info **não-sensível**, sem preço/corretagem nos selects). O pagamento segue gated por `FINANCEIRO_ROLES` (= `NON_PROSPECTOR_ROLES` desde 2026-07-15 — era ADMIN + COMMERCIAL); embarque e faturamento por qualquer não-PROSPECTOR. _(A "Decisão do check-up: **manter**" o pagamento escopado ao próprio corretor foi **revisada em 2026-07-13 — D140**: o own-only foi revogado e o feed de pagamento também abriu a todos os contratos.)_
+- **Pagamento:** agendado = `EMITIDO` com `paymentDate` na janela; `FINALIZADO` e `WASH_OUT` fora (RC-D62 — quem acabou não lembra). Todo **não-PROSPECTOR** vê os pagamentos de **todos** os contratos (escopo aberto — D140; `FINANCEIRO_ROLES = NON_PROSPECTOR_ROLES` desde 2026-07-15; sem recorte por `Broker.userId`). Vencidos reclassificados por "hoje BRT" (dot vermelho).
+- **Faturamento (DSB-D11 + RC-D64):** `EMITIDO` no `invoiceDate`, **sempre previsto** — não há realizado (o faturar morreu) nem atrasado (**só o pagamento atrasa**): passou o dia, o lembrete se recolhe. Auth-only (todos os não-PROSPECTOR, sem escopo por corretor). `id` namespaced (`invoice:`). Índice `idx_sale_contract_status_invoice_date`.
+- **Fim de semana (DSB-D18):** o roll de fim de semana do DSB-D7 (`rollWeekendToWeekday`) foi **removido** — os buckets (`bucketPaymentEvents`/`bucketInvoiceEvents`) agrupam no **dia real**; o calendário mensal mostra sáb/dom. A validação de contrato que recusa datas de ação em fim de semana (`assertBusinessDate`, 422 `WEEKEND_DATE`) **permanece** — evento em sáb/dom é legado/borda.
+- **Escopo por papel dos feeds:** **nenhum** feed é mais escopado por corretor — pagamento e faturamento são os dois **auth-only por papel** (o COMMERCIAL vê contratos de **outros** corretores: nº + comprador + datas; info **não-sensível**, sem preço/corretagem nos selects). O pagamento segue gated por `PAYMENT_FEED_ROLES` (= `NON_PROSPECTOR_ROLES`; partido do `FINANCEIRO_ROLES` na RC-D5, quando `/financeiro` virou ADMIN-only); o faturamento, por qualquer não-PROSPECTOR. _(A "Decisão do check-up: **manter**" o pagamento escopado ao próprio corretor foi **revisada em 2026-07-13 — D140**: o own-only foi revogado e o feed de pagamento também abriu a todos os contratos.)_
 - _(O feed de **aprovação** — lembrete "a enviar" com fan-out por intervalo — foi **removido** em DSB-D9; ver §7.3.)_
 
 ---
@@ -217,7 +215,7 @@ Definições dos handlers: `src/api/v1/backend-api.js`. Implementações: `src/s
 ## 9. Regras de negócio e detalhes técnicos
 
 - **Datas em BRT:** todos os cálculos de dia usam offset São Paulo −3h (feeds de eventos, calendário). A **grade** do calendário é mensal domingo-first (`computeMonthStart`/`buildMonthGrid` — do domingo da semana do dia 1 ao sábado da semana do último dia; DSB-D18). O dia da semana de uma data de contrato (`@db.Date`) é lido em **UTC** (`getUTCDay`), sem deslocar −3h.
-- **Throttle de refetch (C1, 2026-07-12):** os **3 feeds de eventos** refazem em `focus` **e** `visibilitychange`, com gate `visibilityState==='visible'` + throttle **30s** (antes disparavam sem gate/throttle → tempestade de requests no Alt+Tab). Só no breakpoint desktop; só com janela emitida. _(Os cards de envios levaram o mesmo padrão pra `lib/use-recent-sends-feed.ts` nas suas novas páginas — DSB-D14. O card de pendência de `/samples` segue com fetch simples na montagem.)_
+- **Throttle de refetch (C1, 2026-07-12):** os **feeds de eventos** refazem em `focus` **e** `visibilitychange`, com gate `visibilityState==='visible'` + throttle **30s** (antes disparavam sem gate/throttle → tempestade de requests no Alt+Tab). Só no breakpoint desktop; só com janela emitida. _(Os cards de envios levaram o mesmo padrão pra `lib/use-recent-sends-feed.ts` nas suas novas páginas — DSB-D14. O card de pendência de `/samples` segue com fetch simples na montagem.)_
 - **Twin inativo não busca:** os fetches dos feeds de eventos checam `matchMedia('(min-width: 901px)')` antes de disparar, e um listener de `change` re-busca ao **entrar** no desktop (senão o card ficava travado no skeleton após um resize — C1).
 - **Erro + retry (C1):** falha de fetch dos eventos mostra **erro + "Tentar novamente"** (componente `LoadError` — ex-`DashboardLoadError`, agora compartilhado em `components/LoadError.tsx`; reusa `.dashboard-error-banner`) no lugar de skeleton/vazio eterno.
 - **Saudação por hora:** `getGreeting()` — "Bom dia" (<12h), "Boa tarde" (<18h), "Boa noite".
@@ -230,7 +228,7 @@ Definições dos handlers: `src/api/v1/backend-api.js`. Implementações: `src/s
 **Frontend**
 
 - `app/dashboard/page.tsx` — orquestração (branch por papel, twins)
-- `components/dashboard/DashboardDesktop.tsx` — layout desktop + fetch dos 3 feeds de eventos (pagamento + embarque + faturamento)
+- `components/dashboard/DashboardDesktop.tsx` — layout desktop + fetch dos 2 feeds de eventos (pagamento + faturamento)
 - `components/dashboard/DashboardMobile.tsx` — layout mobile (só o hero — DSB-D14)
 - `components/dashboard/EventsCalendarCard.tsx` — card de Eventos (calendário)
 - `components/dashboard/greeting.ts` — saudação + iniciais
@@ -246,20 +244,20 @@ Definições dos handlers: `src/api/v1/backend-api.js`. Implementações: `src/s
 
 **Backend**
 
-- `app/api/v1/dashboard/{pending,payment-events,shipment-events,invoice-events}/route.ts` _(o `approval-events` saiu em DSB-D9; `sales-availability` e `recent-sends` saíram em DSB-D14 — os envios agora vivem em `app/api/v1/samples/recent-sends/` e `app/api/v1/sale-contracts/approvals/recent-sends/`)_
+- `app/api/v1/dashboard/{pending,payment-events,invoice-events,avisos}/route.ts` _(o `approval-events` saiu em DSB-D9; `sales-availability` e `recent-sends` saíram em DSB-D14 — os envios agora vivem em `app/api/v1/samples/recent-sends/` e `app/api/v1/sale-contracts/approvals/recent-sends/`)_
 - `src/api/v1/backend-api.js` — handlers + gate central
 - `src/samples/sample-query-service.js` — pending, recent-sample-sends
-- `src/sale-contracts/sale-contract-service.js` — payment/shipment events + recent-approval-sends
+- `src/sale-contracts/sale-contract-service.js` — payment/invoice events + avisos + recent-approval-sends
 - `src/auth/prospector-access.js` — allowlist (barra o PROSPECTOR nos endpoints do dashboard padrão)
 
 **Testes**
 
 - Integração: `tests/dashboard-pending.integration.test.js` (count-only), `tests/sample-recent-sends.integration.test.js` (ex-`dashboard-recent-sends`; o de `sales-availability` foi **deletado** com o donut — DSB-D14)
 - Unit: `tests/dashboard-calendar.test.ts` — matemática do calendário/BRT (DSB-H8)
-- Feeds de evento (payment/shipment/invoice) + builders/buckets: `tests/sale-contract.integration.test.js` e `tests/sale-contract-support.test.js`
+- Feeds de evento (payment/invoice) + builders/buckets: `tests/sale-contract.integration.test.js` e `tests/sale-contract-support.test.js`
 
 ---
 
 ## 11. Estado de validação
 
-O dashboard atual (**só o card de Eventos** — DSB-D14; feeds de pagamento/embarque/faturamento), a migração dos cards de envios pra `/samples` e pra aba Aprovações (DSB-D14), a remoção do donut (DSB-D14) e as decisões anteriores do check-up (DSB-D2 a D13) foram implementados mas **aguardam validação no device** (ver `Dashboard-Plano-de-Trabalho.md`). Este documento descreve o comportamento **do código**; divergências observadas no device viram achados no plano de trabalho.
+O dashboard atual (**Eventos + Avisos**; feeds de pagamento/faturamento), a migração dos cards de envios pra `/samples` e pra aba Aprovações (DSB-D14), a remoção do donut (DSB-D14) e as decisões anteriores do check-up (DSB-D2 a D13) foram implementados mas **aguardam validação no device** (ver `Dashboard-Plano-de-Trabalho.md`). Este documento descreve o comportamento **do código**; divergências observadas no device viram achados no plano de trabalho.

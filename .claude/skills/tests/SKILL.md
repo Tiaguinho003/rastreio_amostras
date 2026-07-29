@@ -48,7 +48,7 @@ description: Use this skill when writing, running, or debugging tests. Covers te
   sozinho depois, sem nada no codigo mudar. Ja aconteceu 2x no `sale-contract.integration.test.js`.
   Quando a asserta e sobre um ESTADO derivado do relogio (previsto/atrasado/realizado, "vence em N
   dias", janelas de retencao), ancorar em hoje com **`tests/helpers/relative-dates.js`**:
-  `bizDay(offset)` (rola fim de semana pra tras, molde do feed de embarque — DSB-D7),
+  `bizDay(offset)` (rola fim de semana pra tras — DSB-D7),
   `calendarDay(offset)` (dia real, sem roll — feeds de faturamento/pagamento, DSB-D18) e
   `dayKey(date)`. **A janela da consulta tambem tem de ser ancorada**, senao uma janela fixa acaba
   cobrindo a data movel e o "fora da janela" vira falso-negativo. Se a data e so um dado que vai e
