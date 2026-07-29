@@ -359,6 +359,24 @@ export interface ContractAgenda {
   dayKey: string | null;
 }
 
+// RC-D80..D83: as cinco fases como linha de progressão da lista (desktop, RC-D82).
+// 🔴 Não é barra de progresso — são cinco luzes: cada ponto acende pelo seu próprio
+// critério, independente dos outros, porque nada trava nada (§6). Buraco no meio da
+// linha é estado legítimo. `na` = a fase não existe neste contrato (aprovação não
+// marcada) — o slot fica, para as linhas da tabela não desalinharem entre si.
+export type ContractPhaseKey = 'emissao' | 'aprovacao' | 'embarque' | 'faturamento' | 'pagamento';
+export type ContractPhaseState = 'feito' | 'pendente' | 'na';
+
+export interface ContractPhasePoint {
+  key: ContractPhaseKey;
+  state: ContractPhaseState;
+}
+
+export interface ContractPhases {
+  cancelado: boolean;
+  points: ContractPhasePoint[];
+}
+
 // Aprovação do contrato (Fase I, D112–D119): prefill da etiqueta montado no
 // backend (campos já cortados nos limites físicos e lotes quebrados do Lote
 // de origem, D115/D116).
@@ -427,6 +445,8 @@ export interface SaleContract {
   // RC-D68: derivada no servidor, presente na lista E no detalhe (para os dois
   // nunca divergirem). Opcional só para o payload legado dos testes de contrato.
   agenda?: ContractAgenda;
+  // RC-D80: só a LISTA carrega — é lá que a linha de fases vive. Ausente no detalhe.
+  phases?: ContractPhases;
   version: number;
   createdAt: string | null;
   updatedAt: string | null;

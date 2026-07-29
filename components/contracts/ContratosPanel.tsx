@@ -43,6 +43,7 @@ import {
   countActiveContractFilters,
 } from './ContractsFilterButton';
 import { EspelhoConferenciaModal, type EspelhoSide } from './EspelhoConferenciaModal';
+import { ContractPhaseLine } from './ContractPhaseLine';
 import { EspelhoCorretagemModal } from './EspelhoCorretagemModal';
 import { SaleContractAgioDialog } from './SaleContractAgioDialog';
 import {
@@ -773,7 +774,10 @@ export function ContratosPanel({ session }: { session: SessionData }) {
                 <col className="fv-col-parties" />
                 <col className="fv-col-sacks" />
                 <col className="fv-col-dates" />
-                <col className="fv-col-status" />
+                {/* RC-D80: coluna propria (nao a `.fv-col-status` compartilhada com
+                    /users e /cadastros) — so a de Contratos carrega a linha de
+                    fases por cima do chip, e precisa de mais largura por isso. */}
+                <col className="fv-col-situacao" />
                 <col className="fv-col-actions" />
               </colgroup>
               <thead>
@@ -846,11 +850,15 @@ export function ContratosPanel({ session }: { session: SessionData }) {
                       </span>
                     </td>
                     <td>
-                      {/* RC-D68: a coluna mostra o PRÓXIMO COMPROMISSO, não a fase.
-                          Nos terminais (finalizado/cancelado) volta a ser rótulo —
-                          não há mais nada a vir. */}
-                      <span className={AGENDA_CHIP[contractAgenda(contract).kind]}>
-                        {contractAgendaLabel(contractAgenda(contract))}
+                      {/* RC-D83: as duas peças convivem porque respondem coisas
+                          diferentes. A LINHA diz onde o contrato está (5 fases);
+                          o CHIP diz qual é o próximo compromisso — com a data e o
+                          vermelho do atraso, que a linha não tem (RC-D68). */}
+                      <span className="fv-table-cell-stack ctr-situacao-cell">
+                        <ContractPhaseLine phases={contract.phases} />
+                        <span className={AGENDA_CHIP[contractAgenda(contract).kind]}>
+                          {contractAgendaLabel(contractAgenda(contract))}
+                        </span>
                       </span>
                     </td>
                     <td

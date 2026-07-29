@@ -266,7 +266,7 @@ para de respeitar a coluna. **Uma classe `fv-col-*` por coluna, na ordem exata d
 | `/samples`   | `fv-col-owner` (`min-width: 150px`)   | lote 232px · sacas/safra/padrão/bebida/catação **112px cada** · ações 58px   |
 | `/cadastros` | `fv-col-contact`                      | cliente 32% · status 120px · doc 170px · atualizado 120px · ações 58px       |
 | `/users`     | `fv-col-contact`                      | usuário 32% · perfil 150px · status 120px · último acesso 120px · ações 58px |
-| `/contratos` | `fv-col-parties` (`min-width: 200px`) | contrato 148px · sacas 112px · datas 168px · **situação** 120px · ações 58px |
+| `/contratos` | `fv-col-parties` (`min-width: 200px`) | contrato 148px · sacas 112px · datas 168px · **situação** 176px · ações 58px |
 
 Características do mesmo tipo (as cinco de `/samples`) levam a **mesma largura**: mesmo vão entre
 si, bloco visualmente coeso à direita. A identidade do registro fica à esquerda e ganha a sobra.
@@ -281,8 +281,11 @@ saber é o que ainda vai ser pedido dele, e quando.
 
 ```tsx
 <td>
-  <span className={AGENDA_CHIP[contractAgenda(contract).kind]}>
-    {contractAgendaLabel(contractAgenda(contract))}
+  <span className="fv-table-cell-stack ctr-situacao-cell">
+    <ContractPhaseLine phases={contract.phases} /> {/* ONDE está */}
+    <span className={AGENDA_CHIP[contractAgenda(contract).kind]}>
+      {contractAgendaLabel(contractAgenda(contract))} {/* QUANDO é o próximo */}
+    </span>
   </span>
 </td>
 ```
@@ -299,6 +302,29 @@ Três regras que a fazem funcionar:
 
 Vale para qualquer lista de registros com ciclo: a coluna de status é a mais lida da tabela e a
 menos informativa quando o estado dominante é um só.
+
+#### Duas peças na mesma célula: só quando respondem perguntas diferentes
+
+A Situação de `/contratos` empilha a **linha de fases** (RC-D80) sobre o chip. Elas convivem porque
+não dizem a mesma coisa: a linha diz **onde o registro está**, o chip diz **quando é o próximo
+compromisso** — com a data e o vermelho do atraso, que a linha não tem. Se as duas respondessem a
+mesma pergunta, uma delas seria ruído e a coluna teria ficado só com a mais informativa.
+
+🔴 **Linha de progressão só é barra quando o processo é sequencial.** No contrato nada trava nada:
+dá para finalizar sem enviar a aprovação e pagar antes de faturar, então `● ○ ● ● ●` (buraco no
+meio) é estado legítimo. Por isso os **trilhos entre os pontos são sempre neutros e só os pontos
+mudam de estado** — trilho preenchido leria "cheguei até aqui", que seria mentira. Cinco luzes num
+trilho, não uma barra. **Antes de desenhar progressão, pergunte se o processo realmente impede o
+passo N+1 sem o N** — se não impede, barra é a peça errada.
+
+Duas consequências de desenho que vêm junto:
+
+- **Fase que não se aplica mantém o slot** (a aprovação não marcada vira um traço, não um ponto
+  vazio). Linha com número variável de pontos desalinha as linhas da tabela entre si, que é
+  justamente o que a tabela existe para dar.
+- **O que acende por AÇÃO não acende por data.** O pagamento marca ao finalizar (RC-D79), nunca por
+  `paymentDate` ter passado — e o faturamento, que marca por data, acende no dia **seguinte**, senão
+  contradiz o "Fatura em 12/08" escrito logo abaixo dele na mesma célula.
 
 ### Células compostas
 

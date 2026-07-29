@@ -30504,6 +30504,105 @@ body.is-selection-mode .mobile-tabbar {
   .fv-col-dates {
     width: 168px;
   }
+  /* RC-D80: "Situacao" de Contratos e mais larga que a `.fv-col-status` de
+     /users e /cadastros porque empilha a linha de fases sobre o chip. Classe
+     propria justamente para nao arrastar as outras duas tabelas junto. */
+  .fv-col-situacao {
+    width: 176px;
+  }
+
+  /* ── Linha das cinco fases (RC-D80..D83) ──────────────────────────────
+     Vive so aqui: a linha e desktop (RC-D82) e esta secao inteira esta sob
+     `min-width: 901px`. Convive com o chip da agenda na mesma celula — a
+     linha diz ONDE esta, o chip diz QUANDO e o proximo compromisso.
+
+     🔴 Os TRILHOS sao sempre neutros; so os PONTOS mudam de estado. Trilho
+     preenchido leria como barra de progresso, e aqui nada trava nada (§6):
+     `● ○ ● ● ●` (finalizado sem aprovacao, RC-D66) e legitimo. */
+  .ctr-situacao-cell {
+    align-items: flex-start;
+    gap: 0.3rem;
+  }
+
+  .ctr-phaseline {
+    display: flex;
+    align-items: center;
+    align-self: stretch;
+    min-width: 0;
+    padding: 0.12rem 0;
+  }
+
+  .ctr-phase-pt {
+    display: flex;
+    align-items: center;
+    flex: 1 1 0;
+    min-width: 0;
+  }
+  /* O primeiro ponto nao tem trilho a esquerda, entao nao divide a sobra. */
+  .ctr-phase-pt:first-child {
+    flex: 0 0 auto;
+  }
+  .ctr-phase-pt:not(:first-child)::before {
+    content: '';
+    flex: 1 1 auto;
+    min-width: 6px;
+    height: 1px;
+    background: var(--fv-line-strong);
+  }
+
+  .ctr-phase-dot {
+    flex: 0 0 auto;
+    width: 9px;
+    height: 9px;
+    border: 1.5px solid var(--fv-line-strong);
+    border-radius: 50%;
+    background: var(--fv-surface);
+    box-sizing: border-box;
+  }
+
+  .ctr-phase-pt.is-feito .ctr-phase-dot {
+    border-color: var(--fv-cta);
+    background: var(--fv-cta);
+  }
+
+  /* "Nao se aplica" (aprovacao nao marcada): traco, nao circulo vazio — vazio
+     leria como pendencia. O slot fica de pe para as linhas da tabela
+     continuarem alinhadas entre contratos. */
+  .ctr-phase-pt.is-na .ctr-phase-dot {
+    width: 8px;
+    height: 1px;
+    border: 0;
+    border-radius: 0;
+    background: var(--fv-line-strong);
+  }
+
+  /* Washout: a linha inteira esmaece e fecha com ✕ no ultimo ponto — o
+     pagamento e o que nunca vai chegar. */
+  .ctr-phaseline.is-cancelado {
+    opacity: 0.5;
+  }
+  .ctr-phase-dot.is-x {
+    position: relative;
+    border-color: transparent;
+    background: none;
+  }
+  .ctr-phase-dot.is-x::before,
+  .ctr-phase-dot.is-x::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 9px;
+    height: 1.5px;
+    background: var(--ink);
+    border-radius: 1px;
+  }
+  .ctr-phase-dot.is-x::before {
+    transform: translate(-50%, -50%) rotate(45deg);
+  }
+  .ctr-phase-dot.is-x::after {
+    transform: translate(-50%, -50%) rotate(-45deg);
+  }
 
   /* Celula do lote: numero · badge de liga · chip de status, em linha. O
      numero encolhe/trunca primeiro; badge e chip nunca quebram. */

@@ -22,6 +22,8 @@ import {
   buildSaleContractDraftFromSale,
   computeContractMoney,
   deriveContractAgenda,
+  deriveContractPhases,
+  CONTRACT_PHASE_KEYS,
   computeContractMoneyWithAgio,
   decodeContractSeqCursor,
   formatContractNumber,
@@ -1295,4 +1297,135 @@ test('deriveContractAgenda: sem data nenhuma -> nenhum compromisso', () => {
     kind: 'nenhum',
     dayKey: null,
   });
+});
+
+// ── RC-D80..D83: deriveContractPhases — as cinco luzes da linha da lista ─────
+// Reusa `agendaRow` de proposito: as duas derivacoes comem os MESMOS ingredientes,
+// e e isso que impede a linha de contradizer o chip ao lado dela na mesma celula.
+
+const phaseStates = (row, todayKey) =>
+  deriveContractPhases(row, todayKey).points.map((point) => point.state);
+
+test('deriveContractPhases: os pontos sao sempre 5, na ordem do documento', () => {
+  const phases = deriveContractPhases(agendaRow(), '2026-07-10');
+  assert.deepEqual(
+    phases.points.map((point) => point.key),
+    ['emissao', 'aprovacao', 'embarque', 'faturamento', 'pagamento']
+  );
+  assert.deepEqual(
+    [...CONTRACT_PHASE_KEYS],
+    phases.points.map((point) => point.key)
+  );
+});
+
+test('deriveContractPhases: emissao acesa sempre — o contrato existe, logo foi emitido', () => {
+  for (const status of ['EMITIDO', 'FINALIZADO', 'WASH_OUT']) {
+    assert.equal(
+      deriveContractPhases(agendaRow({ status }), '2026-07-10').points[0].state,
+      'feito'
+    );
+  }
+});
+
+test('deriveContractPhases: aprovacao nao marcada vira "na" e mantem o slot (RC-D81)', () => {
+  assert.deepEqual(phaseStates(agendaRow({ requiresApproval: false }), '2026-07-10'), [
+    'feito',
+    'na',
+    'pendente',
+    'pendente',
+    'pendente',
+  ]);
+});
+
+test('deriveContractPhases: a etiqueta emitida acende a aprovacao', () => {
+  const row = agendaRow({ requiresApproval: true });
+  assert.equal(deriveContractPhases(row, '2026-07-10').points[1].state, 'pendente');
+  assert.equal(
+    deriveContractPhases({ ...row, hasApprovalLabel: true }, '2026-07-10').points[1].state,
+    'feito'
+  );
+});
+
+test('deriveContractPhases (RC-D76/D81): embarque e faturamento NUNCA divergem', () => {
+  for (const invoiceDate of [null, '2026-07-01T00:00:00.000Z', '2026-07-30T00:00:00.000Z']) {
+    const states = phaseStates(agendaRow({ invoiceDate }), '2026-07-10');
+    assert.equal(states[2], states[3]);
+  }
+});
+
+test('deriveContractPhases (RC-D77): faturamento acende so DEPOIS do dia, nunca nele', () => {
+  // No proprio dia a agenda ainda diz "Fatura em 10/07" — ponto cheio contradiria
+  // a frase ao lado, na mesma celula.
+  const noDia = agendaRow({ invoiceDate: '2026-07-10T00:00:00.000Z' });
+  assert.equal(deriveContractAgenda(noDia, '2026-07-10').kind, 'faturamento');
+  assert.equal(phaseStates(noDia, '2026-07-10')[3], 'pendente');
+  assert.equal(phaseStates(noDia, '2026-07-11')[3], 'feito');
+});
+
+test('deriveContractPhases: data "a definir" (D144) nao acende nada', () => {
+  assert.deepEqual(phaseStates(agendaRow({ invoiceDate: null }), '2026-07-10').slice(2, 4), [
+    'pendente',
+    'pendente',
+  ]);
+});
+
+test('deriveContractPhases (RC-D79): o pagamento acende por ACAO, nunca por data', () => {
+  const vencido = agendaRow({ paymentDate: '2026-07-01T00:00:00.000Z' });
+  // Pagamento vencido continua APAGADO: o vermelho do atraso e do chip (RC-D83).
+  assert.equal(deriveContractAgenda(vencido, '2026-07-10').kind, 'pagamento_vencido');
+  assert.equal(phaseStates(vencido, '2026-07-10')[4], 'pendente');
+  assert.equal(phaseStates({ ...vencido, status: 'FINALIZADO' }, '2026-07-10')[4], 'feito');
+});
+
+test('deriveContractPhases: 🔴 o BURACO e legitimo — finalizado sem aprovacao (RC-D66)', () => {
+  // O portao morreu: da pra finalizar sem nunca ter enviado a etiqueta. A linha
+  // mostra o furo em vez de esconder. Quem "consertar" isso reintroduz o portao.
+  assert.deepEqual(
+    phaseStates(
+      agendaRow({
+        status: 'FINALIZADO',
+        requiresApproval: true,
+        hasApprovalLabel: false,
+        invoiceDate: '2026-07-01T00:00:00.000Z',
+      }),
+      '2026-07-10'
+    ),
+    ['feito', 'pendente', 'feito', 'feito', 'feito']
+  );
+});
+
+test('deriveContractPhases: 🔴 pagar adiantado deixa a linha cheia na PONTA', () => {
+  assert.deepEqual(
+    phaseStates(
+      agendaRow({ status: 'FINALIZADO', invoiceDate: '2026-08-12T00:00:00.000Z' }),
+      '2026-07-10'
+    ),
+    ['feito', 'na', 'pendente', 'pendente', 'feito']
+  );
+});
+
+test('deriveContractPhases: washout marca a linha e preserva o que ja tinha acontecido', () => {
+  const phases = deriveContractPhases(
+    agendaRow({
+      status: 'WASH_OUT',
+      requiresApproval: true,
+      hasApprovalLabel: true,
+      invoiceDate: '2026-07-01T00:00:00.000Z',
+    }),
+    '2026-07-10'
+  );
+  assert.equal(phases.cancelado, true);
+  assert.deepEqual(
+    phases.points.map((point) => point.state),
+    ['feito', 'feito', 'feito', 'feito', 'pendente']
+  );
+  // O contrato vivo nao carrega a marca.
+  assert.equal(deriveContractPhases(agendaRow(), '2026-07-10').cancelado, false);
+});
+
+test('deriveContractPhases: sem todayKey nada e afirmado por data', () => {
+  assert.deepEqual(
+    phaseStates(agendaRow({ invoiceDate: '2026-01-01T00:00:00.000Z' }), null).slice(2, 4),
+    ['pendente', 'pendente']
+  );
 });

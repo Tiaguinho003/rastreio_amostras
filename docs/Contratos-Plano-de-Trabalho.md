@@ -1128,7 +1128,42 @@ específico faremos depois"):
   ontem** (`654d971`, RC-D43 — virou `.fv-table` de 5 colunas) e ele ainda não viu isso rodando.
   Decide depois de conferir. Se ficar tabela, a linha entra na coluna Situação; se voltar a card,
   a RC-D43 é desfeita e cabe o dinheiro que ela cortou (total, preço/saca).
-- **Como a linha desenha o buraco**, o passo para trás (Reabrir) e o washout.
+
+### 8.6 Implementação da linha de fases — 2026-07-29
+
+Construída **na tabela que está no código** (o adiamento acima é sobre o desenho, não sobre existir).
+Nenhuma migration, nenhuma rota nova, **nenhuma query a mais**: a linha come exatamente os mesmos
+ingredientes da agenda, então nasce do mesmo `_withAgenda` que já faz o batch do `approvalLabelLog`.
+
+| Onde                       | O quê                                                                                  |
+| -------------------------- | -------------------------------------------------------------------------------------- |
+| `sale-contract-support.js` | `deriveContractPhases(input, todayKey)` + `CONTRACT_PHASE_KEYS`, irmãs da agenda       |
+| `sale-contract-service.js` | `_withAgenda` devolve `phases` ao lado de `agenda`, do **mesmo** `agendaInputOf(row)`  |
+| `lib/types.ts`             | `ContractPhaseKey` · `ContractPhaseState` · `ContractPhases`; `phases?` no contrato    |
+| `ContractPhaseLine.tsx`    | a peça: 5 pontos num trilho, `role="img"` + `aria-label` com a leitura por extenso     |
+| `ContratosPanel.tsx`       | a célula da Situação empilha **linha + chip**; colgroup ganha `.fv-col-situacao`       |
+| `app/globals.css`          | `.ctr-phaseline`/`.ctr-phase-*` dentro do `@media (min-width: 901px)` — RC-D82 por CSS |
+
+Três escolhas do desenho, todas vetáveis:
+
+1. 🔴 **Os trilhos entre os pontos são sempre neutros; só os pontos mudam de estado.** Trilho
+   preenchido leria como barra de progresso — e a §6 garante que nada trava nada. Cinco luzes num
+   trilho contam a verdade; uma barra mentiria.
+2. **A aprovação que não se aplica vira um traço**, não um ponto vazio (vazio leria como pendência),
+   e o slot fica de pé — 5 pontos em toda linha é o que mantém as colunas alinhadas entre contratos.
+3. **Washout esmaece a linha inteira e fecha com ✕ no pagamento** — é o que nunca vai chegar. Os
+   pontos anteriores seguem derivados: o que aconteceu antes do cancelamento aconteceu.
+
+Duas regras que os testes fixam, porque são as que um "conserto" futuro quebraria primeiro:
+
+- **O faturamento acende no dia SEGUINTE, nunca no próprio dia.** No dia 12/08 a agenda ainda diz
+  "Fatura em 12/08"; um ponto cheio contradiria a frase ao lado, na mesma célula.
+- **O pagamento acende por ação, nunca por data** (RC-D79). Pagamento vencido continua apagado — o
+  vermelho do atraso é do chip (RC-D83), e a linha não tem vermelho nenhum.
+
+**Ainda em aberto:** o passo para trás (Reabrir) não tem desenho próprio — o ponto do pagamento
+simplesmente apaga, porque o status voltou a `EMITIDO`. Se isso precisar ser visível como "voltou",
+é decisão nova.
 
 ## Apêndice A — Ledger de decisões (condensado)
 

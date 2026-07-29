@@ -21,6 +21,7 @@ import {
   normalizeUuidFilter,
   receivableKeysetWhere,
   deriveContractAgenda,
+  deriveContractPhases,
   buildApprovalWorklistView,
   decodeApprovalWlCursor,
   encodeApprovalWlCursor,
@@ -215,10 +216,18 @@ export class SaleContractService {
       });
       labeled = new Set(logs.map((log) => log.saleContractId));
     }
-    return rows.map((row) => ({
-      ...toSaleContractView(row),
-      agenda: deriveContractAgenda(agendaInputOf(row, labeled.has(row.id)), todayKey),
-    }));
+    // RC-D80: a linha de fases sai DAQUI e nao de uma consulta propria — ela usa
+    // exatamente os mesmos ingredientes da agenda, entao nao custa nem uma query a
+    // mais. E, derivando do mesmo lugar, a linha e o texto ao lado dela nao tem como
+    // se contradizer na mesma celula.
+    return rows.map((row) => {
+      const input = agendaInputOf(row, labeled.has(row.id));
+      return {
+        ...toSaleContractView(row),
+        agenda: deriveContractAgenda(input, todayKey),
+        phases: deriveContractPhases(input, todayKey),
+      };
+    });
   }
 
   // A mesma agenda para UM contrato (o Detalhes). Deriva do mesmo lugar que a lista

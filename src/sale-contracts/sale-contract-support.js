@@ -518,6 +518,69 @@ export function deriveContractAgenda(
 }
 
 // ------------------------------------------------------------
+// As cinco fases (RC-D80..D83) — a linha de progressao da lista
+// ------------------------------------------------------------
+
+// 🔴 NAO E BARRA DE PROGRESSO — sao CINCO LUZES. Cada ponto acende pelo seu proprio
+// criterio, independente dos outros, porque no modelo da §6 nada trava nada: da pra
+// FINALIZAR sem ter enviado a aprovacao (RC-D66 matou o portao) e pagar antes do
+// faturamento. Logo `● ○ ● ● ●` (buraco no meio) e `● ● ○ ○ ●` (cheio na ponta) sao
+// estados LEGITIMOS, nao inconsistencia a corrigir. Quem tentar "consertar" isso
+// forcando ordem vai reintroduzir o portao que a §6 derrubou.
+export const CONTRACT_PHASE_KEYS = Object.freeze([
+  'emissao',
+  'aprovacao',
+  'embarque',
+  'faturamento',
+  'pagamento',
+]);
+
+// Estados do ponto. `na` = a fase nao existe neste contrato (aprovacao nao marcada);
+// o slot fica assim mesmo, porque a linha vive numa TABELA e 5 pontos em toda linha
+// e o que mantem as colunas alinhadas entre contratos.
+export const CONTRACT_PHASE_STATES = Object.freeze(['feito', 'pendente', 'na']);
+
+// Mesmos ingredientes da agenda (`agendaInputOf`) — de proposito: se a linha e a
+// coluna "Situacao" derivassem de fontes diferentes, elas poderiam se contradizer na
+// mesma celula. `paymentDate` entra na assinatura e nao e lido: o pagamento marca por
+// ACAO (RC-D79), nunca por data.
+export function deriveContractPhases(
+  { status, requiresApproval = false, hasApprovalLabel = false, invoiceDate = null },
+  todayKey
+) {
+  const invoiceDayKey = dayKeyOf(invoiceDate);
+  // RC-D77: embarque e faturamento marcam quando a data PASSA — eles nao deixam
+  // rastro, entao aqui o ✓ afirma o que o sistema nao observou (escolha do Flavio,
+  // contra a recomendacao). Estritamente passada: no proprio dia a agenda ainda diz
+  // "Fatura em 12/08", e um ponto cheio na mesma celula contradiria a frase ao lado.
+  // Sem data ("A definir", D144) nao ha o que afirmar: pendente.
+  const invoiceDayPassed = Boolean(invoiceDayKey && todayKey && invoiceDayKey < todayKey);
+  return {
+    // Washout nao e fase — e o fim. A linha para de valer inteira (a UI esmaece e
+    // fecha com ✕), mas os pontos seguem derivados: o que ja tinha acontecido
+    // aconteceu.
+    cancelado: status === 'WASH_OUT',
+    points: [
+      // O contrato existe, logo foi emitido. Nao ha caso em que este ponto esteja
+      // vazio — e por isso a emissao nunca aparece como pendencia em lugar nenhum.
+      { key: 'emissao', state: 'feito' },
+      {
+        key: 'aprovacao',
+        state: !requiresApproval ? 'na' : hasApprovalLabel ? 'feito' : 'pendente',
+      },
+      // RC-D76/D81: os dois leem o MESMO `invoiceDate`, entao nunca aparecem em
+      // estados diferentes. Sao dois pontos por decisao do Flavio (as fases sao
+      // distintas mesmo caindo no mesmo dia), com essa consequencia aceita.
+      { key: 'embarque', state: invoiceDayPassed ? 'feito' : 'pendente' },
+      { key: 'faturamento', state: invoiceDayPassed ? 'feito' : 'pendente' },
+      // RC-D79: "Finalizar" = o pagamento entrou. A data e previsao; o ATRASO dela
+      // fica na coluna "Situacao" (RC-D83), nao aqui — a linha nao tem vermelho.
+      { key: 'pagamento', state: status === 'FINALIZADO' ? 'feito' : 'pendente' },
+    ],
+  };
+}
+
+// ------------------------------------------------------------
 // Worklist da Aprovacao (AP25-AP28) — a "casa" na sub-aba
 // ------------------------------------------------------------
 
