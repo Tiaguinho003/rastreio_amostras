@@ -2,20 +2,22 @@
 
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 
-import { SaleContractLifecycleDialog } from '../contracts/SaleContractLifecycleDialog';
 import { ApiError, listFinanceiro } from '../../lib/api-client';
-import { useToast } from '../../lib/toast/ToastProvider';
 import { useContractHighlight } from '../../lib/use-contract-highlight';
 import type { FinanceiroFilter, FinanceiroReceivable, SessionData } from '../../lib/types';
 import { FinanceiroCard } from './FinanceiroCard';
 
-// Financeiro — a CASA DO PAGAMENTO (Revisao do Pagamento, FN1-FN7): hospeda todos os
-// contratos (ADMIN e COMMERCIAL veem todos — escopo aberto 2026-07-13), com a lente de
-// status de pagamento (chips a vencer/vencido/pago/cancelado), fila por vencimento
-// (FN4), filtros (FN5), busca por nº/comprador/corretor e o cabecalho "Total a
-// receber" + "N vencidos" (FN6). O "Pago" (FATURADO → PAGO) mora aqui (FN7). A casca
+// Financeiro (Revisao do Pagamento, FN1-FN6): a corretagem A RECEBER da corretora,
+// com a lente de estado (chips a vencer/vencido/recebida/cancelado), fila por
+// vencimento (FN4), filtros (FN5), busca por nº/comprador/corretor e o cabecalho
+// "Total a receber" + "N vencidos" (FN6). RC-D3: so ADMIN entra. A casca
 // (guard/AppShell/abas) vive em app/contratos/page.tsx. Paginado por cursor keyset
 // opaco (scroll infinito).
+//
+// RC-D67: LEITURA PURA — nenhum botao. A FN7 punha aqui o "Pago", a unica acao da
+// pagina; ela morreu com o status PAGO. A corretagem sai da fila quando o CONTRATO e
+// finalizado, e finalizar mora em /contratos (a casa de quem conduz o contrato).
+// Sem acao, tambem nao ha o que recarregar: o refetch pos-pagamento saiu junto.
 
 const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const FIN_PAGE_LIMIT = 30;
@@ -25,7 +27,7 @@ const FILTERS: { key: FinanceiroFilter; label: string }[] = [
   { key: 'todos', label: 'Todos' },
   { key: 'a_vencer', label: 'A vencer' },
   { key: 'vencido', label: 'Vencido' },
-  { key: 'pago', label: 'Pago' },
+  { key: 'recebida', label: 'Recebida' },
   { key: 'cancelado', label: 'Cancelado' },
 ];
 
@@ -98,20 +100,11 @@ function finListReducer(state: FinListState, action: FinListAction): FinListStat
 }
 
 export function FinanceiroPanel({ session }: { session: SessionData }) {
-  const toast = useToast();
   const [listState, dispatchList] = useReducer(finListReducer, FIN_INITIAL);
   const [searchInput, setSearchInput] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
   const [filter, setFilter] = useState<FinanceiroFilter>('todos');
-  // Bump para forcar refetch da 1a pagina apos pagar (FN4: o pago sai da fila).
-  const [reloadNonce, setReloadNonce] = useState(0);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
-  // FN7: registro do pagamento (FATURADO → PAGO); reusa o dialog do /contratos.
-  const [lifecycle, setLifecycle] = useState<{
-    contractId: string;
-    expectedVersion: number;
-    contractNumber: string;
-  } | null>(null);
   const toggleExpand = (id: string) =>
     setExpandedIds((prev) => {
       const next = new Set(prev);
@@ -149,8 +142,8 @@ export function FinanceiroPanel({ session }: { session: SessionData }) {
     };
   }, [searchInput, appliedSearch]);
 
-  // Fetch inicial: dispara ao mudar busca/filtro/sessão ou após pagar (reloadNonce).
-  // Reseta o cursor (a paginação é keyset por página).
+  // Fetch inicial: dispara ao mudar busca/filtro/sessão. Reseta o cursor (a
+  // paginação é keyset por página).
   useEffect(() => {
     if (!session) return;
     const abortController = new AbortController();
@@ -190,7 +183,7 @@ export function FinanceiroPanel({ session }: { session: SessionData }) {
       active = false;
       abortController.abort();
     };
-  }, [appliedSearch, filter, reloadNonce, session]);
+  }, [appliedSearch, filter, session]);
 
   // Load-more pelo cursor. inFlight + token protegem contra race em scrolls rápidos.
   const runLoadMore = useCallback(
@@ -253,10 +246,6 @@ export function FinanceiroPanel({ session }: { session: SessionData }) {
     observer.observe(sentinel);
     return () => observer.disconnect();
   }, [runLoadMore, listState.nextCursor, listState.status, session]);
-
-  // FN7: qualquer sessão permitida (ADMIN + COMMERCIAL) registra o pagamento — escopo
-  // aberto (own-only revogado): ambos veem e pagam qualquer contrato.
-  const canManage = true;
 
   const { items, status, error, nextCursor, totalCommission, overdueCount, overdueCommission } =
     listState;
@@ -356,15 +345,7 @@ export function FinanceiroPanel({ session }: { session: SessionData }) {
                   item={it}
                   isExpanded={expandedIds.has(it.id)}
                   onToggle={() => toggleExpand(it.id)}
-                  canManage={canManage}
                   isHighlighted={highlightId === it.id}
-                  onPagar={() =>
-                    setLifecycle({
-                      contractId: it.id,
-                      expectedVersion: it.version,
-                      contractNumber: it.contractNumber,
-                    })
-                  }
                 />
               ))}
               {nextCursor !== null ? (
@@ -376,26 +357,6 @@ export function FinanceiroPanel({ session }: { session: SessionData }) {
           )}
         </div>
       </section>
-
-      {lifecycle ? (
-        <SaleContractLifecycleDialog
-          session={session}
-          contractId={lifecycle.contractId}
-          expectedVersion={lifecycle.expectedVersion}
-          contractNumber={lifecycle.contractNumber}
-          action="pay"
-          hasLot={false}
-          onClose={() => setLifecycle(null)}
-          onDone={() => {
-            setLifecycle(null);
-            // FN4/E28: o pago sai da fila (some do filtro Vencido/A vencer; vai pro fim
-            // no Todos) → refetch da 1ª página (mantém filtro+busca). Substitui o patch
-            // otimista, que sob a nova ordem deixaria um chip verde no meio da fila.
-            setReloadNonce((n) => n + 1);
-            toast.success({ title: 'Pagamento registrado' });
-          }}
-        />
-      ) : null}
     </>
   );
 }

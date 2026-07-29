@@ -5,15 +5,19 @@ import Link from 'next/link';
 import type { FinanceiroPaymentState, FinanceiroReceivable } from '../../lib/types';
 
 // Financeiro (Revisao do Pagamento, FN1/FN3): card de um contrato na CASA DO
-// PAGAMENTO. Recolhido = chip de estado (a vencer/vencido/pago/cancelado) + nº +
-// comprador + vencimento (ou "pago em") + valor total + corretagem + corretores.
-// Acoes: [Pago] so em FATURADO (FN7) + [Ver contrato] sempre. Expandido = detalhe da
-// corretagem (vendedor/comprador, % + R$). Controlado (isExpanded/onToggle no pai).
+// PAGAMENTO. Recolhido = chip de estado (a vencer/vencido/recebida/cancelado) + nº +
+// comprador + vencimento + valor total + corretagem + corretores. Expandido =
+// detalhe da corretagem (vendedor/comprador, % + R$). Controlado
+// (isExpanded/onToggle no pai).
+//
+// RC-D67: LEITURA PURA. O "Pago" (FN7) morava aqui e morreu — a corretagem sai da
+// fila quando o CONTRATO e finalizado, em /contratos. Sobra [Ver contrato], que e
+// justamente pra onde a acao mudou de casa.
 
 const STATE_LABEL: Record<FinanceiroPaymentState, string> = {
   a_vencer: 'A vencer',
   vencido: 'Vencido',
-  pago: 'Pago',
+  recebida: 'Recebida',
   cancelado: 'Cancelado',
 };
 // Cores = as dos dots do calendario (coerencia evento↔pagina). O texto do "a vencer"
@@ -21,19 +25,19 @@ const STATE_LABEL: Record<FinanceiroPaymentState, string> = {
 const STATE_COLOR: Record<FinanceiroPaymentState, string> = {
   a_vencer: '#eab308',
   vencido: '#dc2626',
-  pago: '#15803d',
+  recebida: '#15803d',
   cancelado: '#9ca3af',
 };
 const STATE_TEXT_COLOR: Record<FinanceiroPaymentState, string> = {
   a_vencer: '#a16207',
   vencido: '#dc2626',
-  pago: '#15803d',
+  recebida: '#15803d',
   cancelado: '#6b7280',
 };
 const STATE_TINT: Record<FinanceiroPaymentState, string> = {
   a_vencer: '#fef9c3',
   vencido: '#fee2e2',
-  pago: '#dcfce7',
+  recebida: '#dcfce7',
   cancelado: '#f3f4f6',
 };
 
@@ -59,9 +63,6 @@ type FinanceiroCardProps = {
   item: FinanceiroReceivable;
   isExpanded: boolean;
   onToggle: () => void;
-  // FN7: o registro do pagamento (FATURADO → PAGO) mora aqui no Financeiro.
-  canManage?: boolean;
-  onPagar?: () => void;
   // Piscada ao chegar do evento do dashboard (?highlight=<id>).
   isHighlighted?: boolean;
 };
@@ -70,16 +71,12 @@ export function FinanceiroCard({
   item,
   isExpanded,
   onToggle,
-  canManage = false,
-  onPagar,
   isHighlighted = false,
 }: FinanceiroCardProps) {
   const color = STATE_COLOR[item.paymentState];
   const textColor = STATE_TEXT_COLOR[item.paymentState];
   const tint = STATE_TINT[item.paymentState];
   const label = STATE_LABEL[item.paymentState];
-  const isPaid = item.paymentState === 'pago';
-  const canPay = item.status === 'FATURADO' && canManage && Boolean(onPagar);
 
   return (
     <div
@@ -106,13 +103,9 @@ export function FinanceiroCard({
               <span className="fin-fig-value fin-fig-strong">{money(item.commissionTotal)}</span>
             </span>
             <span className="fin-fig">
-              <span className="fin-fig-label">{isPaid ? 'Pago em' : 'Vencimento'}</span>
+              <span className="fin-fig-label">Vencimento</span>
               <span className="fin-fig-value">
-                {isPaid
-                  ? dateBR(item.paidAt)
-                  : item.paymentDate
-                    ? dateBR(item.paymentDate)
-                    : 'À definir'}
+                {item.paymentDate ? dateBR(item.paymentDate) : 'À definir'}
               </span>
             </span>
           </span>
@@ -135,11 +128,6 @@ export function FinanceiroCard({
         <Link href={`/contratos?details=${item.id}`} className="fin-btn">
           Ver contrato
         </Link>
-        {canPay ? (
-          <button type="button" className="fin-btn fin-btn-primary" onClick={onPagar}>
-            Pago
-          </button>
-        ) : null}
       </div>
 
       <div className="fin-card-expanded" aria-hidden={!isExpanded}>
