@@ -1,44 +1,68 @@
 'use client';
 
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 
 import { ApiError, listFinanceiro } from '../../lib/api-client';
 import { useContractHighlight } from '../../lib/use-contract-highlight';
-import type { FinanceiroFilter, FinanceiroReceivable, SessionData } from '../../lib/types';
+import { useIsDesktop } from '../../lib/use-desktop';
+import type {
+  FinanceiroFilter,
+  FinanceiroKpi,
+  FinanceiroPaymentState,
+  FinanceiroReceivable,
+  SessionData,
+} from '../../lib/types';
 import { FinanceiroCard } from './FinanceiroCard';
+import { BRL, FIN_STATE_CHIP, FIN_STATE_LABEL, dateBR, dueBR, money } from './financeiro-format';
 
 // Financeiro (Revisao do Pagamento, FN1-FN6): a corretagem A RECEBER da corretora,
-// com a lente de estado (chips a vencer/vencido/recebida/cancelado), fila por
-// vencimento (FN4), filtros (FN5), busca por nº/comprador/corretor e o cabecalho
-// "Total a receber" + "N vencidos" (FN6). RC-D3: so ADMIN entra. A casca
-// (guard/AppShell/abas) vive em app/contratos/page.tsx. Paginado por cursor keyset
-// opaco (scroll infinito).
+// com a lente de estado (a vencer/vencido/recebida/cancelado), fila por vencimento
+// (FN4) e busca por nº/comprador/corretor. RC-D3: so ADMIN entra. A casca
+// (guard/AppShell) vive em app/financeiro/page.tsx. Paginado por cursor keyset opaco
+// (scroll infinito).
 //
-// RC-D67: LEITURA PURA — nenhum botao. A FN7 punha aqui o "Pago", a unica acao da
+// RC-D67: LEITURA PURA — nenhuma acao. A FN7 punha aqui o "Pago", a unica acao da
 // pagina; ela morreu com o status PAGO. A corretagem sai da fila quando o CONTRATO e
 // finalizado, e finalizar mora em /contratos (a casa de quem conduz o contrato).
-// Sem acao, tambem nao ha o que recarregar: o refetch pos-pagamento saiu junto.
+//
+// RC-D92..D95 (kit FV): desktop = TABELA (o acordeao morreu, o detalhe da corretagem
+// virou sublinha); os quatro estados viraram a KPI ROW CLICAVEL, que e tambem o
+// filtro (os chips `.fin-filters` e a faixa de vencidos sairam); sem coluna ⋯ —
+// numa pagina de leitura pura, a unica saida e abrir o contrato, e quem faz isso e a
+// linha inteira.
 
-const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const FIN_PAGE_LIMIT = 30;
 const FIN_LOAD_MORE_ROOT_MARGIN = '0px';
+const TABLE_COLUMN_COUNT = 6;
 
-const FILTERS: { key: FinanceiroFilter; label: string }[] = [
-  { key: 'todos', label: 'Todos' },
-  { key: 'a_vencer', label: 'A vencer' },
-  { key: 'vencido', label: 'Vencido' },
-  { key: 'recebida', label: 'Recebida' },
-  { key: 'cancelado', label: 'Cancelado' },
+// RC-D93: os quatro cartoes SAO o filtro. Ordem = a da fila de trabalho (o que
+// aperta primeiro a esquerda), nao a do enum.
+const KPI_CARDS: { key: FinanceiroPaymentState; label: string; tone: string }[] = [
+  { key: 'a_vencer', label: 'A vencer', tone: 'amber' },
+  { key: 'vencido', label: 'Vencido', tone: 'red' },
+  { key: 'recebida', label: 'Recebida', tone: 'green' },
+  { key: 'cancelado', label: 'Cancelado', tone: 'gray' },
 ];
+
+const EMPTY_KPIS: Record<FinanceiroPaymentState, FinanceiroKpi> = {
+  a_vencer: { count: 0, value: 0 },
+  vencido: { count: 0, value: 0 },
+  recebida: { count: 0, value: 0 },
+  cancelado: { count: 0, value: 0 },
+};
+
+function contractHref(id: string): string {
+  return `/contratos?details=${id}`;
+}
 
 type FinListStatus = 'loading-initial' | 'loading-more' | 'idle' | 'error';
 
 interface FinListState {
   items: FinanceiroReceivable[];
   nextCursor: string | null;
-  totalCommission: number;
-  overdueCount: number;
-  overdueCommission: number;
+  kpis: Record<FinanceiroPaymentState, FinanceiroKpi>;
   status: FinListStatus;
   error: string | null;
 }
@@ -50,9 +74,7 @@ type FinListAction =
       type: 'success-initial';
       items: FinanceiroReceivable[];
       nextCursor: string | null;
-      totalCommission: number;
-      overdueCount: number;
-      overdueCommission: number;
+      kpis: Record<FinanceiroPaymentState, FinanceiroKpi>;
     }
   | { type: 'success-more'; items: FinanceiroReceivable[]; nextCursor: string | null }
   | { type: 'error'; message: string };
@@ -60,9 +82,7 @@ type FinListAction =
 const FIN_INITIAL: FinListState = {
   items: [],
   nextCursor: null,
-  totalCommission: 0,
-  overdueCount: 0,
-  overdueCommission: 0,
+  kpis: EMPTY_KPIS,
   status: 'loading-initial',
   error: null,
 };
@@ -70,7 +90,9 @@ const FIN_INITIAL: FinListState = {
 function finListReducer(state: FinListState, action: FinListAction): FinListState {
   switch (action.type) {
     case 'fetch-initial':
-      return { ...FIN_INITIAL, status: 'loading-initial' };
+      // Os KPIs seguem a BUSCA, nao o filtro: trocar de cartao nao pode zera-los e
+      // deixar a faixa piscando. Por isso o reset preserva os numeros atuais.
+      return { ...FIN_INITIAL, kpis: state.kpis, status: 'loading-initial' };
     case 'fetch-more':
       return { ...state, status: 'loading-more', error: null };
     case 'success-initial':
@@ -78,9 +100,7 @@ function finListReducer(state: FinListState, action: FinListAction): FinListStat
         ...state,
         items: action.items,
         nextCursor: action.nextCursor,
-        totalCommission: action.totalCommission,
-        overdueCount: action.overdueCount,
-        overdueCommission: action.overdueCommission,
+        kpis: action.kpis,
         status: 'idle',
         error: null,
       };
@@ -100,18 +120,12 @@ function finListReducer(state: FinListState, action: FinListAction): FinListStat
 }
 
 export function FinanceiroPanel({ session }: { session: SessionData }) {
+  const router = useRouter();
+  const isDesktop = useIsDesktop();
   const [listState, dispatchList] = useReducer(finListReducer, FIN_INITIAL);
   const [searchInput, setSearchInput] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
   const [filter, setFilter] = useState<FinanceiroFilter>('todos');
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
-  const toggleExpand = (id: string) =>
-    setExpandedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const searchDebounceRef = useRef<number | null>(null);
@@ -165,9 +179,7 @@ export function FinanceiroPanel({ session }: { session: SessionData }) {
           type: 'success-initial',
           items: response.items,
           nextCursor: response.nextCursor,
-          totalCommission: response.totalCommission,
-          overdueCount: response.overdueCount,
-          overdueCommission: response.overdueCommission,
+          kpis: response.kpis,
         });
       })
       .catch((cause) => {
@@ -247,113 +259,318 @@ export function FinanceiroPanel({ session }: { session: SessionData }) {
     return () => observer.disconnect();
   }, [runLoadMore, listState.nextCursor, listState.status, session]);
 
-  const { items, status, error, nextCursor, overdueCount, overdueCommission } = listState;
+  const { items, status, error, nextCursor, kpis } = listState;
   const isInitialLoading = status === 'loading-initial';
   // Piscada no contrato tocado no evento de pagamento do dashboard (?highlight=<id>).
   const highlightId = useContractHighlight(items, scrollRef);
 
-  // A faixa "Corretagem total" saiu do topo a pedido do Flavio (2026-07-29): ela
-  // somava TODOS os estados — o que ainda vem e o que ja foi recebido no mesmo
-  // numero. O `totalCommission` segue na resposta da API (e no estado) ate a
-  // decisao de KPI do redesenho; se ninguem o consumir depois dela, sai junto.
+  // Contagem do conjunto INTEIRO (vem dos KPIs), não das páginas já carregadas.
+  const listCount =
+    filter === 'todos'
+      ? KPI_CARDS.reduce((sum, card) => sum + kpis[card.key].count, 0)
+      : kpis[filter].count;
+
+  const openContract = (id: string) => router.push(contractHref(id));
+
+  // --- Chrome (KPI row + toolbar) --------------------------------------------
+
+  // As duas faixas são montadas UMA vez e POSICIONADAS por breakpoint: no desktop
+  // ficam presas (a KPI acima do cartão, a toolbar no topo dele); no mobile rolam
+  // DENTRO do `.spv2-list-scroll`, porque ali cada faixa presa custa altura
+  // permanente (data-tables §1).
+  //
+  // RC-D94: no mobile são os QUATRO cartões (2×2), não dois. A regra do KPI-2
+  // vale para cartão que só informa; aqui o cartão é a ÚNICA porta do estado —
+  // cortar dois tornaria "Recebida" e "Cancelado" inalcançáveis.
+  const kpiRow = (
+    <div className="fv-kpi-row">
+      {KPI_CARDS.map((card) => {
+        const isActive = filter === card.key;
+        return (
+          <button
+            key={card.key}
+            type="button"
+            className={`fv-kpi is-clickable fv-kpi-tone-${card.tone}${isActive ? ' is-active' : ''}`}
+            aria-pressed={isActive}
+            onClick={() => setFilter(isActive ? 'todos' : card.key)}
+          >
+            <div className="fv-kpi-top">
+              <span className="fv-kpi-label">{card.label}</span>
+              <span className={`fv-kpi-icon is-${card.tone}`} aria-hidden="true">
+                {card.key === 'a_vencer' ? (
+                  <svg viewBox="0 0 24 24" focusable="false">
+                    <circle cx="12" cy="12" r="9" />
+                    <path d="M12 7v5l3 2" />
+                  </svg>
+                ) : card.key === 'vencido' ? (
+                  <svg viewBox="0 0 24 24" focusable="false">
+                    <path d="M10.3 3.9 2.4 17.5A2 2 0 0 0 4.1 20.5h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" />
+                    <path d="M12 9v4" />
+                    <path d="M12 17h.01" />
+                  </svg>
+                ) : card.key === 'recebida' ? (
+                  <svg viewBox="0 0 24 24" focusable="false">
+                    <circle cx="12" cy="12" r="9" />
+                    <path d="m8.5 12.3 2.4 2.4 4.6-4.9" />
+                  </svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" focusable="false">
+                    <circle cx="12" cy="12" r="9" />
+                    <path d="m8.8 8.8 6.4 6.4" />
+                  </svg>
+                )}
+              </span>
+            </div>
+            <span className="fv-kpi-value fin-kpi-value">{BRL.format(kpis[card.key].value)}</span>
+            <span className="fv-kpi-delta">
+              {kpis[card.key].count} {kpis[card.key].count === 1 ? 'contrato' : 'contratos'}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  const toolbar = (
+    <div className="fv-toolbar">
+      <form
+        className="fv-toolbar-search"
+        role="search"
+        onSubmit={(event) => event.preventDefault()}
+      >
+        <svg
+          className="fv-toolbar-search-icon"
+          viewBox="0 0 24 24"
+          focusable="false"
+          aria-hidden="true"
+        >
+          <circle cx="11" cy="11" r="7" />
+          <path d="m16.2 16.2 4.1 4.1" />
+        </svg>
+        <input
+          className="fv-input fv-toolbar-search-input"
+          value={searchInput}
+          onChange={(event) => setSearchInput(event.target.value)}
+          placeholder="Buscar nº, comprador ou corretor..."
+          autoComplete="off"
+          spellCheck={false}
+        />
+        {searchInput ? (
+          <button
+            type="button"
+            className="fv-toolbar-search-clear"
+            aria-label="Limpar busca"
+            onClick={() => setSearchInput('')}
+          >
+            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
+        ) : null}
+      </form>
+      {/* Sem botão de filtros: os KPIs SÃO o filtro (RC-D93). "Limpar" só aparece
+          quando há um ligado — é a saída sem precisar achar o cartão aceso. */}
+      {filter !== 'todos' ? (
+        <button type="button" className="fv-toolbar-clear" onClick={() => setFilter('todos')}>
+          Limpar
+        </button>
+      ) : null}
+      <span className="fv-toolbar-count">{listCount} contrato(s)</span>
+    </div>
+  );
+
+  const mobileListChrome = isDesktop ? null : (
+    <>
+      {kpiRow}
+      {toolbar}
+    </>
+  );
+
+  const emptyState = (
+    <div className="spv2-empty">
+      <svg className="cv2-empty-icon" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M3 6h18v12H3z" />
+        <circle cx="12" cy="12" r="2.5" />
+        <path d="M7 12h.01M17 12h.01" />
+      </svg>
+      <p className="spv2-empty-text">Nenhum contrato para mostrar</p>
+      <p className="spv2-empty-sub">
+        {filter !== 'todos' || appliedSearch
+          ? 'Tente outro termo ou desligue o filtro'
+          : 'A corretagem aparece aqui quando um contrato é emitido'}
+      </p>
+    </div>
+  );
+
+  const tableSkeletonRows = (count: number, keyPrefix: string) =>
+    Array.from({ length: count }).map((_, i) => (
+      <tr key={`${keyPrefix}-${i}`} className="fv-table-skel-row" aria-hidden="true">
+        {Array.from({ length: TABLE_COLUMN_COUNT }).map((__, j) => (
+          <td key={j}>
+            <span className="fv-table-skel" />
+          </td>
+        ))}
+      </tr>
+    ));
+
   return (
     <>
-      {overdueCount > 0 ? (
-        <div className="fin-overdue" role="status">
-          <span className="fin-overdue-count">
-            {overdueCount} {overdueCount === 1 ? 'vencido' : 'vencidos'}
-          </span>
-          <span className="fin-overdue-value">{BRL.format(overdueCommission)}</span>
-        </div>
-      ) : null}
-
-      <div className="hero-search-wrap">
-        <form
-          className="hero-search-bar"
-          role="search"
-          onSubmit={(event) => event.preventDefault()}
-        >
-          <input
-            className="hero-search-input"
-            value={searchInput}
-            onChange={(event) => setSearchInput(event.target.value)}
-            placeholder="Buscar nº, comprador ou corretor..."
-            autoComplete="off"
-            spellCheck={false}
-          />
-          {searchInput ? (
-            <button
-              type="button"
-              className="hero-search-clear-input"
-              aria-label="Limpar busca"
-              onClick={() => setSearchInput('')}
-            >
-              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                <path d="M6 6l12 12M18 6L6 18" />
-              </svg>
-            </button>
-          ) : (
-            <span className="hero-search-submit" aria-hidden="true">
-              <svg className="hero-search-icon-search" viewBox="0 0 24 24" aria-hidden="true">
-                <circle cx="11" cy="11" r="7" />
-                <path d="m16.2 16.2 4.1 4.1" />
-              </svg>
-            </span>
-          )}
-        </form>
+      {/* Desktop (>=901px): cabeçalho institucional. No mobile fica display:none —
+          o título mora na faixa do shell. Sem ações: aqui não se cria nada. */}
+      <div className="fv-page-head">
+        <h2 className="fv-page-title">Financeiro</h2>
       </div>
 
-      <div className="fin-filters" role="group" aria-label="Filtrar por estado de pagamento">
-        {FILTERS.map((f) => (
-          <button
-            key={f.key}
-            type="button"
-            className={`fin-filter-chip${filter === f.key ? ' is-active' : ''}`}
-            aria-pressed={filter === f.key}
-            onClick={() => setFilter(f.key)}
-          >
-            {f.label}
-          </button>
-        ))}
-      </div>
+      {isDesktop ? kpiRow : null}
 
       <section className="clients-v2-sheet">
-        <div className="spv2-list-meta">
-          <span className="spv2-list-count">{items.length} contrato(s)</span>
-        </div>
+        {isDesktop ? toolbar : null}
 
-        <div className="spv2-list-scroll" ref={scrollRef}>
-          {isInitialLoading ? (
-            <div className="spv2-empty">
-              <p className="spv2-empty-text">Carregando...</p>
+        {status === 'error' && error && items.length > 0 ? (
+          <p className="spv2-error-banner" role="status">
+            {error}
+          </p>
+        ) : null}
+
+        {isInitialLoading ? (
+          isDesktop ? (
+            <div className="spv2-list-scroll fv-table-scroll">
+              <table className="fv-table">
+                <tbody>{tableSkeletonRows(6, 'boot')}</tbody>
+              </table>
             </div>
-          ) : status === 'error' && items.length === 0 ? (
+          ) : (
+            <div className="spv2-list-scroll">
+              {mobileListChrome}
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={`boot-${i}`} className="spv2-skeleton-card" aria-hidden />
+              ))}
+            </div>
+          )
+        ) : status === 'error' && items.length === 0 ? (
+          <div className={`spv2-list-scroll${isDesktop ? ' fv-table-scroll' : ''}`}>
+            {mobileListChrome}
             <div className="spv2-empty">
               <p className="spv2-empty-text">{error ?? 'Não foi possível carregar.'}</p>
             </div>
-          ) : items.length === 0 ? (
-            <div className="spv2-empty">
-              <p className="spv2-empty-text">Nenhum contrato</p>
-            </div>
-          ) : (
+          </div>
+        ) : items.length === 0 ? (
+          // `fv-table-scroll` no desktop também no vazio: sem ele o
+          // `.spv2-list-scroll` é um grid de 3 colunas (herdado dos cards) e o
+          // `.spv2-empty` cairia na primeira célula, encostado à esquerda.
+          <div className={`spv2-list-scroll${isDesktop ? ' fv-table-scroll' : ''}`}>
+            {mobileListChrome}
+            {emptyState}
+          </div>
+        ) : isDesktop ? (
+          /* RC-D92 (desktop): tabela institucional de 6 colunas, SEM ⋯ (RC-D95).
+             Os mesmos dados, ordem e scroll infinito dos cards — muda a
+             apresentação. A linha inteira navega; o nº é um <Link> de verdade,
+             para dar alvo de teclado e abrir em outra aba. */
+          <div ref={scrollRef} className="spv2-list-scroll fv-table-scroll" tabIndex={-1}>
+            <table className="fv-table">
+              <colgroup>
+                <col className="fv-col-contract" />
+                <col className="fv-col-fin-buyer" />
+                <col className="fv-col-fin-value" />
+                <col className="fv-col-fin-commission" />
+                <col className="fv-col-fin-due" />
+                <col className="fv-col-status" />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th scope="col">Contrato</th>
+                  <th scope="col">Comprador</th>
+                  <th scope="col">Valor total</th>
+                  <th scope="col">Corretagem</th>
+                  <th scope="col">Vencimento</th>
+                  <th scope="col">Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((item) => (
+                  <tr
+                    key={item.id}
+                    className={`fv-table-row${highlightId === item.id ? ' is-highlighted' : ''}`}
+                    data-contract-id={item.id}
+                    onClick={() => openContract(item.id)}
+                  >
+                    <td>
+                      <Link
+                        href={contractHref(item.id)}
+                        className="fv-table-name-btn"
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        <span className="fv-table-name">{item.contractNumber}</span>
+                        <span className="fv-table-code">{dateBR(item.contractDate)}</span>
+                      </Link>
+                    </td>
+                    <td>
+                      <span className="fv-table-cell-stack">
+                        <span className="fv-table-cell-main">{item.buyerName ?? '—'}</span>
+                        {item.brokers.length > 0 ? (
+                          <span className="fv-table-sub">
+                            {item.brokers.map((b) => b.name).join(' · ')}
+                          </span>
+                        ) : null}
+                      </span>
+                    </td>
+                    <td>
+                      <span className="fv-table-cell-main">{money(item.totalValue)}</span>
+                    </td>
+                    <td>
+                      {/* O acordeão virou sublinha (RC-D92): o split vendedor ·
+                          comprador fica sempre à vista, sem um clique por linha. */}
+                      <span className="fv-table-cell-stack">
+                        <span className="fv-table-cell-main fin-commission">
+                          {money(item.commissionTotal)}
+                        </span>
+                        <span className="fv-table-sub">
+                          V {money(item.sellerBrokerageValue)} · C {money(item.buyerBrokerageValue)}
+                        </span>
+                      </span>
+                    </td>
+                    <td>
+                      <span className="fv-table-cell-main">{dueBR(item.paymentDate)}</span>
+                    </td>
+                    <td>
+                      <span className={`fv-chip ${FIN_STATE_CHIP[item.paymentState]}`}>
+                        {FIN_STATE_LABEL[item.paymentState]}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+                {status === 'loading-more' ? tableSkeletonRows(3, 'more') : null}
+              </tbody>
+            </table>
+            {nextCursor ? (
+              <div ref={loadMoreRef} className="cv2-load-more-sentinel" aria-hidden />
+            ) : null}
+            {!nextCursor && status === 'idle' ? (
+              <p className="spv2-list-end">Você chegou ao fim</p>
+            ) : null}
+          </div>
+        ) : (
+          <div className="spv2-list-scroll" ref={scrollRef}>
+            {mobileListChrome}
             <div className="fin-list">
-              {items.map((it) => (
-                <FinanceiroCard
-                  key={it.id}
-                  item={it}
-                  isExpanded={expandedIds.has(it.id)}
-                  onToggle={() => toggleExpand(it.id)}
-                  isHighlighted={highlightId === it.id}
-                />
+              {items.map((item) => (
+                <FinanceiroCard key={item.id} item={item} isHighlighted={highlightId === item.id} />
               ))}
-              {nextCursor !== null ? (
-                <div ref={loadMoreRef} className="fin-load-more" aria-hidden="true">
-                  {status === 'loading-more' ? 'Carregando mais...' : ''}
-                </div>
-              ) : null}
+              {status === 'loading-more'
+                ? Array.from({ length: 3 }).map((_, i) => (
+                    <div key={`more-${i}`} className="spv2-skeleton-card" aria-hidden />
+                  ))
+                : null}
             </div>
-          )}
-        </div>
+            {nextCursor ? (
+              <div ref={loadMoreRef} className="cv2-load-more-sentinel" aria-hidden />
+            ) : null}
+            {!nextCursor && status === 'idle' ? (
+              <p className="spv2-list-end">Você chegou ao fim</p>
+            ) : null}
+          </div>
+        )}
       </section>
     </>
   );

@@ -28684,101 +28684,69 @@ body.is-selection-mode .mobile-tabbar {
    titulo + linha de meta na opcao do dropdown. */
 
 /* ---------------------------------------------------------------------------
-   Financeiro (Fase F): pagina "Financeiro" — corretagem a receber por
-   fechamento. Cards (recolhido + expandido, acordeao) espelhando o .ctr-card;
-   figuras, corretores e o detalhe da corretagem (vend/comp).
+   Financeiro: pagina "Financeiro" — corretagem a receber por fechamento. O
+   chrome (cabecalho, KPI row, toolbar) e a tabela do desktop sao o kit FV; o
+   que sobra aqui e o CARD DO MOBILE, que espelha o `.ctr-card` da lista de
+   contratos.
 
-   🪦 `.fin-total*` (a faixa verde "Corretagem total" do topo) APAGADA em
-   2026-07-29 a pedido do Flavio: ela somava todos os estados — o que ainda vem
-   e o que ja foi recebido — num numero so.
+   🪦 APAGADOS em 2026-07-29:
+   - `.fin-total*`, a faixa verde "Corretagem total" do topo (pedido do Flavio:
+     somava o que ainda vem e o que ja foi recebido num numero so);
+   - `.fin-overdue*` e `.fin-filter*` (RC-D93 — a faixa de vencidos virou UM dos
+     quatro cartoes de KPI, e os cartoes viraram o filtro, no lugar dos chips);
+   - `.fin-card-head`, `.fin-card-chevron`, `.fin-card-expanded*`, `.fin-detail*`,
+     `.fin-section-title`, `.fin-card-actions`, `.fin-btn*` (RC-D92 — o acordeao
+     morreu: o split da corretagem virou linha fixa e o card inteiro virou o link
+     pro contrato, que era a unica acao que ele tinha);
+   - `.fin-card-status`, que era pastilha com hex inline por estado — virou o
+     `.fv-chip` do kit;
+   - `.fin-load-more`, substituido pelo `.cv2-load-more-sentinel` compartilhado.
    --------------------------------------------------------------------------- */
-/* FN6: indicador de vencidos ("N vencidos · R$ X") — vermelho, some quando 0. */
-.fin-overdue {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin: 0 clamp(0.5rem, 3vw, 1rem) 0.6rem;
-  padding: 0.5rem 1rem;
-  border-radius: 12px;
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  color: #b91c1c;
-}
-.fin-overdue-count {
-  font-size: 0.85rem;
-  font-weight: 700;
-}
-.fin-overdue-value {
-  font-size: 1rem;
-  font-weight: 800;
-}
-/* FN5: filtros por estado de pagamento (fileira segmentada de chips). */
-.fin-filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  margin: 0 clamp(0.5rem, 3vw, 1rem) 0.6rem;
-}
-.fin-filter-chip {
-  border: 1px solid var(--brand-cream-line);
-  background: #fff;
-  color: var(--brand-green-ink);
-  border-radius: 999px;
-  padding: 0.35rem 0.85rem;
-  font-size: 0.82rem;
-  font-weight: 600;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: transform 0.15s;
-}
-.fin-filter-chip:active {
-  transform: scale(0.96);
-}
-.fin-filter-chip.is-active {
-  background: var(--brand-green);
-  border-color: var(--brand-green);
-  color: #fff;
-}
 .fin-list {
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
 }
-/* Sentinel do scroll infinito (S86): dispara o load-more ao entrar na viewport. */
-.fin-load-more {
-  min-height: 1.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.8rem;
-  color: var(--brand-muted);
-}
+/* O card e um <a> (RC-D92): o card INTEIRO abre o contrato. Por isso ele
+   carrega a geometria que era do `.fin-card-head` e desliga o sublinhado. */
 .fin-card {
+  display: flex;
+  align-items: stretch;
+  gap: 0.7rem;
+  padding: 0.85rem 1rem;
   background: #fff;
   border: 1px solid var(--brand-cream-line);
   border-radius: 14px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   overflow: hidden;
-}
-.fin-card-head {
-  display: flex;
-  align-items: stretch;
-  gap: 0.7rem;
-  width: 100%;
-  padding: 0.85rem 1rem;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  text-align: left;
-  font-family: inherit;
+  color: var(--brand-green-ink);
+  text-decoration: none;
   -webkit-tap-highlight-color: transparent;
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+/* Toque afunda, sem trocar de cor (regra da casa). */
+.fin-card:active {
+  transform: scale(0.99);
 }
 .fin-card-bar {
   flex: 0 0 auto;
   width: 4px;
   border-radius: 2px;
-  background: #16a34a;
+  background: var(--fv-chip-gray-fg);
+}
+/* A barra segue a FAMILIA do chip do estado — a cor diz a mesma coisa duas
+   vezes, uma varrivel de relance na borda e outra escrita na pastilha. */
+.fin-card-bar.is-a_vencer {
+  background: var(--fv-chip-amber-fg);
+}
+.fin-card-bar.is-vencido {
+  background: var(--fv-chip-red-fg);
+}
+.fin-card-bar.is-recebida {
+  background: var(--fv-chip-green-fg);
+}
+.fin-card-bar.is-cancelado {
+  background: var(--fv-chip-gray-fg);
 }
 .fin-card-main {
   flex: 1 1 auto;
@@ -28806,13 +28774,6 @@ body.is-selection-mode .mobile-tabbar {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-.fin-card-status {
-  font-size: 0.72rem;
-  font-weight: 700;
-  border-radius: 999px;
-  padding: 0.12rem 0.5rem;
-  white-space: nowrap;
 }
 .fin-card-figures {
   display: flex;
@@ -28856,7 +28817,17 @@ body.is-selection-mode .mobile-tabbar {
   color: var(--brand-green-ink);
   font-weight: 600;
 }
-.fin-card-chevron {
+/* O split da corretagem (era o conteudo do acordeao): uma linha so, sempre a
+   vista — a mesma sublinha da coluna "Corretagem" na tabela do desktop. */
+.fin-card-split {
+  font-size: 0.78rem;
+  color: var(--brand-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Seta de navegacao (o card e um link). Nao gira: nao ha o que expandir. */
+.fin-card-go {
   flex: 0 0 auto;
   align-self: center;
   width: 18px;
@@ -28866,40 +28837,6 @@ body.is-selection-mode .mobile-tabbar {
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
-  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
-}
-.fin-card.is-expanded .fin-card-chevron {
-  transform: rotate(180deg);
-}
-/* FN3/FN7: acoes do card — [Ver contrato] sempre + [Pago] so em FATURADO. */
-.fin-card-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.5rem;
-  padding: 0 0.85rem 0.75rem;
-}
-.fin-btn {
-  display: inline-flex;
-  align-items: center;
-  border: 1px solid var(--brand-cream-line);
-  background: #fff;
-  color: var(--brand-green-ink);
-  border-radius: 10px;
-  padding: 0.45rem 1.1rem;
-  font-size: 0.85rem;
-  font-weight: 600;
-  text-decoration: none;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: transform 0.15s;
-}
-.fin-btn:active {
-  transform: scale(0.97);
-}
-.fin-btn-primary {
-  background: var(--brand-green);
-  border-color: var(--brand-green);
-  color: #fff;
 }
 
 /* Piscada do contrato tocado no evento do dashboard (?highlight=<id>): pulso de anel
@@ -28937,58 +28874,27 @@ body.is-selection-mode .mobile-tabbar {
   }
 }
 
-.fin-card-expanded {
-  display: grid;
-  grid-template-rows: 0fr;
-  transition: grid-template-rows 0.3s cubic-bezier(0.22, 1, 0.36, 1);
-}
-.fin-card.is-expanded .fin-card-expanded {
-  grid-template-rows: 1fr;
-}
-.fin-card-expanded-inner {
+/* ── Financeiro no kit FV (RC-D92/D93): os dois ajustes que a pagina pede sobre
+   as pecas compartilhadas. ── */
+
+/* O KPI daqui mostra DINHEIRO, nao contagem: "R$ 128.450,00" tem o dobro dos
+   caracteres de "184" e estouraria o card no corpo de 1.7rem do kit.
+   ⚠️ So o `font-size` e desktop: o gate mobile (`.clients-page-v2
+   .spv2-list-scroll .fv-kpi-value`, mais adiante) tem a MESMA especificidade e
+   vem DEPOIS, entao ele vence abaixo de 901px com o 1.25rem dele — que e o que
+   se quer ali. O corte por ellipsis nao esta la e sobrevive nos dois. */
+.fv-fin-page .fv-kpi-value.fin-kpi-value {
+  font-size: 1.32rem;
+  min-width: 0;
   overflow: hidden;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  padding: 0 1rem;
-  opacity: 0;
-  transition: opacity 0.22s ease 0.05s;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
-.fin-card.is-expanded .fin-card-expanded-inner {
-  opacity: 1;
-  padding-bottom: 0.85rem;
-}
-.fin-section-title {
-  margin: 0;
-  font-size: 0.72rem;
+
+/* O total da corretagem e o numero pelo qual a linha existe: peso maior que o
+   resto da celula, como o `.fin-fig-strong` faz no card. */
+.fv-fin-page .fv-table .fin-commission {
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: var(--brand-muted);
-}
-.fin-detail {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-}
-.fin-detail-row {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.4rem 0.6rem;
-  border-radius: 8px;
-  background: var(--brand-cream-line);
-}
-.fin-detail-label {
-  font-size: 0.82rem;
-  color: var(--brand-muted);
-}
-.fin-detail-value {
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--brand-green-ink);
 }
 
 /* Movimento reduzido: desliga as animações do DASHBOARD (entrances do
@@ -29960,6 +29866,16 @@ body.is-selection-mode .mobile-tabbar {
   color: var(--fv-chip-amber-fg);
   border-color: rgba(169, 106, 16, 0.42);
 }
+/* RC-D93: os quatro estados do Financeiro pedem os dois tons que faltavam —
+   "vencido" e "cancelado". Mesmas cores dos chips homonimos. */
+.fv-kpi-icon.is-red {
+  color: var(--fv-chip-red-fg);
+  border-color: rgba(192, 74, 58, 0.4);
+}
+.fv-kpi-icon.is-gray {
+  color: var(--fv-chip-gray-fg);
+  border-color: rgba(95, 107, 100, 0.34);
+}
 
 /* Valor + mini-metrica no mesmo bloco (so /samples monta o wrapper). Aqui eles
    seguem empilhados: o wrapper apenas reproduz o espaco que o `gap` do card ja
@@ -30017,7 +29933,25 @@ body.is-selection-mode .mobile-tabbar {
 /* FV /samples: o card "Aguardando classificacao" e um FILTRO (liga o
    statusGroup=CLASSIFICATION_PENDING na lista). Vira <button>: alinhamento
    de texto a esquerda, press so por profundidade (sem troca de cor) e
-   estado ligado marcado pela borda ambar. */
+   estado ligado marcado pela borda ambar.
+
+   RC-D93: no Financeiro sao QUATRO cartoes-filtro, um por estado, cada um com
+   seu tom. Por isso a marca de "ligado" virou variavel: o ambar continua sendo
+   o padrao (e o que /samples usa, sem escrever nada), e quem tem tom proprio o
+   declara. Marcar o cartao "Vencido" de ambar leria como outro estado. */
+.fv-kpi-tone-amber {
+  --fv-kpi-active: var(--fv-chip-amber-fg);
+}
+.fv-kpi-tone-red {
+  --fv-kpi-active: var(--fv-chip-red-fg);
+}
+.fv-kpi-tone-green {
+  --fv-kpi-active: var(--fv-chip-green-fg);
+}
+.fv-kpi-tone-gray {
+  --fv-kpi-active: var(--fv-chip-gray-fg);
+}
+
 .fv-kpi.is-clickable {
   align-items: stretch;
   text-align: left;
@@ -30034,11 +29968,11 @@ body.is-selection-mode .mobile-tabbar {
   transform: scale(0.985);
 }
 .fv-kpi.is-clickable.is-active {
-  border-color: var(--fv-chip-amber-fg);
-  box-shadow: inset 0 0 0 1px var(--fv-chip-amber-fg);
+  border-color: var(--fv-kpi-active, var(--fv-chip-amber-fg));
+  box-shadow: inset 0 0 0 1px var(--fv-kpi-active, var(--fv-chip-amber-fg));
 }
 .fv-kpi.is-clickable.is-active .fv-kpi-delta {
-  color: var(--fv-chip-amber-fg);
+  color: var(--fv-kpi-active, var(--fv-chip-amber-fg));
 }
 
 /* ── KPI no mobile: dois cards, dentro da rolagem ──
@@ -30398,12 +30332,14 @@ body.is-selection-mode .mobile-tabbar {
     display: none;
   }
 
-  /* ── Mesmo cartao institucional na lista de Contratos (FV /contratos, RC-F6).
-     A pagina compartilha a casca `.clients-page-v2` com /cadastros e /users — e
-     ainda a `.ctr-page` com /financeiro, que segue no kit legado. Por isso o
-     escopo proprio `.fv-ctr-page`: mesma especificidade, declarado DEPOIS, e o
-     vizinho legado nao sente nada. ── */
-  .fv-ctr-page .clients-v2-sheet {
+  /* ── Mesmo cartao institucional nas listas de Contratos (FV /contratos, RC-F6)
+     e Financeiro (RC-D92). As duas compartilham a casca `.clients-page-v2` com
+     /cadastros e /users e a `.ctr-page` entre si; cada uma tem o escopo proprio
+     (`.fv-ctr-page`/`.fv-fin-page`) pra que uma mudanca de layout de lista nao
+     atravesse a parede. As regras sao as mesmas — a diferenca entre elas esta
+     no chrome e nas colunas, nao no cartao. ── */
+  .fv-ctr-page .clients-v2-sheet,
+  .fv-fin-page .clients-v2-sheet {
     margin: 1rem clamp(0.9rem, 3vw, 2rem) 1.15rem;
     padding: 0;
     background: var(--fv-surface);
@@ -30413,7 +30349,8 @@ body.is-selection-mode .mobile-tabbar {
   }
 
   /* O scroll da tabela NAO e grid (o grid 3-col e dos cards legados). */
-  .fv-ctr-page .clients-v2-sheet .spv2-list-scroll.fv-table-scroll {
+  .fv-ctr-page .clients-v2-sheet .spv2-list-scroll.fv-table-scroll,
+  .fv-fin-page .clients-v2-sheet .spv2-list-scroll.fv-table-scroll {
     display: block;
     padding: 0;
   }
@@ -30526,6 +30463,28 @@ body.is-selection-mode .mobile-tabbar {
      propria justamente para nao arrastar as outras duas tabelas junto. */
   .fv-col-situacao {
     width: 176px;
+  }
+
+  /* Colunas da tabela do Financeiro (RC-D92): 6, SEM acoes (RC-D95 — a pagina e
+     leitura pura, a linha inteira abre o contrato). "Contrato" reusa a largura
+     homonima de /contratos (mesmo dado: numero + data embaixo) e "Estado" reusa
+     a `.fv-col-status`, que e exatamente um chip. As quatro do meio sao proprias
+     porque carregam DINHEIRO: os tres valores tem largura fixa (numero nao deve
+     dancar entre linhas) e "Corretagem" e a mais larga das tres porque leva o
+     split vendedor · comprador na sublinha. Quem absorve a sobra e Comprador —
+     o texto que mais varia. */
+  .fv-col-fin-buyer {
+    width: auto;
+    min-width: 180px;
+  }
+  .fv-col-fin-value {
+    width: 140px;
+  }
+  .fv-col-fin-commission {
+    width: 178px;
+  }
+  .fv-col-fin-due {
+    width: 128px;
   }
 
   /* ── Linha das cinco fases (RC-D80..D83) ──────────────────────────────
@@ -31114,8 +31073,10 @@ body.is-selection-mode .mobile-tabbar {
    FV /users U5: a pagina de Usuarios divide a casca `.clients-page-v2`, entao
    o 2o seletor ja a cobre — ela nao precisa de linha propria aqui, so precisou
    mover a toolbar pra dentro do `.spv2-list-scroll` (que e o que o seletor
-   pede). `/contratos` e `/embarques` tambem usam a casca e seguem com a
-   `.hero-search-wrap` — por isso o qualificador da rolagem importa. */
+   pede). Mesmo caminho depois em `/contratos` (RC-F6) e `/financeiro`
+   (RC-D93). O qualificador da rolagem segue importando: e ele que garante que
+   uma pagina so acenda a toolbar mobile DEPOIS de largar a `.hero-search-wrap`
+   — as duas juntas seriam chrome dupla. */
 @media (max-width: 900px) {
   .fv-lotes-page .fv-toolbar,
   .clients-page-v2 .spv2-list-scroll .fv-toolbar,
