@@ -91,12 +91,16 @@ plan mode, não uma edição de passagem.
 ## §5 Ordem das páginas
 
 `/cadastros` (piloto) → `/samples` → `/relatorios` → `/users` + `/profile` → `/contratos` +
-`/financeiro` → globais (senha, menu, login). Câmera fica fora.
+`/financeiro` → globais (senha, menu, login). Câmera fica fora. **Só faltam as globais e o
+dashboard** (que o Flavio pediu por último).
 
 > **`/embarques` saiu da fila porque a página deixou de existir** (ciclo RC, 2026-07-27): virou
 > redirect para `/contratos`, e `/financeiro` — que era redirect — virou página. As duas de contrato
-> entram juntas, e **depois** da RC-F2/F3 (que mudam a estrutura da página, não o visual): redesenhar
-> antes de a página parar de mudar de forma é exatamente o retrabalho que este ciclo evita.
+> entraram juntas, mas em **duas rodadas** (RC-F6): `/contratos` em 2026-07-28 e `/financeiro` no dia
+> seguinte, depois de o **comportamento** dela fechar (RC-D67 leitura pura, RC-D89 qual cancelado
+> cobra). É a mesma regra de sempre, aplicada dentro do par: redesenhar antes de a página parar de
+> mudar de forma é o retrabalho que este ciclo evita — e aqui o que mudou de forma foi **o que a
+> página tinha a dizer**, não o layout.
 
 Ajustável a cada passo, mas **o piloto é referência**: `/cadastros` foi onde o kit nasceu e é o
 exemplar a consultar quando a dúvida for "como isso ficou lá?".

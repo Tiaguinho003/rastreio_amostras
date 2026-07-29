@@ -38,10 +38,17 @@ DESKTOP (≥901px)                     MOBILE (≤900px)
 **seletor multi-página** — `.fv-lotes-page X, .clients-page-v2 .spv2-list-scroll X, .relatorios-page .rsm-feed X` —
 as listas que já passaram pelo ciclo mobile (`/samples` e as duas abas de `/cadastros`, RD16; mais o
 feed de `/relatorios`, que não é tabela — feed + acordeão — mas reusa a chrome KPI+toolbar, escopada
-ao seu container de rolagem `.rsm-feed`). `/contratos` entrou na RC-F6 e pega o gate de graça, porque
-já é `.clients-page-v2`. Quem ainda usa a `.hero-search-wrap` antiga é **`/financeiro`** — ligar o gate
-na base lhe daria **duas chromes empilhadas**. Cada nova lista entra somando seu escopo ao media-gate (critério do
+ao seu container de rolagem `.rsm-feed`). `/contratos` (RC-F6) e `/financeiro` (RC-D93) entraram
+depois e pegam o gate **de graça**, porque já são `.clients-page-v2` e movem a chrome para dentro do
+`.spv2-list-scroll`. Cada nova lista entra somando seu escopo ao media-gate (critério do
 `css-architecture`). Nenhuma precisa de condicional no JSX.
+
+🔴 **O qualificador da rolagem é o que impede chrome dupla.** Enquanto uma página ainda montava a
+`.hero-search-wrap` legada, acender a `.fv-toolbar` na base lhe daria **duas buscas empilhadas** —
+por isso o gate pede `.spv2-list-scroll`, que só existe depois que a página larga a busca antiga.
+_(Desde 2026-07-29 **ninguém mais monta `.hero-search-wrap`**: o `FinanceiroPanel` era o último. As
+~60 regras `.hero-search-*` seguem no `globals.css`, mortas por seletor, esperando uma varredura
+própria.)_
 
 🔴 **No mobile NADA fica travado no topo.** A lista tem altura fixa (quem rola é o
 `.spv2-list-scroll`, não a janela), então cada faixa presa acima dela custa altura **permanente** na
@@ -88,14 +95,21 @@ aceito é que a busca sai de vista com a lista rolada.
 No desktop, grid **fixo de 4 colunas** (`repeat(4, minmax(0, 1fr))`). Menos de 4 cartões deixa
 buraco; mais de 4 não cabe. Se a página tem 3 indicadores bons, ache o quarto ou repense.
 
-**No mobile são DOIS cartões, não quatro.** A tela estreita não comporta a mesma leitura de
-gestão: ficam os dois que respondem a uma pergunta de quem está operando (em `/samples`, "Em aberto"
-e pendências) e a faixa vira `grid-template-columns: repeat(2, minmax(0, 1fr))`. Quem corta é a
-**página, filtrando o array** — troca de árvore, como o resto do split; esconder cartão por CSS
+**No mobile, em geral são DOIS cartões, não quatro.** A tela estreita não comporta a mesma leitura
+de gestão: ficam os dois que respondem a uma pergunta de quem está operando (em `/samples`, "Em
+aberto" e pendências) e a faixa vira `grid-template-columns: repeat(2, minmax(0, 1fr))`. Quem corta é
+a **página, filtrando o array** — troca de árvore, como o resto do split; esconder cartão por CSS
 deixaria markup morto no DOM.
 
 Dois cartões cabem lado a lado, então **não há carrossel**. Já houve: com scroll-x, metade da
 informação ficava atrás de um gesto que ninguém sabia que existia.
+
+🔴 **Mas o corte é sobre o que o cartão FAZ, não sobre quantos são.** O critério: **cartão que só
+informa pode ser cortado; cartão que é a única porta de um estado, não.** Em `/financeiro` os quatro
+cartões **são o filtro da página** (não há chips) — cortar dois tornaria "Recebida" e "Cancelado"
+inalcançáveis no mobile. Lá a página passa os quatro, e o `repeat(2, …)` do gate os quebra em **2×2**
+sem uma linha de CSS nova: o "KPI-2" sempre foi **quantos cartões a página passa**, nunca uma trava
+do kit.
 
 🔴 **A faixa entra DENTRO da rolagem** (§1), como primeiro item do `.spv2-list-scroll`, com a
 toolbar logo abaixo.
@@ -139,10 +153,13 @@ lista, uma busca sem resultado tiraria da tela justamente o campo que precisa se
 </article>
 ```
 
-- Tons do ícone: `is-blue`, `is-green`, `is-amber`.
+- Tons do ícone: `is-blue`, `is-green`, `is-amber`, `is-red`, `is-gray`.
 - **O delta renderiza `' '` quando não existe** — não `null`. O espaço reserva a linha e impede que
   os cartões fiquem com alturas diferentes.
 - Valor ausente é `'—'`, nunca `0` (0 é um dado; ausente é outra coisa).
+- **Valor em dinheiro precisa de folga**: `"R$ 128.450,00"` tem o dobro dos caracteres de `"184"` e
+  estoura o corpo de 1.7rem do kit. Reduza o `font-size` **no escopo da página** e ponha o corte por
+  ellipsis (`/financeiro`, `.fin-kpi-value`) — não mexa no kit por causa de uma página.
 
 ### KPI como filtro
 
@@ -171,6 +188,25 @@ comunica o estado ligado — sem ele o leitor de tela não sabe que o filtro est
 Antes de criar um filtro novo no backend para isso, **procure um que já exista**: o
 `statusGroup=CLASSIFICATION_PENDING` de `/samples` já era aceito pela query e nunca tinha sido
 exposto na UI.
+
+#### Quando a KPI row É o filtro (sem chips)
+
+`/financeiro`: os quatro cartões cobrem os quatro estados e **substituem** a fileira de chips.
+Três coisas que isso exige:
+
+- 🔴 **Os números têm que ser independentes do filtro ativo** (e do cursor), variando só com a
+  **busca**. Se ligar "Vencido" recalculasse os outros três, os cartões mentiriam justo quando
+  alguém olha para eles. No servidor: os agregados sob o `where` da busca, **não** sob o do filtro.
+- 🔴 **Cartão e filtro leem a MESMA expressão.** Em `listBrokerReceivables` os `where` dos quatro
+  estados são uma constante só, usada pelos grupos da paginação e pelos quatro `aggregate`. Duas
+  expressões paralelas discordam no primeiro ajuste — e aí o cartão diz 3 e a lista mostra 2.
+- **Clicar no cartão aceso desliga** (volta a "todos"), e um "Limpar" aparece na toolbar quando há
+  filtro — a saída não pode depender de achar qual cartão está aceso.
+- **O anel de "ligado" segue o tom do cartão** (`--fv-kpi-active`, padrão âmbar). Com quatro tons,
+  marcar o "Vencido" de âmbar leria como outro estado.
+
+**Um total que é a soma dos cartões não vira um 5º cartão nem sobrevive na resposta.** Número
+derivável do que já está na tela é uma segunda fonte da verdade esperando para divergir.
 
 ### A rota de stats
 
@@ -354,8 +390,10 @@ Informação secundária mora **dentro** da célula do que ela qualifica, não e
 
 ### Linha clicável
 
-A `<tr>` inteira abre o detalhe; o identificador é `<button>` para o teclado. A célula de ações
-**isola o clique**:
+A `<tr>` inteira abre o detalhe; o identificador é `<button>` para o teclado. **Se o destino é outra
+página** (e não um overlay ali mesmo), ele é um `<Link>` de verdade com `stopPropagation` — o
+teclado ganha o alvo e o botão do meio abre em outra aba, coisas que um `<button>` com `router.push`
+não dá (`/financeiro`). A célula de ações **isola o clique**:
 
 ```tsx
 <td className="fv-table-td-actions" onClick={(event) => event.stopPropagation()}>
@@ -387,6 +425,11 @@ O vazio do modo seleção tem texto próprio ("Nenhum lote disponível para liga
 ---
 
 ## §6 Menu ⋯ da linha
+
+🔴 **Página de leitura pura não tem ⋯.** Se a única saída da linha é abrir o registro, um menu de um
+item só é ruído: a coluna some e **a linha inteira** navega (§5, "Linha clicável"). É o caso de
+`/financeiro` (RC-D95) — sem ⋯, sem `.fv-col-actions`, 6 colunas cheias. O ⋯ existe para **escolher
+entre ações**; com uma, ele é um clique a mais para chegar onde o clique na linha já chegava.
 
 ```tsx
 <div className="fv-row-menu-wrap" ref={rowMenuFor === id ? rowMenuRef : undefined}>
@@ -647,9 +690,7 @@ Ao tocar nestes pontos, alinhe:
 - **Loading inicial do `/cadastros`**: ainda texto, não skeleton.
 - **`.fv-table-lotes`**: classe aplicada no JSX de `/samples` sem regra CSS correspondente. Ou ganha
   regra, ou sai.
-- **Card mobile de `/contratos`** (`SaleContractCard`): a página entrou no kit pela RC-F6, mas o
-  **conteúdo** do card ficou de fora por decisão do Flavio — só a moldura em volta dele mudou. Não é
-  o `.cv2-card` do §"O card da lista"; é o `.ctr-card` legado. A rodada seguinte migra.
-- **`/financeiro`**: única lista ainda fora do kit — `.hero-search-wrap` própria, sem `.fv-toolbar`.
-  Desde a RC-D67 ela é **leitura pura**: nenhum card tem botão, então a migração não precisa
-  acomodar ação nenhuma.
+- **Cards mobile de `/contratos` e `/financeiro`** (`SaleContractCard`, `FinanceiroCard`): as duas
+  páginas entraram no kit (RC-F6, 1ª e 2ª rodadas), mas o **conteúdo** dos cards ficou nos tokens
+  legados — `.ctr-card`/`.fin-card`, não o `.cv2-card` do §"O card da lista". A moldura em volta
+  (page-head, KPI row, toolbar, cartão da lista) é kit; o miolo do card não. Migram juntos.

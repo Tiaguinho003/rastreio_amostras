@@ -2,7 +2,7 @@
 
 Status: Em andamento (backlog + decisões + pendências da página `/contratos`)
 Escopo: o backlog, as pendências e o **ledger de decisões** da feature de Contratos (hub `/contratos`: contrato/PDF, Espelho de Corretagem, Financeiro, Aprovações, Embarque). O **estado atual** do que existe vive em `Contratos-Visao-Geral.md`; aqui ficam as decisões (o porquê), as pendências abertas e o histórico condensado.
-Última revisão: 2026-07-29 (**§8 — RC-D74..D79 DECIDIDAS, sem código**: status e fase são dois conceitos, embarque e faturamento são o MESMO DIA — o embarque volta sem coluna nova — e o que falta construir é o quadro de fases, a RC-F2. Antes, no mesmo dia: **§7 — RC-D69..D73 IMPLEMENTADAS**: a seleção de lote deixa de ser passo e vira **campo obrigatório** da Identificação — a criação à vista cai para **dois passos**, o cartão de identidade morre e o Editar mostra o lote travado. Anterior: 2026-07-28, **§6 — RC-D62..D68**: o contrato deixa de ser máquina de status e vira **agenda** — três situações (`EMITIDO`/`FINALIZADO`/`WASH_OUT`), o embarque morre inteiro, a aprovação não trava nada e o `/financeiro` vira leitura. Antes, no mesmo dia: §5.10–§5.16, a RC-F5 e a 1ª rodada da RC-F6. Anterior: 2026-07-27, §5.9 — RC-F1+F4)
+Última revisão: 2026-07-29 (**§11 — RC-D92..D95 IMPLEMENTADAS**: o `/financeiro` entra no kit FV — desktop vira **tabela**, os quatro estados viram a **KPI row clicável que é o filtro** (o `totalCommission` sai por ser a soma deles) e o acordeão do card morre. Fecha a **2ª rodada da RC-F6**. Antes, no mesmo dia: **§10 — RC-D87..D91**, o washout **pergunta** se haverá cobrança de corretagem e a resposta — não mais o tipo — decide o Financeiro (revoga a D145); o lote deixa de desfazer venda e de trocar de dono com contrato. **§9 — RC-D84..D86**: finalizar significa que o contrato inteiro aconteceu, e só existe a partir da data de faturamento. **§8 — RC-D74..D79**: status e fase são dois conceitos; embarque e faturamento são o MESMO DIA. **§7 — RC-D69..D73**: a seleção de lote vira **campo** e a criação à vista cai para dois passos. Anterior: 2026-07-28, **§6 — RC-D62..D68**: o contrato deixa de ser máquina de status e vira **agenda**)
 Documentos relacionados: `Contratos-Visao-Geral.md` (documento-mãe / estado atual), `Dashboard-Visao-Geral.md`, `API-e-Contratos.md`, `Auditoria-Navegacao-por-Papel.md`
 
 > **Divisão de papéis:** a `Contratos-Visao-Geral.md` é a **verdade viva** (o que existe hoje). Este plano guarda **decisões (por quê), pendências (o que falta) e o backlog**. O histórico completo de sessões (S1–S91 etc.) e a prosa superada foram para o **Git** (docs antigos removidos em 2026-07-13); o ledger no apêndice condensa cada decisão à resolução final.
@@ -21,7 +21,7 @@ Contrato à vista + futuro, a criação repensada (RC-F5) e a moldura institucio
 
 ## 2. Pendências abertas
 
-- **P27 — Layout e design das páginas de Contrato** (Fase G): **ENDEREÇADA pela §5 (RC)** desde 2026-07-27. A parte de _disposição das páginas_ virou o ledger RC-D1..D12; a parte de _layout e design_ é a **RC-F6** (ciclo FV), que só começa depois de as páginas estarem organizadas — ordem pedida pelo Flavio.
+- ~~**P27 — Layout e design das páginas de Contrato**~~ (Fase G): **FECHADA em 2026-07-29**. A parte de _disposição das páginas_ virou o ledger RC-D1..D12 (§5); a de _layout e design_ era a **RC-F6**, concluída em duas rodadas — `/contratos` (§5.12) e `/financeiro` (§11). Falta só a validação no device.
 - **P28 — Gestão das 3 listas cadastráveis** (Modalidade / Forma de pagamento / Embalagem): renomear / inativar / reordenar (`sortOrder`) — adiada (D95; hoje só existe "+ Adicionar").
 - ~~**AP-P2 — Estado "atrasado" na Aprovação**~~ — **FECHADA pela RC-D64 (§6)**: atraso passa a existir **só no `paymentDate`**. A aprovação não atrasa: o aviso aparece na janela do lead e se recolhe sozinho.
 - **Validação no device:** todo o fluxo (à vista/futuro, criação em **2 passos** com o lote como campo, lista FV, finalizar/reabrir) precisa do ✅ no aparelho.
@@ -1348,6 +1348,93 @@ baixo (import/teste) não emite contrato, e a UI travaria um campo que o servido
   a validação `!selectedOwnerClient` travava a edição dos **outros** campos num lote legado (dono só
   em texto), e o `ownerClientId` continuava indo no payload — que o servidor agora recusa. Campo
   travado sai do payload (`forms` §3).
+
+## 11. O Financeiro no kit FV (RC-D92..D95) — 2026-07-29
+
+> **Fonte:** o Flavio, logo depois de fechar o washout: _"vamos trabalhar nos ajustes de design e
+> layout da pagina do financeiro pois hoje ele esta seguindo o padrão antigo de design"_. Fecha a
+> **2ª rodada da RC-F6** — a 1ª migrou `/contratos`, esta migra a página vizinha.
+
+### 11.1 O problema
+
+`/financeiro` era a última página do domínio ainda no padrão antigo, e a diferença ficou gritante
+quando `/contratos` migrou: as duas vivem lado a lado na navegação. Ela empilhava **quatro faixas**
+acima da lista — vencidos, busca legada (`.hero-search-wrap`), cinco chips de filtro e um contador —
+e mostrava cards com **acordeão** que escondiam uma linha de informação.
+
+Duas coisas erradas por trás da forma:
+
+- **O total do topo somava estados que não se somam.** A faixa "Corretagem total" juntava o que ainda
+  vem com o que já foi recebido num número só. Ele mandou apagá-la antes desta rodada (commit
+  `78eda51`); a pergunta que sobrou foi **o que põe no lugar**.
+- **O acordeão cobrava um clique por linha para revelar uma linha.** O que ele escondia era o split
+  vendedor · comprador da corretagem: um dado curto, que cabe à vista.
+
+### 11.2 Decisões (ledger RC, continuação)
+
+| #          | Decisão                                                                                                                                         |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| **RC-D92** | O desktop é **tabela** (6 colunas). O **acordeão morre** nos dois breakpoints — o split da corretagem vira sublinha, sempre visível             |
+| **RC-D93** | Os **4 estados viram a KPI row, clicável**: cada cartão traz o valor em R$ e a contagem, e **é o filtro**. Os chips e a faixa de vencidos somem |
+| **RC-D94** | No mobile são os **4 cartões, em 2×2** — exceção deliberada ao KPI-2 do kit                                                                     |
+| **RC-D95** | **Sem coluna ⋯.** A página é leitura pura (RC-D67): a única saída é abrir o contrato, e quem faz isso é a **linha inteira** (e o card inteiro)  |
+
+> **Por que os 4 cartões no mobile.** A regra do kit corta a KPI row para dois no mobile porque lá
+> ela é **leitura de gestão** e empurra a lista para baixo sem responder nada. Aqui o cartão é a
+> **única porta** do estado — cortar dois tornaria "Recebida" e "Cancelado" inalcançáveis. O critério
+> que ficou: **cartão que só informa pode ser cortado; cartão que é a única porta, não.**
+
+> **Por que o `totalCommission` saiu da resposta em vez de virar um 5º cartão.** Os quatro `where`
+> são uma **partição exata** do conjunto que ele somava (`EMITIDO ∪ FINALIZADO ∪ washout que cobra`),
+> então ele é a soma dos quatro. Um número derivável dos que já estão na tela é uma segunda fonte da
+> verdade esperando para divergir.
+
+### 11.3 O que foi feito
+
+**Os quatro números vêm do servidor, e vêm da mesma expressão do filtro.** Os `where` dos quatro
+estados viraram uma constante só (`STATE_WHERE`), lida pelos `groups` da paginação **e** pelos quatro
+`aggregate`. Cartão e filtro não podem discordar sobre o que é "vencido" — com duas expressões
+paralelas, discordariam no primeiro ajuste. Os agregados seguem sob `filterWhere` (a **busca**) e
+**independem do filtro ativo e do cursor**: era a propriedade que o cabeçalho antigo já tinha, e é
+exatamente a que o KPI-filtro precisa — clicar num cartão filtra a lista e não mexe nos outros três.
+
+**A contagem da toolbar deixou de mentir.** Era `items.length` (só as páginas já carregadas); passou
+a sair dos KPIs — a soma dos quatro no "Todos", o do estado ativo quando há filtro.
+
+**A chrome é a de `/contratos`**, montada uma vez e posicionada por breakpoint: `.fv-page-head`
+(desktop-only, sem ações — aqui não se cria nada), `.fv-kpi-row` e `.fv-toolbar`. No mobile as duas
+faixas rolam **dentro** do `.spv2-list-scroll`. A página ganhou o escopo `.fv-fin-page`, no molde do
+`.fv-ctr-page`.
+
+**O chip de estado virou o `.fv-chip` do kit.** Eram quatro mapas de hex inline copiados dos dots do
+calendário. A coerência evento↔página se mantém pela **família** da cor (âmbar/vermelho/verde/cinza),
+agora nos tokens FV — o hex era a implementação, não o acordo.
+
+**Dois tons novos no kit** (`.fv-kpi-icon.is-red` e `.is-gray`) e o anel de "filtro ligado" virou
+variável (`--fv-kpi-active`, padrão âmbar): com quatro cartões de tons diferentes, marcar o "Vencido"
+de âmbar leria como outro estado. `/samples`, que tem um cartão só, não escreve nada e não muda.
+
+### 11.4 Achados do caminho
+
+- **O 2×2 do mobile não custou uma linha de CSS.** O gate mobile do kit é
+  `grid-template-columns: repeat(2, …)` e casa por seletor com esta página
+  (`.clients-page-v2 .spv2-list-scroll .fv-kpi-row`); quatro cartões simplesmente quebram em duas
+  linhas. O que a skill chama de "KPI-2" era **quantos cartões a página passa**, não uma trava do
+  CSS — e a condição para o gate acender era largar a `.hero-search-wrap`, senão seriam duas chromes
+  empilhadas.
+- **Um teste fixava a corretagem em `30` e o contrato dele era Futuro (150).** A asserção certa não é
+  um número escrito à mão: é `res.kpis[estado].value === item.commissionTotal` — o KPI vale o que o
+  item da lista diz que vale. Número mágico em teste esconde justamente a variação que interessa.
+- **O `.fin-card` virou `<a>`.** Com o acordeão fora sobrava um único botão ("Ver contrato") dentro de
+  um card que já parecia clicável; o card absorveu a geometria do `.fin-card-head` e a ação. Sem
+  interativo aninhado, que era o motivo de o botão existir separado.
+- 🔴 **A `.hero-search-wrap` morreu com esta página, e não foi apagada.** `/financeiro` era o
+  **último** consumidor da busca legada; hoje **nenhum JSX a monta**, mas as ~60 regras
+  `.hero-search-*` continuam no `globals.css` (base em `:4698+`, overrides `.clients-page-v2` em
+  `:6605`/`:21125`/`:27070`/`:28930` e um `:has()` em `:34319`). Ficaram de fora **de propósito**:
+  parte delas são seletores compostos com `.cv2-fab`, que segue vivo, e varrê-las junto misturaria
+  uma limpeza de 8 pontos do arquivo com a mudança que precisa ser conferida na tela. É uma
+  varredura própria — está registrado nas skills `data-tables` §1 e `design-system`.
 
 ## Apêndice A — Ledger de decisões (condensado)
 
