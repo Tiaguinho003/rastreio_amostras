@@ -133,6 +133,46 @@ test('computeContractMoney: corretagem 0 => 0.00', () => {
   assert.equal(money.buyerBrokerageValue, '0.00');
 });
 
+// RC-D108: o meio-centavo. Todos os fixtures acima sao redondos (preco inteiro ou
+// pct inteiro), e foi exatamente por isso que o bug passou: o round2 antigo usava
+// Number.EPSILON (absoluto, 2.22e-16) contra um ulp de ~1e-12 na faixa de valores
+// do negocio, e o meio-centavo caia para BAIXO. Cada caso abaixo tem produto exato
+// terminando em ,xx5 — o round2 antigo devolvia UM CENTAVO MENOS em todos.
+test('computeContractMoney: meio-centavo arredonda para CIMA (RC-D108)', () => {
+  const casos = [
+    // [preco/sc, sacas, pct, total esperado, comissao esperada, o que o bug dava]
+    [700.01, 1000, 2.25, '700010.00', '15750.23', '15750.22'],
+    [700.01, 100, 1.5, '70001.00', '1050.02', '1050.01'],
+    [700.02, 150, 1.5, '105003.00', '1575.05', '1575.04'],
+    [100.03, 1000, 2.25, '100030.00', '2250.68', '2250.67'],
+  ];
+  for (const [unitPrice, quantitySacks, sellerPct, total, comissao, bug] of casos) {
+    const money = computeContractMoney({ unitPrice, quantitySacks, sellerPct, buyerPct: 0 });
+    assert.equal(money.totalValue, total, `total de ${unitPrice} x ${quantitySacks}`);
+    assert.equal(
+      money.sellerBrokerageValue,
+      comissao,
+      `${unitPrice} x ${quantitySacks} x ${sellerPct}% deve dar ${comissao}, nao ${bug}`
+    );
+    assert.notEqual(money.sellerBrokerageValue, bug);
+  }
+});
+
+test('computeContractMoneyWithAgio: meio-centavo com ágio também sobe (RC-D108)', () => {
+  // efetivo 700,01 = 650,00 + 50,01; x 1000 = 700.010,00; x 2,25% = 15.750,225
+  const money = computeContractMoneyWithAgio({
+    unitPrice: 650,
+    quantitySacks: 1000,
+    sellerPct: 2.25,
+    buyerPct: 1.5,
+    agioType: 'AGIO',
+    agioValue: 50.01,
+  });
+  assert.equal(money.totalValue, '700010.00');
+  assert.equal(money.sellerBrokerageValue, '15750.23');
+  assert.equal(money.buyerBrokerageValue, '10500.15');
+});
+
 test('formatContractNumber: NNNN/AA com zero-padding', () => {
   assert.equal(formatContractNumber(1, 2026), '0001/26');
   assert.equal(formatContractNumber(42, 2026), '0042/26');

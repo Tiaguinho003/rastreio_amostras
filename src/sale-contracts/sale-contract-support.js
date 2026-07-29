@@ -17,8 +17,20 @@ export const SALE_CONTRACT_STATUSES = Object.freeze(['EMITIDO', 'FINALIZADO', 'W
 const DECIMAL_12_2_MAX = 9999999999.99;
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+// Arredondamento HALF-UP de verdade em 2 casas (RC-D108). Ate 2026-07-29 isto era
+// `Math.round((value + Number.EPSILON) * 100) / 100`, e o empurrao NAO funcionava: o
+// Number.EPSILON (2.22e-16) e ABSOLUTO, mas o ulp de um valor da ordem de 1e4 e ~1e-12
+// — cinco ordens de grandeza maior. Resultado: o meio-centavo caia para BAIXO.
+// Ex.: 700.010,00 x 2,25% = 15.750,225 exato, mas o float da 15750.224999999999, e
+// gravava-se 15.750,22 em vez de 15.750,23 — um centavo a menos no banco E no papel.
+// Aqui reaproximamos o produto escalado ao decimal exato ANTES do Math.round: o valor
+// exato e sempre multiplo de 0,0001 (preco e pct tem 2 casas), entao 15 digitos
+// significativos desambiguam com folga. Negativos seguem o mesmo caminho do Math.round
+// (meio para +inf) — inalcancaveis no dominio: pct fora de 0..100 e desagio >= preco
+// sao recusados na escrita (normalizeBrokeragePct / assertAgioWithinUnitPrice).
 function round2(value) {
-  return Math.round((value + Number.EPSILON) * 100) / 100;
+  if (!Number.isFinite(value)) return value;
+  return Math.round(Number((value * 100).toPrecision(15))) / 100;
 }
 
 // Aceita number ou string ("1234,56" ou "1234.56"); devolve number finito.

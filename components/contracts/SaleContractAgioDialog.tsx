@@ -14,7 +14,12 @@ import type { AgioDesagioType, SaleContract, SessionData } from '../../lib/types
 // do SaleContractLifecycleDialog (.app-modal.is-themed.is-action).
 
 const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
-const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+// Espelha o round2 do backend (`sale-contract-support.js`) — RC-D108. Tem que ser a
+// MESMA conta, senão a prévia mostra um centavo de diferença do valor gravado. O
+// Number.EPSILON que estava aqui é inócuo na faixa de valores do negócio e derrubava
+// o meio-centavo; ver o comentário longo no backend para o porquê.
+const round2 = (n: number) =>
+  Number.isFinite(n) ? Math.round(Number((n * 100).toPrecision(15))) / 100 : n;
 
 type SaleContractAgioDialogProps = {
   session: SessionData;
