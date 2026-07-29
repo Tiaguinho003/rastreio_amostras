@@ -5,17 +5,18 @@
 // de 620px no desktop ≥901px, sheet de tela cheia no mobile; quem controla o
 // param é o ContratosPanel). Coluna ÚNICA: o DOCUMENTO (PDF on-demand, D126 —
 // mesmo blob/iframe do antigo "Visualizar", que este modal absorveu) primeiro,
-// seções na sequência — read-only, MENOS Aprovação e Embarque, que desde a
-// RC-D25 carregam as ações que moravam na /embarques extinta ("Gerar etiqueta"
-// e "Confirmar embarque"; é a semente das fases da RC-F2). Exportar/Baixar
-// acompanham a seção do documento, em todos os status.
+// seções na sequência — read-only, MENOS Aprovação, que desde a RC-D25 carrega
+// o "Gerar etiqueta" que morava na /embarques extinta. Exportar/Baixar
+// acompanham a seção do documento, em todas as situações.
 // O HISTÓRICO (timeline D125) fecha o overlay:
 // linha = "há X tempo" + quem + o quê, com a data/hora exata de apoio (D119);
 // marcos legados (pré-D123) saem só com a data, sem autor. Rodapé = ações por
-// status (D121/D122): EMITIDO = Editar·Ágio·Deságio·Washout; FATURADO/PAGO =
-// Washout; WASH_OUT = sem ações. COMMERCIAL vê TUDO nos contratos dele (D120 —
-// a restrição da D86 vale só no Financeiro). Dados: getSaleContract fresco
-// (com corretores) + getSaleContractTimeline.
+// situação (D121): EMITIDO = Editar·Ágio·Deságio·Finalizar·Washout;
+// FINALIZADO = Reabrir·Washout; WASH_OUT = sem ações. COMMERCIAL vê TUDO nos
+// contratos dele (D120 — a restrição da D86 vale só no Financeiro). Dados:
+// getSaleContract fresco (com corretores) + getSaleContractTimeline.
+//
+// RC-D65: a seção Embarque (confirmação + fotos + transporte) morreu inteira.
 
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -25,10 +26,10 @@ import {
   downloadSaleContractPdf,
   getApprovalLabelPrefill,
   getSaleContract,
+  finalizeSaleContract,
   getSaleContractTimeline,
-  listShipmentPhotos,
+  reopenSaleContract,
   setSaleContractApprovalFlag,
-  shipmentPhotoDownloadUrl,
 } from '../../lib/api-client';
 import { formatRelativeTime } from '../../lib/relative-time';
 import { downloadFile, shareOrDownloadFile } from '../../lib/share-blob';
@@ -41,12 +42,17 @@ import type {
   SaleContractBrokerView,
   SaleContractTimelineItem,
   SessionData,
-  ShipmentPhoto,
 } from '../../lib/types';
 import { ApprovalLabelModal } from '../ApprovalLabelModal';
 import { DetailOverlay } from '../DetailOverlay';
-import { STATUS_META, STATUS_TEXT_COLOR, STATUS_TINT } from './SaleContractCard';
-import { ShipmentConfirmationModal } from './ShipmentConfirmationModal';
+import {
+  agendaColor,
+  contractAgenda,
+  contractAgendaLabel,
+  STATUS_META,
+  STATUS_TEXT_COLOR,
+  STATUS_TINT,
+} from './SaleContractCard';
 
 type SaleContractDetailsModalProps = {
   session: SessionData;
@@ -111,8 +117,14 @@ function timelineLabel(item: SaleContractTimelineItem): string {
       // D127: o log é gravado na EXPORTAÇÃO (Exportar/Baixar) — a prévia não audita.
       return `Espelho exportado — ${item.side === 'seller' ? 'Vendedor' : 'Comprador'}`;
     case 'STATUS': {
+      // RC-D63: a marca terminal VAI e VOLTA — o log acumula as duas linhas, e
+      // é por isso que "quem finalizou e quando" não virou coluna do contrato.
       const base =
-        item.toStatus === 'FATURADO' ? 'Faturado' : item.toStatus === 'PAGO' ? 'Pago' : 'Washout';
+        item.toStatus === 'FINALIZADO'
+          ? 'Contrato finalizado'
+          : item.toStatus === 'EMITIDO'
+            ? 'Contrato reaberto'
+            : 'Washout';
       return item.reason ? `${base} — ${item.reason}` : base;
     }
     default:
@@ -218,19 +230,15 @@ export function SaleContractDetailsModal({
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<{ blob: Blob; fileName: string } | null>(null);
   const [now] = useState(() => Date.now());
-  // Seção "Embarque": data real + galeria + a AÇÃO de confirmar (RC-D25 — a
-  // EMB18 mandava só ver, porque a casa da confirmação era a sub-aba; com
-  // /embarques extinta, a casa é aqui). Só busca quando o contrato exige embarque.
-  const [shipmentPhotos, setShipmentPhotos] = useState<ShipmentPhoto[] | null>(null);
-  const [photoPreview, setPhotoPreview] = useState<ShipmentPhoto | null>(null);
-  const [shipmentOpen, setShipmentOpen] = useState(false);
+  // RC-D62/D63: Finalizar/Reabrir também vivem aqui (o rodapé), sem confirmação.
+  const [terminalBusy, setTerminalBusy] = useState(false);
   // RC-D25: geração da etiqueta de aprovação (revoga a AP29 — a sub-aba era "a
   // única porta proativa"). Busca o prefill e abre o ApprovalLabelModal, molde
   // do ex-AprovacoesPanel.
   const [labelPrefill, setLabelPrefill] = useState<ApprovalLabelPrefill | null>(null);
   const [labelBusy, setLabelBusy] = useState(false);
-  // Recarrega contrato + timeline + fotos depois de gerar etiqueta / confirmar
-  // embarque (os dois mudam o que as seções mostram).
+  // Recarrega contrato + timeline depois de gerar etiqueta ou finalizar/reabrir
+  // (os dois mudam o que as seções mostram).
   const [reloadNonce, setReloadNonce] = useState(0);
   const toast = useToast();
   // AP32: "Solicitar aprovação" — latch de mão única (mutação inline no Detalhes) +
@@ -240,17 +248,16 @@ export function SaleContractDetailsModal({
   const [approvalConfirmOpen, setApprovalConfirmOpen] = useState(false);
   const approvalConfirmTrapRef = useFocusTrap(approvalConfirmOpen);
 
-  // F3 do redesign: com superficie interna aberta (confirm de aprovacao,
-  // lightbox de foto, etiqueta ou confirmacao de embarque), ESC/X do overlay
-  // NAO fecham o detalhe (molde do dismissGuardRef da F1 — ver DetailOverlay).
+  // F3 do redesign: com superficie interna aberta (confirm de aprovacao ou
+  // etiqueta), ESC/X do overlay NAO fecham o detalhe (molde do dismissGuardRef
+  // da F1 — ver DetailOverlay).
   const dismissGuardRef = useRef(false);
   useEffect(() => {
-    dismissGuardRef.current =
-      approvalConfirmOpen || photoPreview != null || labelPrefill != null || shipmentOpen;
+    dismissGuardRef.current = approvalConfirmOpen || labelPrefill != null;
     return () => {
       dismissGuardRef.current = false;
     };
-  }, [approvalConfirmOpen, photoPreview, labelPrefill, shipmentOpen]);
+  }, [approvalConfirmOpen, labelPrefill]);
 
   useEffect(() => {
     if (!open) return;
@@ -278,23 +285,6 @@ export function SaleContractDetailsModal({
       aborted = true;
     };
   }, [open, session, contract.id, reloadNonce]);
-
-  // EMB18: fotos do embarque (só quando o contrato exige — requiresShipment é imutável
-  // desde a emissão, então o snapshot da lista basta para gatear).
-  useEffect(() => {
-    if (!open || !contract.requiresShipment) return;
-    let aborted = false;
-    listShipmentPhotos(session, contract.id)
-      .then((res) => {
-        if (!aborted) setShipmentPhotos(res.items);
-      })
-      .catch(() => {
-        if (!aborted) setShipmentPhotos([]);
-      });
-    return () => {
-      aborted = true;
-    };
-  }, [open, session, contract.id, contract.requiresShipment, reloadNonce]);
 
   useEffect(() => {
     if (!open) return;
@@ -357,11 +347,41 @@ export function SaleContractDetailsModal({
 
   const view = fresh ?? contract;
   const meta = STATUS_META[view.status];
+  const agenda = contractAgenda(view);
+  const agendaTone = agendaColor(agenda);
 
   // AP32: "Solicitar aprovação" é um latch de mão única — só aparece quando o contrato
   // ainda é "Não" + EMITIDO + gerencia; depois de "Sim" não há como desmarcar (nem aqui
-  // nem no Editar). Congelamento por status (faturado/washout) igual à AP20.
+  // nem no Editar). Congelamento por situação (finalizado/washout) igual à AP20.
   const canManageApproval = canManage && view.status === 'EMITIDO';
+
+  // RC-D62/D63: Finalizar e Reabrir — um toque, sem confirmação (voltam atrás) e
+  // sem data (não afirmam um fato do mundo). O contrato recarrega e a lista do pai
+  // se atualiza no fechamento do overlay.
+  async function runTerminal(direction: 'finalize' | 'reopen') {
+    if (terminalBusy) return;
+    setTerminalBusy(true);
+    try {
+      const call = direction === 'finalize' ? finalizeSaleContract : reopenSaleContract;
+      const res = await call(session, contract.id, { expectedVersion: view.version });
+      setFresh(res.contract);
+      setReloadNonce((n) => n + 1);
+      toast.success({
+        title: direction === 'finalize' ? 'Contrato finalizado' : 'Contrato reaberto',
+      });
+    } catch (cause) {
+      toast.error({
+        title:
+          cause instanceof ApiError && cause.status === 409
+            ? 'Este contrato foi modificado. Recarregue a página e tente de novo.'
+            : cause instanceof ApiError
+              ? cause.message
+              : 'Não foi possível atualizar o contrato.',
+      });
+    } finally {
+      setTerminalBusy(false);
+    }
+  }
   async function handleRequestApproval() {
     if (approvalBusy) return;
     setApprovalBusy(true);
@@ -382,12 +402,13 @@ export function SaleContractDetailsModal({
     }
   }
 
-  // Rodapé por status (D121/D122). WASH_OUT (ou sem gestão) = sem rodapé —
+  // Rodapé por situação (D121). WASH_OUT (ou sem gestão) = sem rodapé —
   // Exportar/Baixar já vivem na seção do documento.
   const footerButtons: Array<{
     key: string;
     label: string;
     danger?: boolean;
+    disabled?: boolean;
     onClick: () => void;
   }> = [];
   if (canManage && view.status === 'EMITIDO') {
@@ -395,10 +416,24 @@ export function SaleContractDetailsModal({
       { key: 'editar', label: 'Editar', onClick: onEditar },
       { key: 'agio', label: 'Ágio', onClick: () => onApplyAgio('AGIO') },
       { key: 'desagio', label: 'Deságio', onClick: () => onApplyAgio('DESAGIO') },
+      {
+        key: 'finalizar',
+        label: terminalBusy ? 'Finalizando...' : 'Finalizar',
+        disabled: terminalBusy,
+        onClick: () => void runTerminal('finalize'),
+      },
       { key: 'washout', label: 'Washout', danger: true, onClick: onWashout }
     );
-  } else if (canManage && (view.status === 'FATURADO' || view.status === 'PAGO')) {
-    footerButtons.push({ key: 'washout', label: 'Washout', danger: true, onClick: onWashout });
+  } else if (canManage && view.status === 'FINALIZADO') {
+    footerButtons.push(
+      {
+        key: 'reabrir',
+        label: terminalBusy ? 'Reabrindo...' : 'Reabrir',
+        disabled: terminalBusy,
+        onClick: () => void runTerminal('reopen'),
+      },
+      { key: 'washout', label: 'Washout', danger: true, onClick: onWashout }
+    );
   }
   // Espelho: elegível em mais status que as ações acima (inclui WASH_OUT do FUTURO) —
   // botão à parte, guiado pela elegibilidade (não pelo branch de status).
@@ -414,6 +449,7 @@ export function SaleContractDetailsModal({
             key={button.key}
             type="button"
             className={`ctr-btn${button.danger ? ' ctr-btn-danger' : ''}`}
+            disabled={button.disabled}
             onClick={button.onClick}
           >
             {button.label}
@@ -433,12 +469,10 @@ export function SaleContractDetailsModal({
     'Faturamento (planejado)',
     view.invoiceDate ? dateOnly(view.invoiceDate) : 'À definir',
   ]);
-  if (view.invoicedAt) identRows.push(['Faturado em', dateOnly(view.invoicedAt)]);
   identRows.push([
     'Pagamento (planejado)',
     view.paymentDate ? dateOnly(view.paymentDate) : 'À definir',
   ]);
-  if (view.paidAt) identRows.push(['Pago em', dateOnly(view.paidAt)]);
   if (view.status === 'WASH_OUT' && view.washoutAt) {
     identRows.push(['Washout em', dateOnly(view.washoutAt)]);
   }
@@ -480,31 +514,6 @@ export function SaleContractDetailsModal({
     ...warehouseRows('Do vendedor', view.sellerWarehouseSnapshot as Snapshot),
   ];
 
-  const shipmentRows: Array<[string, string]> = [];
-  if (view.requiresShipment) {
-    shipmentRows.push(['Situação', view.shippedAt ? 'Embarcado' : 'Aguardando embarque']);
-    if (view.shippedAt) {
-      shipmentRows.push(['Embarcado em', dateOnly(view.shippedAt)]);
-      // EMB30: transporte + responsável (só "Pela empresa"), snapshot do embarque.
-      if (view.shipmentCarrier) {
-        shipmentRows.push([
-          'Transporte',
-          view.shipmentCarrier === 'COMPANY' ? 'Pela empresa' : 'Por terceiros',
-        ]);
-        if (view.shipmentCarrier === 'COMPANY') {
-          shipmentRows.push(['Responsável', view.shipmentResponsibleName ?? '—']);
-        }
-      }
-    }
-  }
-  // EMB31: passados 15 dias do embarque, uma galeria vazia significa "expiraram", não
-  // "nunca teve foto" (aproxima pelo shippedAt; se ainda houvesse foto, a lista não
-  // estaria vazia). A purga física das fotos é oportunista no backend.
-  const shipmentPhotoWindowOver =
-    view.shippedAt !== null &&
-    !Number.isNaN(new Date(view.shippedAt).getTime()) &&
-    new Date(view.shippedAt).getTime() + 15 * 24 * 60 * 60 * 1000 < Date.now();
-
   return (
     <>
       <DetailOverlay
@@ -516,6 +525,10 @@ export function SaleContractDetailsModal({
         footer={footer}
         dismissGuardRef={dismissGuardRef}
       >
+        {/* RC-D68: dois selos — a SITUAÇÃO (em andamento/finalizado/cancelado) e,
+            quando há um, o PRÓXIMO COMPROMISSO. A lista mostra só o segundo, porque
+            lá o espaço é uma coluna; aqui cabem os dois, e o detalhe é onde faz
+            sentido saber as duas coisas. Ambos derivados da mesma fonte. */}
         <div className="ctr-details-head">
           <span
             className="spv2-card-badge"
@@ -523,6 +536,16 @@ export function SaleContractDetailsModal({
           >
             {meta.label}
           </span>
+          {agenda.kind !== 'nenhum' &&
+          agenda.kind !== 'finalizado' &&
+          agenda.kind !== 'cancelado' ? (
+            <span
+              className="spv2-card-badge"
+              style={{ background: agendaTone.tint, color: agendaTone.text }}
+            >
+              {contractAgendaLabel(agenda)}
+            </span>
+          ) : null}
           <span className="ctr-details-type">{TYPE_LABEL[view.type] ?? view.type}</span>
         </div>
 
@@ -641,54 +664,6 @@ export function SaleContractDetailsModal({
                 )}
               </section>
             ) : null}
-            {view.requiresShipment ? (
-              <section>
-                <h4 className="ctr-section-title">Embarque</h4>
-                <FieldRows rows={shipmentRows} />
-                {/* RC-D25: confirmar o embarque mora AQUI (revoga EMB20/EMB26 —
-                    a casa era a sub-aba Embarque, extinta). Espelha o gate do
-                    backend: SHIPPABLE_STATUSES = EMITIDO|FATURADO e shippedAt
-                    nulo (sale-contract-shipment-service.js:14,194). O portão do
-                    pagar (EMB28) segue abrindo o mesmo modal reativamente. */}
-                {canManage &&
-                !view.shippedAt &&
-                (view.status === 'EMITIDO' || view.status === 'FATURADO') ? (
-                  <div className="ctr-details-actions">
-                    <button type="button" className="ctr-btn" onClick={() => setShipmentOpen(true)}>
-                      Confirmar embarque
-                    </button>
-                  </div>
-                ) : null}
-                {shipmentPhotos === null ? (
-                  <p className="ctr-modal-loading">Carregando as fotos...</p>
-                ) : shipmentPhotos.length === 0 ? (
-                  shipmentPhotoWindowOver ? (
-                    <p className="ctr-details-empty">
-                      As fotos deste embarque não estão mais disponíveis (retenção de 15 dias).
-                    </p>
-                  ) : (
-                    <p className="ctr-details-empty">Sem fotos do embarque.</p>
-                  )
-                ) : (
-                  <div className="emb-gallery">
-                    {shipmentPhotos.map((photo) => (
-                      <button
-                        key={photo.id}
-                        type="button"
-                        className="emb-gallery-thumb"
-                        onClick={() => setPhotoPreview(photo)}
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={shipmentPhotoDownloadUrl(view.id, photo.id)}
-                          alt="Foto do embarque"
-                        />
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </section>
-            ) : null}
             {view.observations || view.description ? (
               <section>
                 <h4 className="ctr-section-title">Textos</h4>
@@ -746,43 +721,6 @@ export function SaleContractDetailsModal({
           onClose={() => setLabelPrefill(null)}
         />
       ) : null}
-      {shipmentOpen ? (
-        <ShipmentConfirmationModal
-          session={session}
-          contractId={contract.id}
-          onClose={() => setShipmentOpen(false)}
-          onDone={() => {
-            setShipmentOpen(false);
-            setReloadNonce((n) => n + 1);
-            toast.success({ title: 'Embarque confirmado' });
-          }}
-        />
-      ) : null}
-      {photoPreview
-        ? createPortal(
-            <div
-              className="emb-lightbox"
-              role="dialog"
-              aria-modal="true"
-              onClick={() => setPhotoPreview(null)}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={shipmentPhotoDownloadUrl(view.id, photoPreview.id)}
-                alt="Foto do embarque"
-              />
-              <button
-                type="button"
-                className="emb-lightbox-close"
-                onClick={() => setPhotoPreview(null)}
-                aria-label="Fechar"
-              >
-                <span aria-hidden="true">&times;</span>
-              </button>
-            </div>,
-            document.body
-          )
-        : null}
       {/* AP32: confirmação do latch de mão única — "Solicitar aprovação" é definitivo. */}
       {approvalConfirmOpen
         ? createPortal(

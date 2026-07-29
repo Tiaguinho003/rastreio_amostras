@@ -14,7 +14,13 @@ import {
 import { ANIMATION_MS, BottomSheet } from '../BottomSheet';
 import { ChipMultiSelectField } from '../ChipMultiSelectField';
 import { ClientLookupField } from '../clients/ClientLookupField';
-import { ApiError, getSaleContract, listSaleContracts } from '../../lib/api-client';
+import {
+  ApiError,
+  finalizeSaleContract,
+  getSaleContract,
+  listSaleContracts,
+  reopenSaleContract,
+} from '../../lib/api-client';
 import { espelhoEligibility } from '../../lib/espelho';
 import { useDelayedValue } from '../../lib/use-delayed-value';
 import { useContractHighlight } from '../../lib/use-contract-highlight';
@@ -43,15 +49,16 @@ import {
   formatContractDate,
   SaleContractCard,
   snapshotName,
-  STATUS_CHIP,
-  STATUS_META,
+  AGENDA_CHIP,
+  contractAgenda,
+  contractAgendaLabel,
   TYPE_LABEL,
 } from './SaleContractCard';
 import { SaleContractDetailsModal } from './SaleContractDetailsModal';
 import { SaleContractEtapa2Modal } from './SaleContractEtapa2Modal';
-import { SaleContractLifecycleDialog, type LifecycleAction } from './SaleContractLifecycleDialog';
+import { SaleContractLifecycleDialog } from './SaleContractLifecycleDialog';
 
-const STATUS_CHIP_OPTIONS = STATUS_LABELS.map((s) => ({ id: s.value, label: s.label }));
+const SITUACAO_CHIP_OPTIONS = STATUS_LABELS.map((s) => ({ id: s.value, label: s.label }));
 const TYPE_CHIP_OPTIONS = TYPE_LABELS.map((t) => ({ id: t.value, label: t.label }));
 
 // RC-F6: a lista pagina no servidor (keyset por contractSeq). O limite bate com
@@ -193,14 +200,16 @@ export function ContratosPanel({ session }: { session: SessionData }) {
     });
 
   const [etapa2, setEtapa2] = useState<{ contractId: string } | null>(null);
+  // RC-D63: o diálogo sobrou só para o washout — Finalizar/Reabrir são toque
+  // direto (`runTerminal`), sem confirmação, porque voltam atrás.
   const [lifecycle, setLifecycle] = useState<{
     contractId: string;
     expectedVersion: number;
     contractNumber: string;
-    action: LifecycleAction;
-    status: SaleContractStatus;
     hasLot: boolean;
   } | null>(null);
+  // Trava o duplo-toque no Finalizar/Reabrir enquanto o POST não volta.
+  const [terminalBusy, setTerminalBusy] = useState<string | null>(null);
   // Aplicar ágio/deságio (D87): alvo = contrato + sinal escolhido no Detalhes.
   const [agioTarget, setAgioTarget] = useState<{
     contract: SaleContract;
@@ -377,9 +386,9 @@ export function ContratosPanel({ session }: { session: SessionData }) {
     return () => observer.disconnect();
   }, [runLoadMore, listState.nextCursor, listState.status, session]);
 
-  // Recarga pós-mutação (faturar/pagar/washout/ágio/criar): re-busca a 1ª página
+  // Recarga pós-mutação (finalizar/reabrir/washout/ágio/criar): re-busca a 1ª página
   // SEM passar por 'fetch-initial' — o skeleton é para o primeiro carregamento e
-  // para troca de filtro, não para cada avanço de status (antes a lista inteira
+  // para troca de filtro, não para cada marca terminal (antes a lista inteira
   // piscava "Carregando..." depois de toda mutação).
   const refresh = useCallback(async () => {
     if (!session) return;
@@ -551,15 +560,39 @@ export function ContratosPanel({ session }: { session: SessionData }) {
   // (?highlight=<id>). Best-effort — se não estiver na página carregada, só ancora.
   const highlightId = useContractHighlight(contracts, scrollRef);
 
-  const openLifecycleFor = (contract: SaleContract, action: LifecycleAction) =>
+  const openWashoutFor = (contract: SaleContract) =>
     setLifecycle({
       contractId: contract.id,
       expectedVersion: contract.version,
       contractNumber: contract.contractNumber,
-      action,
-      status: contract.status,
       hasLot: contract.type === 'MERCADO_A_VISTA',
     });
+
+  // RC-D62/D63: Finalizar e Reabrir. Sem diálogo e sem data — um toque, e o
+  // toast é o feedback (o contrário do washout, que é definitivo e pede motivo).
+  const runTerminal = async (contract: SaleContract, direction: 'finalize' | 'reopen') => {
+    if (!session || terminalBusy) return;
+    setTerminalBusy(contract.id);
+    try {
+      const call = direction === 'finalize' ? finalizeSaleContract : reopenSaleContract;
+      await call(session, contract.id, { expectedVersion: contract.version });
+      await refresh();
+      toast.success({
+        title: direction === 'finalize' ? 'Contrato finalizado' : 'Contrato reaberto',
+      });
+    } catch (cause) {
+      toast.error({
+        title:
+          cause instanceof ApiError && cause.status === 409
+            ? 'Este contrato foi modificado. Recarregue a página e tente de novo.'
+            : cause instanceof ApiError
+              ? cause.message
+              : 'Falha ao atualizar o contrato.',
+      });
+    } finally {
+      setTerminalBusy(null);
+    }
+  };
 
   // --- Chrome (toolbar) ------------------------------------------------------
 
@@ -749,7 +782,7 @@ export function ContratosPanel({ session }: { session: SessionData }) {
                   <th scope="col">Partes</th>
                   <th scope="col">Sacas</th>
                   <th scope="col">Datas</th>
-                  <th scope="col">Status</th>
+                  <th scope="col">Situação</th>
                   <th scope="col" className="fv-table-th-actions" aria-label="Ações" />
                 </tr>
               </thead>
@@ -813,8 +846,11 @@ export function ContratosPanel({ session }: { session: SessionData }) {
                       </span>
                     </td>
                     <td>
-                      <span className={STATUS_CHIP[contract.status]}>
-                        {STATUS_META[contract.status].label}
+                      {/* RC-D68: a coluna mostra o PRÓXIMO COMPROMISSO, não a fase.
+                          Nos terminais (finalizado/cancelado) volta a ser rótulo —
+                          não há mais nada a vir. */}
+                      <span className={AGENDA_CHIP[contractAgenda(contract).kind]}>
+                        {contractAgendaLabel(contractAgenda(contract))}
                       </span>
                     </td>
                     <td
@@ -850,34 +886,36 @@ export function ContratosPanel({ session }: { session: SessionData }) {
                             role="menu"
                             aria-label={`Ações do contrato ${contract.contractNumber}`}
                           >
-                            {/* O avanço de status que o card mostra no mobile
-                                (RC-D22: um por vez) + abrir. Editar, Ágio e
-                                Washout ficam no PAINEL de Detalhes: precisam do
-                                contexto do contrato na tela. */}
+                            {/* RC-D62/D63: o marco terminal — o mesmo que o card
+                                mostra no mobile. Editar, Ágio e Washout ficam no
+                                PAINEL de Detalhes: precisam do contexto do
+                                contrato na tela. */}
                             {contract.status === 'EMITIDO' && canManage ? (
                               <button
                                 type="button"
                                 role="menuitem"
                                 className="fv-row-menu-item"
+                                disabled={terminalBusy === contract.id}
                                 onClick={() => {
                                   setRowMenuFor(null);
-                                  openLifecycleFor(contract, 'invoice');
+                                  void runTerminal(contract, 'finalize');
                                 }}
                               >
-                                Marcar como faturado
+                                Finalizar
                               </button>
                             ) : null}
-                            {contract.status === 'FATURADO' && canManage ? (
+                            {contract.status === 'FINALIZADO' && canManage ? (
                               <button
                                 type="button"
                                 role="menuitem"
                                 className="fv-row-menu-item"
+                                disabled={terminalBusy === contract.id}
                                 onClick={() => {
                                   setRowMenuFor(null);
-                                  openLifecycleFor(contract, 'pay');
+                                  void runTerminal(contract, 'reopen');
                                 }}
                               >
-                                Marcar como pago
+                                Reabrir
                               </button>
                             ) : null}
                             <button
@@ -920,8 +958,8 @@ export function ContratosPanel({ session }: { session: SessionData }) {
                   onDetalhes={() => openDetails(contract)}
                   canManage={canManage}
                   isHighlighted={highlightId === contract.id}
-                  onFaturar={() => openLifecycleFor(contract, 'invoice')}
-                  onPagar={() => openLifecycleFor(contract, 'pay')}
+                  onFinalizar={() => void runTerminal(contract, 'finalize')}
+                  onReabrir={() => void runTerminal(contract, 'reopen')}
                 />
               ))}
               {listState.status === 'loading-more'
@@ -998,9 +1036,9 @@ export function ContratosPanel({ session }: { session: SessionData }) {
 
           <div className="fv-filter-field">
             <ChipMultiSelectField
-              label="Status"
-              placeholder="Qualquer status"
-              options={STATUS_CHIP_OPTIONS}
+              label="Situação"
+              placeholder="Qualquer situação"
+              options={SITUACAO_CHIP_OPTIONS}
               selected={draftFilters.statuses}
               onChange={(next) =>
                 setDraftFilters((f) => ({ ...f, statuses: next as SaleContractStatus[] }))
@@ -1126,8 +1164,6 @@ export function ContratosPanel({ session }: { session: SessionData }) {
                 contractId: target.id,
                 expectedVersion: target.version,
                 contractNumber: target.contractNumber,
-                action: 'washout',
-                status: target.status,
                 hasLot: target.type === 'MERCADO_A_VISTA',
               });
             closeDetails();
@@ -1156,20 +1192,12 @@ export function ContratosPanel({ session }: { session: SessionData }) {
           contractId={lifecycle.contractId}
           expectedVersion={lifecycle.expectedVersion}
           contractNumber={lifecycle.contractNumber}
-          action={lifecycle.action}
           hasLot={lifecycle.hasLot}
           onClose={() => setLifecycle(null)}
           onDone={() => {
-            const { action } = lifecycle;
             setLifecycle(null);
             void refresh();
-            const title =
-              action === 'invoice'
-                ? 'Contrato faturado'
-                : action === 'pay'
-                  ? 'Pagamento registrado'
-                  : 'Washout realizado';
-            toast.success({ title });
+            toast.success({ title: 'Washout realizado' });
           }}
         />
       ) : null}

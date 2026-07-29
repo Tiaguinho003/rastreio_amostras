@@ -6,7 +6,7 @@ export type EspelhoSide = 'seller' | 'buyer';
 // ESPELHO_*). Só contratos congelados (D73/D105) com corretagem no lado; o à-vista
 // cancelado por washout não cobra (D145). Fonte única usada pelo card, pelo botão do
 // Detalhes e pela detecção de inelegibilidade da Conferência.
-const ESPELHO_ELIGIBLE_STATUSES: SaleContractStatus[] = ['EMITIDO', 'FATURADO', 'PAGO', 'WASH_OUT'];
+const ESPELHO_ELIGIBLE_STATUSES: SaleContractStatus[] = ['EMITIDO', 'FINALIZADO', 'WASH_OUT'];
 
 type EspelhoEligibilityInput = Pick<
   SaleContract,

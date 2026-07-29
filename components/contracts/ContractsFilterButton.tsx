@@ -39,12 +39,13 @@ export const EMPTY_CONTRACT_FILTERS: ContractFilters = {
   sellerClient: null,
 };
 
-// Status: codigo + rotulo PT. A ordem define a ordem das opcoes no painel.
+// Situacao: codigo + rotulo PT. A ordem define a ordem das opcoes no painel.
+// RC-D62: tres situacoes. "Em andamento" e o EMITIDO — quem quiser so a fila de
+// trabalho filtra por ela (RC-D68: o finalizado FICA na lista por padrao).
 export const STATUS_LABELS: { label: string; value: SaleContractStatus }[] = [
-  { label: 'Emitido', value: 'EMITIDO' },
-  { label: 'Faturado', value: 'FATURADO' },
-  { label: 'Pago', value: 'PAGO' },
-  { label: 'Washout', value: 'WASH_OUT' },
+  { label: 'Em andamento', value: 'EMITIDO' },
+  { label: 'Finalizado', value: 'FINALIZADO' },
+  { label: 'Cancelado', value: 'WASH_OUT' },
 ];
 
 // Tipo: codigo + rotulo PT.

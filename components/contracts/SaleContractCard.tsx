@@ -1,61 +1,107 @@
 'use client';
 
-import type { SaleContract, SaleContractStatus, SaleContractType } from '../../lib/types';
+import type {
+  ContractAgenda,
+  ContractAgendaKind,
+  SaleContract,
+  SaleContractStatus,
+  SaleContractType,
+} from '../../lib/types';
 
 // Fechamento (Fase B.3): card de um contrato na pagina "Contratos". Versao
-// recolhida (basico) + expandida (dropdown estilo Lotes): barra colorida por
-// status na lateral + acoes e detalhes ao expandir. As acoes dependem do status
-// (maquina do Passo 2). Nomes das partes vem do snapshot.
+// recolhida (basico) + expandida (dropdown estilo Lotes): barra colorida na
+// lateral + acoes e detalhes ao expandir. Nomes das partes vem do snapshot.
 //
 // RC-F6: este card e a lista do MOBILE. No desktop a lista virou `.fv-table`
 // (ContratosPanel) — os helpers/mapas exportados daqui sao a fonte unica dos
 // dois. O modo de selecao do Espelho (D76) SAIU junto com o gatilho da pagina:
 // o espelho nasce so no Detalhes do contrato.
+//
+// RC-D68: o que a barra e o selo carregam NAO e mais a fase do contrato — e a
+// AGENDA (o proximo compromisso), derivada no servidor. "Emitido" nunca foi
+// informacao util: todo contrato vivo e emitido. O que o operador precisa saber
+// e o que este contrato ainda vai pedir dele, e quando.
 
-// Exportado: rótulo/cores do selo de status, reusados por outros componentes de
-// contrato (ex.: o modal de Detalhes). (O seletor da Aprovação do /samples saiu na AP29.)
+// Rótulo/cores do selo de SITUAÇÃO (o terminal). Exportado para o modal de
+// Detalhes. (O seletor da Aprovação do /samples saiu na AP29.)
 export const STATUS_META: Record<SaleContractStatus, { label: string; variant: string }> = {
-  EMITIDO: { label: 'Emitido', variant: 'status-badge-success' },
-  FATURADO: { label: 'Faturado', variant: 'status-badge-muted' },
-  PAGO: { label: 'Pago', variant: 'status-badge-muted' },
-  WASH_OUT: { label: 'Washout', variant: 'status-badge-danger' },
+  EMITIDO: { label: 'Em andamento', variant: 'status-badge-success' },
+  FINALIZADO: { label: 'Finalizado', variant: 'status-badge-muted' },
+  WASH_OUT: { label: 'Cancelado', variant: 'status-badge-danger' },
 };
 
-// Cor da barra lateral por status (decisao: distintas por status).
-const STATUS_BAR_COLOR: Record<SaleContractStatus, string> = {
-  EMITIDO: '#eab308', // amarelo
-  FATURADO: '#0d9488', // azul-petroleo (teal)
-  PAGO: '#15803d', // verde-escuro
-  WASH_OUT: '#dc2626', // vermelho
-};
-
-// Fundo (tint claro) do selo de status — combina com a cor do texto/barra.
 export const STATUS_TINT: Record<SaleContractStatus, string> = {
   EMITIDO: '#fef9c3', // amarelo claro
-  FATURADO: '#ccfbf1',
-  PAGO: '#dcfce7',
+  FINALIZADO: '#dcfce7',
   WASH_OUT: '#fee2e2',
 };
 
-// Cor do TEXTO do selo. Igual à barra, EXCETO o Emitido: a barra é amarelo vivo
-// (#eab308), que sumiria como texto no fundo claro — então o selo usa um amarelo
-// escuro legível.
+// Cor do TEXTO do selo. O "em andamento" usa amarelo ESCURO: o amarelo vivo da
+// barra (#eab308) sumiria como texto no fundo claro.
 export const STATUS_TEXT_COLOR: Record<SaleContractStatus, string> = {
-  EMITIDO: '#a16207', // amarelo-escuro (legível no selo)
-  FATURADO: '#0d9488',
-  PAGO: '#15803d',
+  EMITIDO: '#a16207',
+  FINALIZADO: '#15803d',
   WASH_OUT: '#dc2626',
 };
 
-// RC-F6: variante do `.fv-chip` por status, pra tabela do desktop. Os mapas de
-// cor acima pintam o card (barra lateral + selo com `style` inline); a tabela usa
-// o chip do kit institucional. Mesma leitura semantica nos dois.
-export const STATUS_CHIP: Record<SaleContractStatus, string> = {
-  EMITIDO: 'fv-chip fv-chip-amber',
-  FATURADO: 'fv-chip fv-chip-blue',
-  PAGO: 'fv-chip fv-chip-green',
-  WASH_OUT: 'fv-chip fv-chip-red',
+// RC-D68: a paleta da AGENDA. Um compromisso por vez, e a cor diz o tom — âmbar
+// pede ação, azul só lembra, vermelho venceu, verde/cinza acabou. O vencido é o
+// único vermelho de contrato vivo no app (RC-D64).
+const AGENDA_COLOR: Record<ContractAgendaKind, { bar: string; tint: string; text: string }> = {
+  cancelado: { bar: '#dc2626', tint: '#fee2e2', text: '#dc2626' },
+  finalizado: { bar: '#15803d', tint: '#dcfce7', text: '#15803d' },
+  aprovacao: { bar: '#eab308', tint: '#fef9c3', text: '#a16207' },
+  pagamento_vencido: { bar: '#dc2626', tint: '#fee2e2', text: '#dc2626' },
+  faturamento: { bar: '#0d9488', tint: '#ccfbf1', text: '#0d9488' },
+  pagamento: { bar: '#0d9488', tint: '#ccfbf1', text: '#0d9488' },
+  nenhum: { bar: '#cbd5e1', tint: '#f1f5f9', text: '#64748b' },
 };
+
+// Variante do `.fv-chip` por agenda, pra tabela do desktop. Os mapas de cor acima
+// pintam o card (barra + selo com `style` inline); a tabela usa o chip do kit
+// institucional. Mesma leitura semantica nos dois.
+export const AGENDA_CHIP: Record<ContractAgendaKind, string> = {
+  cancelado: 'fv-chip fv-chip-red',
+  finalizado: 'fv-chip fv-chip-green',
+  aprovacao: 'fv-chip fv-chip-amber',
+  pagamento_vencido: 'fv-chip fv-chip-red',
+  faturamento: 'fv-chip fv-chip-blue',
+  pagamento: 'fv-chip fv-chip-blue',
+  nenhum: 'fv-chip',
+};
+
+const AGENDA_FALLBACK: ContractAgenda = { kind: 'nenhum', dayKey: null };
+
+export function contractAgenda(contract: { agenda?: ContractAgenda }): ContractAgenda {
+  return contract.agenda ?? AGENDA_FALLBACK;
+}
+
+export function agendaColor(agenda: ContractAgenda) {
+  return AGENDA_COLOR[agenda.kind] ?? AGENDA_COLOR.nenhum;
+}
+
+// A frase da agenda. O servidor derivou O QUE é (kind + dayKey); a data vira texto
+// aqui, porque formatar data é do front — foi por isso que o derivador não devolve
+// `label` pronto.
+export function contractAgendaLabel(agenda: ContractAgenda): string {
+  const when = agenda.dayKey ? formatContractDate(agenda.dayKey) : null;
+  switch (agenda.kind) {
+    case 'cancelado':
+      return 'Cancelado';
+    case 'finalizado':
+      return 'Finalizado';
+    case 'aprovacao':
+      return 'Aprovação a enviar';
+    case 'pagamento_vencido':
+      return when ? `Pagamento venceu ${when}` : 'Pagamento vencido';
+    case 'faturamento':
+      return when ? `Fatura em ${when}` : 'Fatura à definir';
+    case 'pagamento':
+      return when ? `Pagamento em ${when}` : 'Pagamento à definir';
+    default:
+      return '—';
+  }
+}
 
 export const TYPE_LABEL: Record<SaleContractType, string> = {
   MERCADO_A_VISTA: 'À vista',
@@ -85,21 +131,19 @@ type SaleContractCardProps = {
   contract: SaleContract;
   isExpanded: boolean;
   onToggle: () => void;
-  // Card ENXUTO (Fase J, D121): so o dia a dia — avancar status (canManage) +
-  // Detalhes. Editar/Visualizar/Agio/Desagio/Washout vivem no modal de Detalhes
-  // (Desfazer removido, D122).
-  onFaturar: () => void;
-  // RC-D22 REVOGA a D137: o "Pago" VOLTA pro card, ao lado do Faturado. Ele
-  // morava so no Financeiro, que a RC-D3 fecha pro ADMIN — sem isso, 4 dos 5
-  // papeis perderiam o fim do ciclo do dinheiro. Segue tambem no Financeiro.
-  onPagar: () => void;
+  // Card ENXUTO (Fase J, D121): so o dia a dia — o marco terminal (canManage) +
+  // Detalhes. Editar/Visualizar/Agio/Desagio/Washout vivem no modal de Detalhes.
+  // RC-D62/D63: um botao so, e ele volta — "Finalizar" no contrato em andamento,
+  // "Reabrir" no finalizado.
+  onFinalizar: () => void;
+  onReabrir: () => void;
   // Detalhes (D120): modal grande com o documento + infos + historico. Em
-  // TODOS os status, fora do canManage (COMMERCIAL ve tudo nos dele).
+  // TODAS as situacoes, fora do canManage (COMMERCIAL ve tudo nos dele).
   onDetalhes: () => void;
-  // Avancar status (Faturado/Pago) so pra quem pode gerenciar (D110).
+  // Finalizar/Reabrir so pra quem pode gerenciar (D110).
   canManage?: boolean;
   // DSB-D11: realce (pisca/rola) quando chega do chip de faturamento do dashboard
-  // (?highlight=<id>). Molde do EmbarqueCard/FinanceiroCard.
+  // (?highlight=<id>). Molde do FinanceiroCard.
   isHighlighted?: boolean;
 };
 
@@ -107,33 +151,24 @@ export function SaleContractCard({
   contract,
   isExpanded,
   onToggle,
-  onFaturar,
-  onPagar,
+  onFinalizar,
+  onReabrir,
   onDetalhes,
   canManage = true,
   isHighlighted = false,
 }: SaleContractCardProps) {
-  const meta = STATUS_META[contract.status];
+  const agenda = contractAgenda(contract);
+  const color = agendaColor(agenda);
 
-  // Cabecalho (numero + status + partes) — compartilhado pelos dois modos.
+  // Cabecalho (numero + agenda + partes) — compartilhado pelos dois modos.
   const head = (
     <>
-      <span
-        className="ctr-card-bar"
-        style={{ background: STATUS_BAR_COLOR[contract.status] }}
-        aria-hidden="true"
-      />
+      <span className="ctr-card-bar" style={{ background: color.bar }} aria-hidden="true" />
       <span className="ctr-card-head-main">
         <span className="ctr-card-top">
           <span className="ctr-card-number">{contract.contractNumber}</span>
-          <span
-            className="ctr-card-status"
-            style={{
-              color: STATUS_TEXT_COLOR[contract.status],
-              background: STATUS_TINT[contract.status],
-            }}
-          >
-            {meta.label}
+          <span className="ctr-card-status" style={{ color: color.text, background: color.tint }}>
+            {contractAgendaLabel(agenda)}
           </span>
         </span>
         <span className="ctr-card-parties">
@@ -214,19 +249,20 @@ export function SaleContractCard({
             <p className="ctr-card-washout">Washout: {contract.washoutReason}</p>
           ) : null}
 
-          {/* Card ENXUTO (D121): avancar status + Detalhes. O resto (Editar/Visualizar/
-              Agio/Desagio/Washout/etiqueta/embarque) vive no modal de Detalhes.
-              RC-D22: um botao de avanco por vez — EMITIDO mostra [Faturado],
-              FATURADO mostra [Pago]; o portao do embarque (EMB28) segue no dialogo. */}
+          {/* Card ENXUTO (D121): o marco terminal + Detalhes. O resto (Editar/
+              Visualizar/Agio/Desagio/Washout/etiqueta) vive no modal de Detalhes.
+              RC-D63: Finalizar e Reabrir NAO pedem confirmacao — sao reversiveis, e
+              confirmar um toque reversivel e ruido. O washout, que e definitivo,
+              continua pedindo motivo (no Detalhes). */}
           <div className="ctr-card-actions">
             {contract.status === 'EMITIDO' && canManage ? (
-              <button type="button" className="ctr-btn ctr-btn-primary" onClick={onFaturar}>
-                Faturado
+              <button type="button" className="ctr-btn ctr-btn-primary" onClick={onFinalizar}>
+                Finalizar
               </button>
             ) : null}
-            {contract.status === 'FATURADO' && canManage ? (
-              <button type="button" className="ctr-btn ctr-btn-primary" onClick={onPagar}>
-                Pago
+            {contract.status === 'FINALIZADO' && canManage ? (
+              <button type="button" className="ctr-btn" onClick={onReabrir}>
+                Reabrir
               </button>
             ) : null}
             <button type="button" className="ctr-btn" onClick={onDetalhes}>

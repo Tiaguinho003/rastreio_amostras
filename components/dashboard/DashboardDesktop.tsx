@@ -6,7 +6,6 @@ import {
   getDashboardAvisos,
   getDashboardInvoiceEvents,
   getDashboardPaymentEvents,
-  getDashboardShipmentEvents,
 } from '../../lib/api-client';
 import { isRoleAllowed, PAYMENT_FEED_ROLES } from '../../lib/roles';
 import { useRecentSendsFeed } from '../../lib/use-recent-sends-feed';
@@ -44,7 +43,7 @@ export function DashboardDesktop({ session }: DashboardDesktopProps) {
     'Não foi possível carregar os avisos.'
   );
 
-  // ───────── Card de Eventos (3 feeds mesclados client-side) ─────────
+  // ───────── Card de Eventos (2 feeds mesclados client-side) ─────────
   // F1 (E24/E28): o feed de pagamento tem gate próprio. RC-D5: ele NÃO acompanhou
   // a carteira pro ADMIN-only — segue em todo não-PROSPECTOR (PAYMENT_FEED_ROLES);
   // só o PROSPECTOR nem chama o feed.
@@ -52,9 +51,6 @@ export function DashboardDesktop({ session }: DashboardDesktopProps) {
   // RC-D23: a DSB-D11 (chip inerte quando o papel não abre a aba dona) perdeu o
   // objeto — todo chip aponta pro próprio contrato, que os 5 papéis abrem.
   const [paymentEvents, setPaymentEvents] = useState<Record<string, DashboardCalendarEvent[]>>({});
-  const [shipmentEvents, setShipmentEvents] = useState<Record<string, DashboardCalendarEvent[]>>(
-    {}
-  );
   const [invoiceEvents, setInvoiceEvents] = useState<Record<string, DashboardCalendarEvent[]>>({});
   const [eventsError, setEventsError] = useState<string | null>(null);
   const [paymentWindow, setPaymentWindow] = useState<{ from: string; to: string } | null>(null);
@@ -66,13 +62,11 @@ export function DashboardDesktop({ session }: DashboardDesktopProps) {
   const calendarEvents = useMemo(() => {
     const merged: Record<string, DashboardCalendarEvent[]> = {};
     for (const [day, evs] of Object.entries(paymentEvents)) merged[day] = [...evs];
-    for (const feed of [shipmentEvents, invoiceEvents]) {
-      for (const [day, evs] of Object.entries(feed)) {
-        merged[day] = merged[day] ? [...merged[day], ...evs] : [...evs];
-      }
+    for (const [day, evs] of Object.entries(invoiceEvents)) {
+      merged[day] = merged[day] ? [...merged[day], ...evs] : [...evs];
     }
     return merged;
-  }, [paymentEvents, shipmentEvents, invoiceEvents]);
+  }, [paymentEvents, invoiceEvents]);
 
   const fetchPaymentEvents = useCallback(() => {
     if (!canSeePaymentEvents || !paymentWindow) return;
@@ -87,20 +81,6 @@ export function DashboardDesktop({ session }: DashboardDesktopProps) {
         if (mountedRef.current) setEventsError('Não foi possível carregar os eventos.');
       });
   }, [session, canSeePaymentEvents, paymentWindow]);
-
-  const fetchShipmentEvents = useCallback(() => {
-    if (!paymentWindow) return;
-    if (!window.matchMedia(DESKTOP_MQ).matches) return;
-    getDashboardShipmentEvents(session, paymentWindow)
-      .then((res) => {
-        if (!mountedRef.current) return;
-        setShipmentEvents(res.events);
-        setEventsError(null);
-      })
-      .catch(() => {
-        if (mountedRef.current) setEventsError('Não foi possível carregar os eventos.');
-      });
-  }, [session, paymentWindow]);
 
   const fetchInvoiceEvents = useCallback(() => {
     if (!paymentWindow) return;
@@ -118,9 +98,8 @@ export function DashboardDesktop({ session }: DashboardDesktopProps) {
 
   const refetchEvents = useCallback(() => {
     fetchPaymentEvents();
-    fetchShipmentEvents();
     fetchInvoiceEvents();
-  }, [fetchPaymentEvents, fetchShipmentEvents, fetchInvoiceEvents]);
+  }, [fetchPaymentEvents, fetchInvoiceEvents]);
 
   useEffect(() => {
     const doFetch = () => {
