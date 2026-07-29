@@ -17,13 +17,11 @@ import {
   buildInvoiceEvent,
   buildDashboardAvisoItem,
   buildReceivableView,
-  buildShipmentEvent,
   bucketPaymentEvents,
-  bucketShipmentEvents,
   bucketInvoiceEvents,
   buildSaleContractDraftFromSale,
-  buildShipmentView,
   computeContractMoney,
+  deriveContractAgenda,
   computeContractMoneyWithAgio,
   decodeContractSeqCursor,
   formatContractNumber,
@@ -38,7 +36,6 @@ import {
   normalizeEtapa2Input,
   normalizeUuidFilter,
   normalizeRequiredAgio,
-  normalizeShipmentCarrier,
   normalizeUnitPrice,
   normalizeWashoutReason,
   splitOriginLotForLabel,
@@ -380,22 +377,6 @@ test('normalizeEtapa2Input: datas "À definir" (D144) — null explícito só co
   );
 });
 
-test('buildShipmentView: sem invoiceDate nunca fica atrasado — sempre a_embarcar (D144)', () => {
-  const row = {
-    id: 'c1',
-    contractNumber: '0001/26',
-    status: 'EMITIDO',
-    buyerSnapshot: { displayName: 'Comprador Y' },
-    sellerWarehouseSnapshot: null,
-    quantitySacks: 10,
-    invoiceDate: null,
-    shippedAt: null,
-  };
-  const view = buildShipmentView(row, '2099-12-31');
-  assert.equal(view.state, 'a_embarcar');
-  assert.equal(view.invoiceDate, null);
-});
-
 test('normalizeEtapa2Input: ágio exige valor > 0 e tipo válido', () => {
   const out = normalizeEtapa2Input({
     ...validEtapa2(),
@@ -470,14 +451,6 @@ test('normalizeRequiredAgio: aceita o par (case-insensitive) e EXIGE o tipo', ()
     () => normalizeRequiredAgio({ agioDesagioType: 'AGIO', agioDesagioValue: 0 }),
     /greater than zero/
   );
-});
-
-test('normalizeShipmentCarrier: aceita COMPANY/THIRD_PARTY (case-insensitive) e EXIGE o valor', () => {
-  assert.equal(normalizeShipmentCarrier('company'), 'COMPANY');
-  assert.equal(normalizeShipmentCarrier('THIRD_PARTY'), 'THIRD_PARTY');
-  assert.throws(() => normalizeShipmentCarrier(undefined), /transporte is required/);
-  assert.throws(() => normalizeShipmentCarrier(''), /transporte is required/);
-  assert.throws(() => normalizeShipmentCarrier('OUTRO'), /COMPANY or THIRD_PARTY/);
 });
 
 test('normalizeContractLookupInput: valida a lista e exige o nome (trim)', () => {
@@ -647,46 +620,44 @@ test('buildContractTimeline: ordena DESC e separa criacao (export mais antigo) d
   assert.equal(items[0].actorName, 'Flavio O');
 });
 
-test('buildContractTimeline: marcos legados entram SO quando nao ha StatusLog correspondente', () => {
-  const contract = {
-    invoicedAt: '2026-07-10T00:00:00Z',
-    paidAt: '2026-07-20T00:00:00Z',
-    washoutAt: null,
-    washoutReason: null,
-  };
-  const semLog = buildContractTimeline({ contract });
-  assert.deepEqual(
-    semLog.map((item) => [item.kind, item.toStatus, item.legacy, item.actorName]),
-    [
-      ['STATUS', 'PAGO', true, null],
-      ['STATUS', 'FATURADO', true, null],
-    ]
-  );
-
-  const comLog = buildContractTimeline({
-    contract,
+// RC-D63: a marca terminal VAI e VOLTA — o log acumula as duas linhas, e e por isso
+// que "quem finalizou e quando" nao virou coluna do contrato (na 2a passada, coluna
+// seria mentira).
+test('buildContractTimeline: finalizar->reabrir->finalizar acumula 3 marcos auditados', () => {
+  const items = buildContractTimeline({
+    contract: { washoutAt: null, washoutReason: null },
     statusLogs: [
       {
         id: 's1',
-        toStatus: 'FATURADO',
+        toStatus: 'FINALIZADO',
         reason: null,
         actorUserId: 'u1',
         createdAt: '2026-07-10T12:00:00Z',
       },
       {
         id: 's2',
-        toStatus: 'PAGO',
+        toStatus: 'EMITIDO',
         reason: null,
         actorUserId: 'u1',
-        createdAt: '2026-07-20T12:00:00Z',
+        createdAt: '2026-07-11T12:00:00Z',
+      },
+      {
+        id: 's3',
+        toStatus: 'FINALIZADO',
+        reason: null,
+        actorUserId: 'u1',
+        createdAt: '2026-07-12T12:00:00Z',
       },
     ],
     usersById: { u1: { id: 'u1', fullName: null, username: 'italo' } },
   });
-  // Nada duplica: 2 marcos auditados, zero legados; nome cai pro username.
-  assert.equal(comLog.length, 2);
-  assert.ok(comLog.every((item) => item.legacy === false));
-  assert.ok(comLog.every((item) => item.actorName === 'italo'));
+  // Desc por data; nenhum legado; nome cai pro username.
+  assert.deepEqual(
+    items.map((item) => item.toStatus),
+    ['FINALIZADO', 'EMITIDO', 'FINALIZADO']
+  );
+  assert.ok(items.every((item) => item.legacy === false));
+  assert.ok(items.every((item) => item.actorName === 'italo'));
 });
 
 test('buildContractTimeline: agio/aprovacao/espelho mapeiam campos e washout legado carrega o motivo', () => {
@@ -726,72 +697,54 @@ test('buildContractTimeline: agio/aprovacao/espelho mapeiam campos e washout leg
   assert.equal(washout.reason, 'Negocio desfeito');
 });
 
-// F1 (E21-E27/D138): eventos de pagamento do card de Eventos.
-test('buildPaymentEvent (D138): agendado usa paymentDate; realizado usa paidAt; dayKey sem fuso', () => {
+// F1 (E21-E27/D138): eventos de pagamento do card de Eventos. RC-D62/D64: o
+// calendario e AGENDA — o ramo "realizado" (paidAt) morreu, mas o ATRASO ficou,
+// porque paymentDate e a unica data que uma acao (finalizar) resolve.
+test('buildPaymentEvent (D138): usa paymentDate; dayKey sem conversao de fuso', () => {
   const row = {
     id: 'c1',
     version: 2,
-    status: 'FATURADO',
+    status: 'EMITIDO',
     contractNumber: '0007/26',
     paymentDate: new Date('2026-07-10T00:00:00.000Z'),
-    paidAt: null,
     buyerSnapshot: { displayName: 'Comprador X' },
     sellerSnapshot: { displayName: 'Vendedor Y' },
   };
-  const due = buildPaymentEvent(row, 'due', '2026-07-10'); // vence hoje -> ainda "a vencer"
+  const due = buildPaymentEvent(row, '2026-07-10'); // vence hoje -> ainda "a vencer"
   assert.equal(due.dayKey, '2026-07-10'); // do paymentDate, sem conversao de fuso
   assert.equal(due.event.typeKey, 'contract_payment_due');
   assert.equal(due.event.id, 'c1');
   assert.equal(due.event.contractId, 'c1');
-  assert.equal(due.event.status, 'FATURADO');
+  assert.equal(due.event.status, 'EMITIDO');
   assert.equal(due.event.buyerName, 'Comprador X');
   // check-up: version/sellerName saíram do evento (só sellerSnapshot do blob importava).
   // DSB-D10: rótulo com prefixo do tipo + `state` (cor do chip = estado).
   assert.equal(due.event.label, 'pagamento · 0007/26 · Comprador X');
   assert.equal(due.event.state, 'previsto');
-
-  const paidRow = { ...row, status: 'PAGO', paidAt: new Date('2026-07-15T00:00:00.000Z') };
-  const paid = buildPaymentEvent(paidRow, 'paid', '2026-07-20');
-  assert.equal(paid.dayKey, '2026-07-15'); // do paidAt (nao do paymentDate)
-  assert.equal(paid.event.typeKey, 'contract_payment_paid'); // realizado nunca fica atrasado
-  assert.equal(paid.event.state, 'realizado');
 });
 
 // E29 (Revisao do Pagamento): agendado vencido -> "atrasado" (dot vermelho) a partir
-// do dia SEGUINTE ao vencimento.
+// do dia SEGUINTE ao vencimento. RC-D64: e o UNICO vermelho que sobrou.
 test('buildPaymentEvent (E29): vencido vira overdue no dia seguinte; vence-hoje segue due', () => {
   const row = {
     id: 'c9',
     version: 1,
-    status: 'FATURADO',
+    status: 'EMITIDO',
     contractNumber: '0009/26',
     paymentDate: new Date('2026-07-10T00:00:00.000Z'),
-    paidAt: null,
     buyerSnapshot: { displayName: 'Z' },
     sellerSnapshot: null,
   };
   // dia do vencimento: ainda due
-  assert.equal(buildPaymentEvent(row, 'due', '2026-07-10').event.typeKey, 'contract_payment_due');
-  assert.equal(buildPaymentEvent(row, 'due', '2026-07-10').event.state, 'previsto');
+  assert.equal(buildPaymentEvent(row, '2026-07-10').event.typeKey, 'contract_payment_due');
+  assert.equal(buildPaymentEvent(row, '2026-07-10').event.state, 'previsto');
   // dia seguinte: overdue
-  assert.equal(
-    buildPaymentEvent(row, 'due', '2026-07-11').event.typeKey,
-    'contract_payment_overdue'
-  );
-  assert.equal(buildPaymentEvent(row, 'due', '2026-07-11').event.state, 'atrasado');
+  assert.equal(buildPaymentEvent(row, '2026-07-11').event.typeKey, 'contract_payment_overdue');
+  assert.equal(buildPaymentEvent(row, '2026-07-11').event.state, 'atrasado');
   // dias depois: segue overdue
-  assert.equal(
-    buildPaymentEvent(row, 'due', '2026-08-01').event.typeKey,
-    'contract_payment_overdue'
-  );
+  assert.equal(buildPaymentEvent(row, '2026-08-01').event.typeKey, 'contract_payment_overdue');
   // sem todayKey (retrocompat): nao classifica atraso
-  assert.equal(buildPaymentEvent(row, 'due').event.typeKey, 'contract_payment_due');
-  // realizado nunca fica overdue, mesmo com paidAt no passado
-  const paidRow = { ...row, status: 'PAGO', paidAt: new Date('2026-07-01T00:00:00.000Z') };
-  assert.equal(
-    buildPaymentEvent(paidRow, 'paid', '2026-08-01').event.typeKey,
-    'contract_payment_paid'
-  );
+  assert.equal(buildPaymentEvent(row).event.typeKey, 'contract_payment_due');
 });
 
 // Helper BRT: "hoje" ancorado no dia-calendario BRT (offset fixo -3h), nao no UTC.
@@ -813,17 +766,16 @@ test('buildPaymentEvent (D138): sem comprador -> label = so o numero', () => {
     status: 'EMITIDO',
     contractNumber: '0008/26',
     paymentDate: new Date('2026-07-12T00:00:00.000Z'),
-    paidAt: null,
     buyerSnapshot: null,
     sellerSnapshot: null,
   };
-  const { event } = buildPaymentEvent(row, 'due');
+  const { event } = buildPaymentEvent(row);
   assert.equal(event.label, 'pagamento · 0008/26');
   assert.equal(event.state, 'previsto');
   assert.equal(event.buyerName, null);
 });
 
-test('bucketPaymentEvents (D138): agrupa por dayKey (agendado no paymentDate + realizado no paidAt)', () => {
+test('bucketPaymentEvents (D138): agrupa por dayKey (do paymentDate)', () => {
   const due = [
     {
       id: 'a',
@@ -831,40 +783,24 @@ test('bucketPaymentEvents (D138): agrupa por dayKey (agendado no paymentDate + r
       status: 'EMITIDO',
       contractNumber: '1/26',
       paymentDate: new Date('2026-07-10T00:00:00.000Z'),
-      paidAt: null,
       buyerSnapshot: { displayName: 'A' },
       sellerSnapshot: null,
     },
     {
       id: 'b',
       version: 1,
-      status: 'FATURADO',
+      status: 'EMITIDO',
       contractNumber: '2/26',
       paymentDate: new Date('2026-07-10T00:00:00.000Z'),
-      paidAt: null,
       buyerSnapshot: null,
       sellerSnapshot: null,
     },
   ];
-  const paid = [
-    {
-      id: 'c',
-      version: 1,
-      status: 'PAGO',
-      contractNumber: '3/26',
-      paymentDate: new Date('2026-07-06T00:00:00.000Z'), // ignorado no realizado
-      paidAt: new Date('2026-07-13T00:00:00.000Z'), // segunda (dia útil, não rola — DSB-D7)
-      buyerSnapshot: { displayName: 'C' },
-      sellerSnapshot: null,
-    },
-  ];
-  const map = bucketPaymentEvents(due, paid, '2026-07-10'); // vence-hoje -> a,b seguem "due"
+  const map = bucketPaymentEvents(due, '2026-07-10'); // vence-hoje -> a,b seguem "due"
   assert.equal(map['2026-07-10'].length, 2);
-  assert.equal(map['2026-07-13'].length, 1);
   assert.equal(map['2026-07-10'][0].id, 'a');
   assert.equal(map['2026-07-10'][0].typeKey, 'contract_payment_due');
   assert.equal(map['2026-07-10'][1].label, 'pagamento · 2/26'); // sem comprador -> prefixo + numero
-  assert.equal(map['2026-07-13'][0].typeKey, 'contract_payment_paid'); // realizado no paidAt
 });
 
 test('buildRecentApprovalSendItem (AP16): id namespaced, kind APPROVAL, nº+comprador, amostra nula', () => {
@@ -928,66 +864,35 @@ test('bucketPaymentEvents: evento de fim de semana fica no dia real (DSB-D18)', 
       status: 'EMITIDO',
       contractNumber: '9/26',
       paymentDate: new Date('2026-07-11T00:00:00.000Z'), // sábado
-      paidAt: null,
       buyerSnapshot: { displayName: 'X' },
       sellerSnapshot: null,
     },
   ];
-  const map = bucketPaymentEvents(sat, [], '2026-07-01');
+  const map = bucketPaymentEvents(sat, '2026-07-01');
   // Sem roll: aparece no próprio sábado (11), nada na sexta (10).
   assert.equal(map['2026-07-10'], undefined);
   assert.equal(map['2026-07-11'].length, 1);
   assert.equal(map['2026-07-11'][0].typeKey, 'contract_payment_due');
 });
 
-test('bucketShipmentEvents: embarque em fim de semana fica no dia real (DSB-D18)', () => {
-  const sun = [
-    {
-      id: 'y',
-      status: 'EMITIDO',
-      contractNumber: '10/26',
-      invoiceDate: new Date('2026-07-12T00:00:00.000Z'), // domingo (agendado)
-      shippedAt: null,
-      buyerSnapshot: { displayName: 'Y' },
-    },
-  ];
-  const map = bucketShipmentEvents(sun, [], '2026-07-01');
-  assert.equal(map['2026-07-13'], undefined);
-  assert.equal(map['2026-07-12'].length, 1); // fica no domingo
-  assert.ok(map['2026-07-12'][0].id.startsWith('shipment:'));
-  assert.equal(map['2026-07-12'][0].state, 'previsto'); // DSB-D10: cor por estado
-});
-
-// Faturamento (DSB-D11): agendado = invoiceDate/EMITIDO; realizado = invoicedAt.
-test('buildInvoiceEvent (DSB-D11): agendado usa invoiceDate; realizado usa invoicedAt; overdue; state; id namespaced', () => {
+// Faturamento (DSB-D11): agendado = invoiceDate/EMITIDO. RC-D64: LEMBRETE PURO —
+// nenhuma acao o resolve, entao nunca fica vermelho e nao tem marco "realizado";
+// passou o dia, o aviso se recolhe sozinho (o feed so busca a janela visivel).
+test('buildInvoiceEvent (DSB-D11/RC-D64): usa invoiceDate, sempre previsto, id namespaced', () => {
   const row = {
     id: 'k1',
     status: 'EMITIDO',
     contractNumber: '0011/26',
     invoiceDate: new Date('2026-07-10T00:00:00.000Z'),
-    invoicedAt: null,
     buyerSnapshot: { displayName: 'Comprador K' },
   };
-  // agendado, vence hoje -> ainda previsto
-  const sched = buildInvoiceEvent(row, 'scheduled', '2026-07-10');
+  const sched = buildInvoiceEvent(row);
   assert.equal(sched.dayKey, '2026-07-10'); // do invoiceDate, sem conversao de fuso
   assert.equal(sched.event.typeKey, 'contract_invoice');
   assert.equal(sched.event.state, 'previsto');
-  assert.equal(sched.event.id, 'invoice:k1'); // namespaced (nao colide com pagamento/embarque)
+  assert.equal(sched.event.id, 'invoice:k1'); // namespaced (nao colide com pagamento)
   assert.equal(sched.event.contractId, 'k1');
   assert.equal(sched.event.label, 'faturamento · 0011/26 · Comprador K');
-
-  // agendado com o dia ja passado -> atrasado (dia seguinte ao previsto)
-  const overdue = buildInvoiceEvent(row, 'scheduled', '2026-07-11');
-  assert.equal(overdue.event.typeKey, 'contract_invoice_overdue');
-  assert.equal(overdue.event.state, 'atrasado');
-
-  // realizado -> usa invoicedAt (nao invoiceDate), verde, nunca fica atrasado
-  const doneRow = { ...row, status: 'FATURADO', invoicedAt: new Date('2026-07-15T00:00:00.000Z') };
-  const done = buildInvoiceEvent(doneRow, 'done', '2026-08-01');
-  assert.equal(done.dayKey, '2026-07-15'); // do invoicedAt
-  assert.equal(done.event.typeKey, 'contract_invoice_done');
-  assert.equal(done.event.state, 'realizado');
 });
 
 test('buildInvoiceEvent (DSB-D11): sem comprador -> label = faturamento · numero', () => {
@@ -996,73 +901,27 @@ test('buildInvoiceEvent (DSB-D11): sem comprador -> label = faturamento · numer
     status: 'EMITIDO',
     contractNumber: '0012/26',
     invoiceDate: new Date('2026-07-13T00:00:00.000Z'),
-    invoicedAt: null,
     buyerSnapshot: null,
   };
-  const { event } = buildInvoiceEvent(row, 'scheduled');
+  const { event } = buildInvoiceEvent(row);
   assert.equal(event.label, 'faturamento · 0012/26');
   assert.equal(event.buyerName, null);
 });
 
-test('bucketInvoiceEvents (DSB-D11/D18): agrupa por dayKey REAL (agendado no invoiceDate + realizado no invoicedAt)', () => {
+test('bucketInvoiceEvents (DSB-D11/D18): agrupa por dayKey REAL (fim de semana inclusive)', () => {
   const scheduled = [
     {
       id: 'a',
       status: 'EMITIDO',
       contractNumber: '1/26',
       invoiceDate: new Date('2026-07-12T00:00:00.000Z'), // domingo — fica no domingo (DSB-D18)
-      invoicedAt: null,
       buyerSnapshot: { displayName: 'A' },
     },
   ];
-  const done = [
-    {
-      id: 'b',
-      status: 'PAGO',
-      contractNumber: '2/26',
-      invoiceDate: new Date('2026-07-06T00:00:00.000Z'), // ignorado no realizado
-      invoicedAt: new Date('2026-07-13T00:00:00.000Z'), // segunda
-      buyerSnapshot: null,
-    },
-  ];
-  const map = bucketInvoiceEvents(scheduled, done, '2026-07-01');
-  assert.equal(map['2026-07-12'].length, 1); // agendado no dia REAL (domingo)
+  const map = bucketInvoiceEvents(scheduled);
+  assert.equal(map['2026-07-12'].length, 1); // no dia REAL (domingo)
   assert.equal(map['2026-07-12'][0].state, 'previsto');
-  assert.equal(map['2026-07-13'].length, 1); // realizado na segunda
-  assert.equal(map['2026-07-13'][0].state, 'realizado');
-  assert.ok([...map['2026-07-12'], ...map['2026-07-13']].every((e) => e.id.startsWith('invoice:')));
-});
-
-// Embarque (EMB): buildShipmentEvent — agendado = invoiceDate; realizado = shippedAt.
-test('buildShipmentEvent (EMB): agendado usa invoiceDate; realizado usa shippedAt; overdue; state; id namespaced', () => {
-  const row = {
-    id: 's1',
-    status: 'EMITIDO',
-    contractNumber: '0020/26',
-    invoiceDate: new Date('2026-07-10T00:00:00.000Z'),
-    shippedAt: null,
-    buyerSnapshot: { displayName: 'Comprador S' },
-  };
-  // agendado, dia previsto = hoje -> ainda previsto
-  const sched = buildShipmentEvent(row, 'scheduled', '2026-07-10');
-  assert.equal(sched.dayKey, '2026-07-10'); // do invoiceDate
-  assert.equal(sched.event.typeKey, 'contract_shipment');
-  assert.equal(sched.event.state, 'previsto');
-  assert.equal(sched.event.id, 'shipment:s1'); // namespaced (nao colide com pagamento/faturamento)
-  assert.equal(sched.event.contractId, 's1');
-  assert.equal(sched.event.label, 'embarque · 0020/26 · Comprador S');
-
-  // agendado com o dia ja passado -> atrasado
-  const overdue = buildShipmentEvent(row, 'scheduled', '2026-07-11');
-  assert.equal(overdue.event.typeKey, 'contract_shipment_overdue');
-  assert.equal(overdue.event.state, 'atrasado');
-
-  // realizado -> usa shippedAt (nao invoiceDate), verde, nunca fica atrasado
-  const doneRow = { ...row, status: 'FATURADO', shippedAt: new Date('2026-07-08T00:00:00.000Z') };
-  const done = buildShipmentEvent(doneRow, 'done', '2026-08-01');
-  assert.equal(done.dayKey, '2026-07-08'); // do shippedAt
-  assert.equal(done.event.typeKey, 'contract_shipment_done');
-  assert.equal(done.event.state, 'realizado');
+  assert.ok(map['2026-07-12'][0].id.startsWith('invoice:'));
 });
 
 // DSB-D18: um agendado VENCIDO cuja data real cai num FIM DE SEMANA vira overdue
@@ -1072,15 +931,14 @@ test('bucketPaymentEvents (DSB-D18): agendado vencido no fim de semana -> overdu
     {
       id: 'w',
       version: 1,
-      status: 'FATURADO',
+      status: 'EMITIDO',
       contractNumber: '9/26',
       paymentDate: new Date('2026-07-11T00:00:00.000Z'), // sábado, no passado
-      paidAt: null,
       buyerSnapshot: { displayName: 'W' },
       sellerSnapshot: null,
     },
   ];
-  const map = bucketPaymentEvents(due, [], '2026-07-20'); // hoje depois -> vencido
+  const map = bucketPaymentEvents(due, '2026-07-20'); // hoje depois -> vencido
   assert.equal(map['2026-07-10'], undefined); // nada na sexta (sem roll)
   assert.equal(map['2026-07-11'].length, 1); // no próprio sábado
   assert.equal(map['2026-07-11'][0].typeKey, 'contract_payment_overdue');
@@ -1115,7 +973,7 @@ test('buildBankSnapshot (D141): bankName plano, sem bankId/compeCode', () => {
 test('isSpotWashout: só o contrato à vista em WASH_OUT (D145)', () => {
   assert.equal(isSpotWashout({ status: 'WASH_OUT', type: 'MERCADO_A_VISTA' }), true);
   assert.equal(isSpotWashout({ status: 'WASH_OUT', type: 'FUTURO' }), false);
-  assert.equal(isSpotWashout({ status: 'PAGO', type: 'MERCADO_A_VISTA' }), false);
+  assert.equal(isSpotWashout({ status: 'FINALIZADO', type: 'MERCADO_A_VISTA' }), false);
   assert.equal(isSpotWashout({ status: 'EMITIDO', type: 'FUTURO' }), false);
   assert.equal(isSpotWashout(null), false);
 });
@@ -1206,7 +1064,7 @@ test('buildDashboardAvisoItem: dueInDays por proximidade; "À definir" = null', 
 // RC-F6: filtros da lista de /contratos (agora servidor-side).
 // ===========================================================================
 
-const STATUSES = ['EMITIDO', 'FATURADO', 'PAGO', 'WASH_OUT'];
+const STATUSES = ['EMITIDO', 'FINALIZADO', 'WASH_OUT'];
 
 test('normalizeEnumFilterList: aceita lista, string e csv; vazio = sem filtro', () => {
   assert.deepEqual(normalizeEnumFilterList(undefined, STATUSES, 'status'), []);
@@ -1214,20 +1072,22 @@ test('normalizeEnumFilterList: aceita lista, string e csv; vazio = sem filtro', 
   assert.deepEqual(normalizeEnumFilterList('', STATUSES, 'status'), []);
 
   // Multi-selecao viaja como csv na querystring; um valor so viaja cru.
-  assert.deepEqual(normalizeEnumFilterList('PAGO', STATUSES, 'status'), ['PAGO']);
-  assert.deepEqual(normalizeEnumFilterList('EMITIDO,PAGO', STATUSES, 'status'), [
+  assert.deepEqual(normalizeEnumFilterList('FINALIZADO', STATUSES, 'status'), ['FINALIZADO']);
+  assert.deepEqual(normalizeEnumFilterList('EMITIDO,FINALIZADO', STATUSES, 'status'), [
     'EMITIDO',
-    'PAGO',
+    'FINALIZADO',
   ]);
-  assert.deepEqual(normalizeEnumFilterList(['EMITIDO', 'PAGO'], STATUSES, 'status'), [
+  assert.deepEqual(normalizeEnumFilterList(['EMITIDO', 'FINALIZADO'], STATUSES, 'status'), [
     'EMITIDO',
-    'PAGO',
+    'FINALIZADO',
   ]);
 
   // Normaliza caixa/espaco e nao repete.
-  assert.deepEqual(normalizeEnumFilterList(' pago , PAGO ', STATUSES, 'status'), ['PAGO']);
+  assert.deepEqual(normalizeEnumFilterList(' finalizado , FINALIZADO ', STATUSES, 'status'), [
+    'FINALIZADO',
+  ]);
   // Itens vazios do csv sao ignorados (trailing comma nao vira erro).
-  assert.deepEqual(normalizeEnumFilterList('PAGO,', STATUSES, 'status'), ['PAGO']);
+  assert.deepEqual(normalizeEnumFilterList('FINALIZADO,', STATUSES, 'status'), ['FINALIZADO']);
 });
 
 test('normalizeEnumFilterList: item invalido e 422, nao silencio', () => {
@@ -1240,7 +1100,7 @@ test('normalizeEnumFilterList: item invalido e 422, nao silencio', () => {
       return true;
     }
   );
-  assert.throws(() => normalizeEnumFilterList('PAGO,QUITADO', STATUSES, 'status'), /invalid/);
+  assert.throws(() => normalizeEnumFilterList('FINALIZADO,QUITADO', STATUSES, 'status'), /invalid/);
 });
 
 test('normalizeUuidFilter: vazio = sem filtro, malformado = 422', () => {
@@ -1311,4 +1171,128 @@ test('decodeContractSeqCursor: seq positivo; lixo vira 1a pagina', () => {
   assert.equal(decodeContractSeqCursor('1.5'), null);
   assert.equal(decodeContractSeqCursor('-1'), null);
   assert.equal(decodeContractSeqCursor('0'), null);
+});
+
+// ── RC-D68: deriveContractAgenda — o proximo compromisso do contrato ─────────
+// O coracao da reforma: a coluna "Situacao" deixa de ser rotulo de fase e passa a
+// dizer o que este contrato ainda vai pedir. Tudo derivado; nada mantido a mao.
+
+const agendaRow = (over = {}) => ({
+  status: 'EMITIDO',
+  requiresApproval: false,
+  hasApprovalLabel: false,
+  approvalReminderLeadDays: null,
+  invoiceDate: null,
+  paymentDate: null,
+  ...over,
+});
+
+test('deriveContractAgenda: terminais vencem tudo e nao tem data', () => {
+  assert.deepEqual(deriveContractAgenda(agendaRow({ status: 'WASH_OUT' }), '2026-07-10'), {
+    kind: 'cancelado',
+    dayKey: null,
+  });
+  // Mesmo com pagamento vencido: quem cancelou/finalizou nao tem mais compromisso.
+  assert.deepEqual(
+    deriveContractAgenda(
+      agendaRow({
+        status: 'FINALIZADO',
+        paymentDate: new Date('2026-07-01T00:00:00.000Z'),
+        requiresApproval: true,
+      }),
+      '2026-07-10'
+    ),
+    { kind: 'finalizado', dayKey: null }
+  );
+});
+
+test('deriveContractAgenda: aprovacao a enviar vence pagamento vencido e faturamento', () => {
+  const row = agendaRow({
+    requiresApproval: true,
+    hasApprovalLabel: false,
+    approvalReminderLeadDays: 30,
+    invoiceDate: new Date('2026-07-20T00:00:00.000Z'),
+    paymentDate: new Date('2026-07-01T00:00:00.000Z'), // ja vencido
+  });
+  assert.deepEqual(deriveContractAgenda(row, '2026-07-10'), {
+    kind: 'aprovacao',
+    dayKey: '2026-07-20',
+  });
+});
+
+test('deriveContractAgenda: a etiqueta gerada tira o aviso de aprovacao (AP31)', () => {
+  // Mesmo contrato do teste acima, agora COM etiqueta: o aviso some sozinho e o
+  // proximo compromisso passa a ser o pagamento vencido.
+  const row = agendaRow({
+    requiresApproval: true,
+    hasApprovalLabel: true,
+    approvalReminderLeadDays: 30,
+    invoiceDate: new Date('2026-07-20T00:00:00.000Z'),
+    paymentDate: new Date('2026-07-01T00:00:00.000Z'),
+  });
+  assert.deepEqual(deriveContractAgenda(row, '2026-07-10'), {
+    kind: 'pagamento_vencido',
+    dayKey: '2026-07-01',
+  });
+});
+
+test('deriveContractAgenda: fora da janela de lead o aviso de aprovacao ainda nao abre', () => {
+  const row = agendaRow({
+    requiresApproval: true,
+    approvalReminderLeadDays: 5,
+    invoiceDate: new Date('2026-08-30T00:00:00.000Z'), // longe demais
+  });
+  assert.deepEqual(deriveContractAgenda(row, '2026-07-10'), {
+    kind: 'faturamento',
+    dayKey: '2026-08-30',
+  });
+  // Dentro da janela (lead 60 dias), o aviso abre.
+  assert.equal(
+    deriveContractAgenda({ ...row, approvalReminderLeadDays: 60 }, '2026-07-10').kind,
+    'aprovacao'
+  );
+});
+
+test('deriveContractAgenda: "a definir" (D144) SEMPRE avisa a aprovacao (sem janela)', () => {
+  const row = agendaRow({ requiresApproval: true, approvalReminderLeadDays: 0, invoiceDate: null });
+  assert.deepEqual(deriveContractAgenda(row, '2026-07-10'), { kind: 'aprovacao', dayKey: null });
+});
+
+test('deriveContractAgenda (RC-D64): so o pagamento vence; o faturamento e lembrete puro', () => {
+  // Faturamento no passado NAO vira vermelho — nao ha acao que o resolva. Ele
+  // simplesmente sai da frente e o proximo compromisso e o pagamento.
+  const row = agendaRow({
+    invoiceDate: new Date('2026-07-01T00:00:00.000Z'), // passou
+    paymentDate: new Date('2026-07-25T00:00:00.000Z'), // a vencer
+  });
+  assert.deepEqual(deriveContractAgenda(row, '2026-07-10'), {
+    kind: 'pagamento',
+    dayKey: '2026-07-25',
+  });
+  // O pagamento no passado, sim, acende.
+  assert.deepEqual(
+    deriveContractAgenda(
+      { ...row, paymentDate: new Date('2026-07-05T00:00:00.000Z') },
+      '2026-07-10'
+    ),
+    { kind: 'pagamento_vencido', dayKey: '2026-07-05' }
+  );
+});
+
+test('deriveContractAgenda: faturamento hoje ainda conta; pagamento so depois dele', () => {
+  const row = agendaRow({
+    invoiceDate: new Date('2026-07-10T00:00:00.000Z'), // hoje
+    paymentDate: new Date('2026-07-25T00:00:00.000Z'),
+  });
+  assert.deepEqual(deriveContractAgenda(row, '2026-07-10'), {
+    kind: 'faturamento',
+    dayKey: '2026-07-10',
+  });
+});
+
+test('deriveContractAgenda: sem data nenhuma -> nenhum compromisso', () => {
+  assert.deepEqual(deriveContractAgenda(agendaRow(), '2026-07-10'), {
+    kind: 'nenhum',
+    dayKey: null,
+  });
 });

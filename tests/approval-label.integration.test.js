@@ -289,8 +289,8 @@ if (!databaseUrl || !databaseReachable) {
     assert.deepEqual(await auditCounts(), { logs: 0, jobs: 0 });
   });
 
-  test('sendApprovalLabel: 409 APPROVAL_CONTRACT_NOT_ELIGIBLE para marcado FATURADO (AP21 apertou p/ so EMITIDO)', async () => {
-    const contractId = await createContract({ status: 'FATURADO' });
+  test('sendApprovalLabel: 409 APPROVAL_CONTRACT_NOT_ELIGIBLE para marcado FINALIZADO (AP21 apertou p/ so EMITIDO)', async () => {
+    const contractId = await createContract({ status: 'FINALIZADO' });
 
     const response = await api.sendApprovalLabel(
       buildInput({ body: { saleContractId: contractId, lines: buildLines() } })

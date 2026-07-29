@@ -1,8 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import os from 'node:os';
-import path from 'node:path';
 import { PrismaClient } from '@prisma/client';
 
 import { EventContractDbService } from '../src/events/event-contract-db-service.js';
@@ -10,9 +8,7 @@ import { PrismaEventStore } from '../src/events/prisma-event-store.js';
 import { SampleQueryService } from '../src/samples/sample-query-service.js';
 import { SampleCommandService } from '../src/samples/sample-command-service.js';
 import { SaleContractService } from '../src/sale-contracts/sale-contract-service.js';
-import { SaleContractShipmentService } from '../src/sale-contracts/sale-contract-shipment-service.js';
 import { SaleContractPdfService } from '../src/sale-contracts/sale-contract-pdf-service.js';
-import { LocalUploadService } from '../src/uploads/local-upload-service.js';
 import { getContractIssuer } from '../src/sale-contracts/issuer-config.js';
 import { bizDay, calendarDay, dayKey } from './helpers/relative-dates.js';
 import { registrationConfirmedEvent } from './helpers/event-builders.js';
@@ -64,14 +60,6 @@ if (!databaseUrl || !databaseReachable) {
   });
   const saleContractService = new SaleContractService({ prisma, commandService, queryService });
   const saleContractPdfService = new SaleContractPdfService();
-  // Embarque (EMB27): serviço de confirmação com upload local num dir temporário.
-  const shipmentUploadsDir = path.join(os.tmpdir(), `sale-contract-shipment-it-${randomUUID()}`);
-  const shipmentService = new SaleContractShipmentService({
-    prisma,
-    uploadService: new LocalUploadService({ baseDir: shipmentUploadsDir }),
-  });
-  // PNG mínimo (assinatura + início do IHDR) — magic bytes que o file-type aceita.
-  const TINY_PNG = Buffer.from('89504e470d0a1a0a0000000d494844520000000100000001', 'hex');
 
   const commercialActor = {
     actorType: 'USER',
@@ -188,21 +176,13 @@ if (!databaseUrl || !databaseReachable) {
 
   async function fetchLookups() {
     // Determinismo: `findFirst` sem `orderBy` devolve linha arbitraria (a ordem
-    // fisica varia entre ambientes — local x CI). Para a modalidade isso e
-    // critico: se cair numa que exige embarque (Retirar/Posto, requiresShipment),
-    // TODO teste que paga bate no portao EMB28 ("Shipment must be confirmed
-    // before payment"). Estes lookups sao o caso GERAL (sem embarque) — os testes
-    // de embarque escolhem a modalidade por nome a parte. Fixa requiresShipment:false
-    // + orderBy pra reprodutibilidade.
+    // fisica varia entre ambientes — local x CI). `orderBy` fixa a escolha.
     const [paymentForm, modality, packaging] = await Promise.all([
       prisma.contractPaymentForm.findFirst({
         where: { status: 'ACTIVE' },
         orderBy: { name: 'asc' },
       }),
-      prisma.contractModality.findFirst({
-        where: { status: 'ACTIVE', requiresShipment: false },
-        orderBy: { name: 'asc' },
-      }),
+      prisma.contractModality.findFirst({ where: { status: 'ACTIVE' }, orderBy: { name: 'asc' } }),
       prisma.contractPackaging.findFirst({ where: { status: 'ACTIVE' }, orderBy: { name: 'asc' } }),
     ]);
     return { paymentForm, modality, packaging };
@@ -371,599 +351,13 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(contract.movementId, movement.id);
   });
 
-  // Embarque F1 (EMB21/EMB22): o contrato herda "embarca?" da MODALIDADE por
-  // snapshot no emit — Retirar/Posto=sim, Disponivel=nao — e shippedAt nasce nulo.
-  test('emit congela requiresShipment da modalidade e shippedAt nasce nulo', async () => {
-    const modalities = await prisma.contractModality.findMany({
-      where: { name: { in: ['Retirar', 'Disponível'] } },
-    });
-    const retirar = modalities.find((m) => m.name === 'Retirar');
-    const disponivel = modalities.find((m) => m.name === 'Disponível');
-    assert.ok(retirar && disponivel, 'modalidades Retirar/Disponível semeadas');
-    // A flag mora na modalidade (semeada pela migration).
-    assert.equal(retirar.requiresShipment, true);
-    assert.equal(disponivel.requiresShipment, false);
-
-    const buyerId = randomUUID();
-    await createBuyerClient(buyerId);
-
-    const s1 = randomUUID();
-    await createClassifiedSample({ id: s1, lotNumber: '25100', declaredSacks: 10 });
-    const sample1 = await queryService.requireSample(s1);
-    const withShipment = await sell(s1, sample1.version, buyerId, { modalityId: retirar.id });
-    assert.equal(withShipment.contract.requiresShipment, true);
-    assert.equal(withShipment.contract.shippedAt, null);
-
-    const s2 = randomUUID();
-    await createClassifiedSample({ id: s2, lotNumber: '25101', declaredSacks: 10 });
-    const sample2 = await queryService.requireSample(s2);
-    const noShipment = await sell(s2, sample2.version, buyerId, { modalityId: disponivel.id });
-    assert.equal(noShipment.contract.requiresShipment, false);
-  });
-
-  // EMB32: requiresShipment é snapshot congelado na emissão — o Editar só re-deriva se
-  // a MODALIDADE do contrato mudar ali; um flip posterior da flag "embarca?" da
-  // modalidade NÃO vaza pra contratos antigos (gêmeo do furo AP20/AP32).
-  test('EMB32: Editar preserva requiresShipment se a modalidade não muda; segue se muda', async () => {
-    // Modalidade DEDICADA (upsert idempotente por nome, self-healing) — NAO mexer nas
-    // semeadas: contract_modality NAO e truncada no beforeEach, entao um flip nelas
-    // vazaria pros outros testes de embarque (que usam a 'Retirar' semeada).
-    const shipMod = await prisma.contractModality.upsert({
-      where: { name: 'EMB32 Embarca' },
-      create: {
-        id: randomUUID(),
-        name: 'EMB32 Embarca',
-        requiresShipment: true,
-        status: 'ACTIVE',
-        sortOrder: 900,
-      },
-      update: { requiresShipment: true },
-    });
-    const semEmbarque = await prisma.contractModality.findFirst({
-      where: { requiresShipment: false },
-      orderBy: { name: 'asc' },
-    });
-    const { contractId, bankAccountId } = await setupEmittableContract({
-      lotNumber: '21500',
-      saleOverrides: { modalityId: shipMod.id },
-    });
-    const row = await prisma.saleContract.findUnique({
-      where: { id: contractId },
-      select: { requiresShipment: true, version: true },
-    });
-    assert.equal(row.requiresShipment, true);
-
-    // Alguém baixa a flag "embarca?" da modalidade DEPOIS da emissão.
-    await prisma.contractModality.update({
-      where: { id: shipMod.id },
-      data: { requiresShipment: false },
-    });
-
-    const lookups = await fetchLookups();
-    // Editar um campo qualquer, MESMA modalidade → preserva (não re-snapshota o flip).
-    const edited1 = await saleContractService.emitSaleContract(
-      contractId,
-      etapa2Payload({
-        bankAccountId,
-        lookups,
-        expectedVersion: row.version,
-        overrides: { modalityId: shipMod.id, observations: 'MUDOU OBS' },
-      }),
-      adminActor
-    );
-    assert.equal(edited1.contract.requiresShipment, true);
-
-    // Editar TROCANDO a modalidade → acompanha a nova (sem embarque).
-    const edited2 = await saleContractService.emitSaleContract(
-      contractId,
-      etapa2Payload({
-        bankAccountId,
-        lookups,
-        expectedVersion: edited1.contract.version,
-        overrides: { modalityId: semEmbarque.id },
-      }),
-      adminActor
-    );
-    assert.equal(edited2.contract.requiresShipment, false);
-  });
-
-  // ============================================================
-  // Embarque F2 (EMB27): confirmação (shippedAt + fotos 0..10) + guards
-  // ============================================================
-  async function setupShipmentContract({ lotNumber, modalityName = 'Retirar' }) {
-    const modality = await prisma.contractModality.findFirst({ where: { name: modalityName } });
-    const buyerId = randomUUID();
-    await createBuyerClient(buyerId);
-    const sampleId = randomUUID();
-    await createClassifiedSample({ id: sampleId, lotNumber, declaredSacks: 10 });
-    const sample = await queryService.requireSample(sampleId);
-    const sale = await sell(sampleId, sample.version, buyerId, { modalityId: modality.id });
-    return sale.contract; // getSaleContract view (requiresShipment, shippedAt, status EMITIDO)
-  }
-
-  test('confirmShipment grava shippedAt (0 fotos) e vira embarcado', async () => {
-    const contract = await setupShipmentContract({ lotNumber: '25200' });
-    assert.equal(contract.requiresShipment, true);
-    const res = await shipmentService.confirmShipment(
-      contract.id,
-      { shippedAt: '2026-07-08', transporte: 'THIRD_PARTY', files: [] },
-      adminActor
-    );
-    // shippedAt volta como ISO (@db.Date → meia-noite UTC), igual invoiceDate/paidAt.
-    assert.equal(res.context.shippedAt?.slice(0, 10), '2026-07-08');
-    const row = await prisma.saleContract.findUnique({
-      where: { id: contract.id },
-      select: { shippedAt: true },
-    });
-    assert.ok(row.shippedAt);
-    const photos = await shipmentService.listShipmentPhotos(contract.id, adminActor);
-    assert.equal(photos.items.length, 0);
-  });
-
-  test('confirmShipment NÃO bumpa a version do contrato (EMB22)', async () => {
-    const contract = await setupShipmentContract({ lotNumber: '25214' });
-    const before = await prisma.saleContract.findUnique({
-      where: { id: contract.id },
-      select: { version: true },
-    });
-    await shipmentService.confirmShipment(
-      contract.id,
-      { shippedAt: '2026-07-08', transporte: 'THIRD_PARTY', files: [] },
-      adminActor
-    );
-    const after = await prisma.saleContract.findUnique({
-      where: { id: contract.id },
-      select: { version: true },
-    });
-    assert.equal(after.version, before.version);
-  });
-
-  test('confirmShipment rejeita data futura (máx hoje BRT)', async () => {
-    const contract = await setupShipmentContract({ lotNumber: '25201' });
-    await assert.rejects(
-      () =>
-        shipmentService.confirmShipment(
-          contract.id,
-          { shippedAt: '2999-01-01', transporte: 'THIRD_PARTY', files: [] },
-          adminActor
-        ),
-      (err) => err.status === 422 && err.details?.code === 'VALIDATION_ERROR'
-    );
-  });
-
-  test('confirmShipment 422 se o contrato não exige embarque (Disponível)', async () => {
-    const contract = await setupShipmentContract({
-      lotNumber: '25202',
-      modalityName: 'Disponível',
-    });
-    assert.equal(contract.requiresShipment, false);
-    await assert.rejects(
-      () =>
-        shipmentService.confirmShipment(
-          contract.id,
-          { shippedAt: '2026-07-08', transporte: 'THIRD_PARTY', files: [] },
-          adminActor
-        ),
-      (err) => err.status === 422 && err.details?.code === 'CONTRACT_SHIPMENT_NOT_REQUIRED'
-    );
-  });
-
-  test('confirmShipment 409 se já embarcado (terminal, sem undo)', async () => {
-    const contract = await setupShipmentContract({ lotNumber: '25203' });
-    await shipmentService.confirmShipment(
-      contract.id,
-      { shippedAt: '2026-07-08', transporte: 'THIRD_PARTY', files: [] },
-      adminActor
-    );
-    await assert.rejects(
-      () =>
-        shipmentService.confirmShipment(
-          contract.id,
-          { shippedAt: '2026-07-08', transporte: 'THIRD_PARTY', files: [] },
-          adminActor
-        ),
-      (err) => err.status === 409 && err.details?.code === 'CONTRACT_ALREADY_SHIPPED'
-    );
-  });
-
-  test('confirmShipment 409 se o contrato não está EMITIDO/FATURADO', async () => {
-    const contract = await setupShipmentContract({ lotNumber: '25204' });
-    await prisma.saleContract.update({ where: { id: contract.id }, data: { status: 'WASH_OUT' } });
-    await assert.rejects(
-      () =>
-        shipmentService.confirmShipment(
-          contract.id,
-          { shippedAt: '2026-07-08', transporte: 'THIRD_PARTY', files: [] },
-          adminActor
-        ),
-      (err) => err.status === 409 && err.details?.code === 'CONTRACT_NOT_SHIPPABLE'
-    );
-  });
-
-  test('confirmShipment 422 se mais de 10 fotos', async () => {
-    const contract = await setupShipmentContract({ lotNumber: '25205' });
-    const files = Array.from({ length: 11 }, () => ({
-      fileBuffer: TINY_PNG,
-      originalFileName: 'p.png',
-    }));
-    await assert.rejects(
-      () =>
-        shipmentService.confirmShipment(
-          contract.id,
-          { shippedAt: '2026-07-08', transporte: 'THIRD_PARTY', files },
-          adminActor
-        ),
-      (err) => err.status === 422 && err.details?.code === 'SHIPMENT_TOO_MANY_PHOTOS'
-    );
-  });
-
-  test('confirmShipment grava fotos; listShipmentPhotos devolve sem storagePath', async () => {
-    const contract = await setupShipmentContract({ lotNumber: '25206' });
-    await shipmentService.confirmShipment(
-      contract.id,
-      {
-        shippedAt: '2026-07-08',
-        transporte: 'THIRD_PARTY',
-        files: [{ fileBuffer: TINY_PNG, originalFileName: 'carga.png' }],
-      },
-      adminActor
-    );
-    const photos = await shipmentService.listShipmentPhotos(contract.id, adminActor);
-    assert.equal(photos.items.length, 1);
-    assert.equal(photos.items[0].mimeType, 'image/png');
-    // A view não vaza o caminho interno do arquivo.
-    assert.equal(photos.items[0].storagePath, undefined);
-  });
-
-  test('confirmShipment 415 se a foto não é imagem aceita (magic bytes)', async () => {
-    const contract = await setupShipmentContract({ lotNumber: '25215' });
-    const pdf = Buffer.from('%PDF-1.4\n1 0 obj\n', 'utf8');
-    await assert.rejects(
-      () =>
-        shipmentService.confirmShipment(
-          contract.id,
-          {
-            shippedAt: '2026-07-08',
-            transporte: 'THIRD_PARTY',
-            files: [{ fileBuffer: pdf, originalFileName: 'nf.pdf' }],
-          },
-          adminActor
-        ),
-      (err) => err.status === 415
-    );
-  });
-
-  test('confirmShipment 413 se a foto passa de 12 MiB', async () => {
-    const contract = await setupShipmentContract({ lotNumber: '25216' });
-    const big = Buffer.concat([TINY_PNG, Buffer.alloc(12 * 1024 * 1024)]);
-    await assert.rejects(
-      () =>
-        shipmentService.confirmShipment(
-          contract.id,
-          {
-            shippedAt: '2026-07-08',
-            transporte: 'THIRD_PARTY',
-            files: [{ fileBuffer: big, originalFileName: 'grande.png' }],
-          },
-          adminActor
-        ),
-      (err) => err.status === 413
-    );
-  });
-
-  test('confirmShipment aceita exatamente 10 fotos (fronteira do teto)', async () => {
-    const contract = await setupShipmentContract({ lotNumber: '25217' });
-    const files = Array.from({ length: 10 }, (_, i) => ({
-      fileBuffer: TINY_PNG,
-      originalFileName: `p${i}.png`,
-    }));
-    await shipmentService.confirmShipment(
-      contract.id,
-      { shippedAt: '2026-07-08', transporte: 'THIRD_PARTY', files },
-      adminActor
-    );
-    const photos = await shipmentService.listShipmentPhotos(contract.id, adminActor);
-    assert.equal(photos.items.length, 10);
-  });
-
-  // ============================================================
-  // Embarque FASE 2 (EMB30): transporte + responsavel
-  // ============================================================
-  test('EMB30: COMPANY grava carrier + responsavel (snapshot do nome)', async () => {
-    const contract = await setupShipmentContract({ lotNumber: '25230' });
-    await shipmentService.confirmShipment(
-      contract.id,
-      {
-        shippedAt: '2026-07-08',
-        transporte: 'COMPANY',
-        responsibleUserId: adminActor.actorUserId,
-        files: [],
-      },
-      adminActor
-    );
-    const row = await prisma.saleContract.findUnique({
-      where: { id: contract.id },
-      select: {
-        shipmentCarrier: true,
-        shipmentResponsibleUserId: true,
-        shipmentResponsibleName: true,
-      },
-    });
-    assert.equal(row.shipmentCarrier, 'COMPANY');
-    assert.equal(row.shipmentResponsibleUserId, adminActor.actorUserId);
-    assert.ok(row.shipmentResponsibleName?.startsWith('Admin'));
-  });
-
-  test('EMB30: THIRD_PARTY grava carrier sem responsavel', async () => {
-    const contract = await setupShipmentContract({ lotNumber: '25231' });
-    await shipmentService.confirmShipment(
-      contract.id,
-      { shippedAt: '2026-07-08', transporte: 'THIRD_PARTY', files: [] },
-      adminActor
-    );
-    const row = await prisma.saleContract.findUnique({
-      where: { id: contract.id },
-      select: {
-        shipmentCarrier: true,
-        shipmentResponsibleUserId: true,
-        shipmentResponsibleName: true,
-      },
-    });
-    assert.equal(row.shipmentCarrier, 'THIRD_PARTY');
-    assert.equal(row.shipmentResponsibleUserId, null);
-    assert.equal(row.shipmentResponsibleName, null);
-  });
-
-  test('EMB30: 422 se transporte ausente', async () => {
-    const contract = await setupShipmentContract({ lotNumber: '25232' });
-    await assert.rejects(
-      () =>
-        shipmentService.confirmShipment(
-          contract.id,
-          { shippedAt: '2026-07-08', files: [] },
-          adminActor
-        ),
-      (err) =>
-        err.status === 422 &&
-        err.details?.code === 'VALIDATION_ERROR' &&
-        err.details?.field === 'transporte'
-    );
-  });
-
-  test('EMB30: 422 COMPANY sem responsavel (SHIPMENT_RESPONSIBLE_INVALID)', async () => {
-    const contract = await setupShipmentContract({ lotNumber: '25233' });
-    await assert.rejects(
-      () =>
-        shipmentService.confirmShipment(
-          contract.id,
-          { shippedAt: '2026-07-08', transporte: 'COMPANY', files: [] },
-          adminActor
-        ),
-      (err) => err.status === 422 && err.details?.code === 'SHIPMENT_RESPONSIBLE_INVALID'
-    );
-  });
-
-  test('EMB30: 422 COMPANY com responsavel PROSPECTOR (blindagem)', async () => {
-    const contract = await setupShipmentContract({ lotNumber: '25234' });
-    const prospectorId = randomUUID();
-    const suffix = prospectorId.slice(0, 8);
-    await prisma.user.create({
-      data: {
-        id: prospectorId,
-        fullName: 'Prospector Teste',
-        username: `prosp-${suffix}`,
-        usernameCanonical: `prosp-${suffix}`,
-        email: `prosp-${suffix}@example.com`,
-        emailCanonical: `prosp-${suffix}@example.com`,
-        passwordHash: 'x',
-        role: 'PROSPECTOR',
-      },
-    });
-    await assert.rejects(
-      () =>
-        shipmentService.confirmShipment(
-          contract.id,
-          {
-            shippedAt: '2026-07-08',
-            transporte: 'COMPANY',
-            responsibleUserId: prospectorId,
-            files: [],
-          },
-          adminActor
-        ),
-      (err) => err.status === 422 && err.details?.code === 'SHIPMENT_RESPONSIBLE_INVALID'
-    );
-  });
-
-  // ============================================================
-  // Embarque FASE 2 (EMB31): retencao de 15 dias das fotos
-  // ============================================================
-  test('EMB31: foto >15d some da lista, descriptor 404 e a purga apaga a linha', async () => {
-    const contract = await setupShipmentContract({ lotNumber: '25235' });
-    await shipmentService.confirmShipment(
-      contract.id,
-      {
-        shippedAt: '2026-07-08',
-        transporte: 'THIRD_PARTY',
-        files: [{ fileBuffer: TINY_PNG, originalFileName: 'velha.png' }],
-      },
-      adminActor
-    );
-    const before = await shipmentService.listShipmentPhotos(contract.id, adminActor);
-    assert.equal(before.items.length, 1);
-    const photoId = before.items[0].id;
-    // Envelhece a foto pra 20 dias atras (via update direto — o createdAt e @default now).
-    await prisma.saleContractShipmentPhoto.update({
-      where: { id: photoId },
-      data: { createdAt: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000) },
-    });
-    // Some da lista (filtro) e da URL direta (404).
-    const after = await shipmentService.listShipmentPhotos(contract.id, adminActor);
-    assert.equal(after.items.length, 0);
-    await assert.rejects(
-      () => shipmentService.getShipmentPhotoDescriptor(contract.id, photoId, adminActor),
-      (err) => err.status === 404
-    );
-    // A purga (force, bypassa o throttle) remove a linha do banco.
-    await shipmentService.purgeExpiredShipmentPhotos({ force: true });
-    const row = await prisma.saleContractShipmentPhoto.findUnique({ where: { id: photoId } });
-    assert.equal(row, null);
-  });
-
-  // ============================================================
-  // Embarque F3 (EMB23-EMB25): worklist — estados, ordem, contador, filtros, busca
-  // ============================================================
-  test('listShipmentContracts: estados/ordem/contador/filtros', async () => {
-    const atrasado = await setupShipmentContract({ lotNumber: '25300' });
-    await prisma.saleContract.update({
-      where: { id: atrasado.id },
-      data: { invoiceDate: new Date('2000-01-01T00:00:00Z') },
-    });
-    const aEmbarcar = await setupShipmentContract({ lotNumber: '25301' });
-    await prisma.saleContract.update({
-      where: { id: aEmbarcar.id },
-      data: { invoiceDate: new Date('2100-01-01T00:00:00Z') },
-    });
-    const embarcado = await setupShipmentContract({ lotNumber: '25302' });
-    await shipmentService.confirmShipment(
-      embarcado.id,
-      { shippedAt: '2026-07-08', transporte: 'THIRD_PARTY', files: [] },
-      adminActor
-    );
-    const cancelado = await setupShipmentContract({ lotNumber: '25303' });
-    await prisma.saleContract.update({
-      where: { id: cancelado.id },
-      data: { status: 'WASH_OUT' },
-    });
-
-    const all = await saleContractService.listShipmentContracts({}, adminActor);
-    const byId = new Map(all.items.map((it) => [it.id, it]));
-    assert.equal(byId.get(atrasado.id)?.state, 'atrasado');
-    assert.equal(byId.get(aEmbarcar.id)?.state, 'a_embarcar');
-    assert.equal(byId.get(embarcado.id)?.state, 'embarcado');
-    assert.equal(byId.get(cancelado.id)?.state, 'cancelado');
-    // Contador estável (EMB24): 1 atrasado.
-    assert.equal(all.overdueCount, 1);
-    // Ordem: G0 por invoiceDate ASC (atrasado 2000 antes de a_embarcar 2100), depois
-    // embarcado (G1), depois cancelado (G2).
-    const order = all.items.map((it) => it.id);
-    assert.ok(order.indexOf(atrasado.id) < order.indexOf(aEmbarcar.id));
-    assert.ok(order.indexOf(aEmbarcar.id) < order.indexOf(embarcado.id));
-    assert.ok(order.indexOf(embarcado.id) < order.indexOf(cancelado.id));
-
-    const fAtrasado = await saleContractService.listShipmentContracts(
-      { filter: 'atrasado' },
-      adminActor
-    );
-    assert.deepEqual(
-      fAtrasado.items.map((i) => i.id),
-      [atrasado.id]
-    );
-    const fEmbarcado = await saleContractService.listShipmentContracts(
-      { filter: 'embarcado' },
-      adminActor
-    );
-    assert.deepEqual(
-      fEmbarcado.items.map((i) => i.id),
-      [embarcado.id]
-    );
-    // Só dado não-sensível (EMB25): a linha não carrega preço/corretagem.
-    assert.equal(fAtrasado.items[0].totalValue, undefined);
-    assert.ok('sellerWarehouse' in fAtrasado.items[0]);
-  });
-
-  test('listShipmentContracts: busca por nº + paginação keyset cruzando grupos', async () => {
-    const c1 = await setupShipmentContract({ lotNumber: '25310' });
-    await prisma.saleContract.update({
-      where: { id: c1.id },
-      data: { invoiceDate: new Date('2001-01-01T00:00:00Z') },
-    });
-    const c2 = await setupShipmentContract({ lotNumber: '25311' });
-    await shipmentService.confirmShipment(
-      c2.id,
-      { shippedAt: '2026-07-08', transporte: 'THIRD_PARTY', files: [] },
-      adminActor
-    );
-
-    const found = await saleContractService.listShipmentContracts(
-      { search: c1.contractNumber },
-      adminActor
-    );
-    assert.deepEqual(
-      found.items.map((i) => i.id),
-      [c1.id]
-    );
-
-    // limit=1: 1ª página = c1 (G0 não-embarcado), cursor → 2ª página = c2 (G1 embarcado).
-    const p1 = await saleContractService.listShipmentContracts({ limit: 1 }, adminActor);
-    assert.equal(p1.items.length, 1);
-    assert.equal(p1.items[0].id, c1.id);
-    assert.ok(p1.nextCursor);
-    const p2 = await saleContractService.listShipmentContracts(
-      { limit: 1, cursor: p1.nextCursor },
-      adminActor
-    );
-    assert.equal(p2.items[0].id, c2.id);
-  });
-
-  // Embarque F4 (EMB10/EMB17/EMB24): evento do dashboard — agendado/atrasado/realizado.
-  test('getDashboardShipmentEvents: typeKeys agendado/atrasado/realizado', async () => {
-    // Datas ANCORADAS em hoje (BRT) pra o teste não envelhecer (fixar julho/26 fazia
-    // o "agendado" virar "atrasado" quando hoje passava da data). O feed usa a
-    // invoiceDate como dia do embarque (Modelo X); "agendado" precisa estar no FUTURO.
-    // O `bizDay` saiu daqui pra `tests/helpers/relative-dates.js` — a armadilha
-    // reapareceu no feed de pagamento, então o antídoto virou compartilhado.
-    // Offsets com gap >= 4 (ver o porquê no helper).
-    const futureDate = bizDay(10); // agendado (futuro)
-    const pastDate = bizDay(-10); // atrasado (passado; pos-roll em [-12,-10])
-    const doneDate = bizDay(-6); // realizado (pos-roll em [-8,-6] — disjunto)
-
-    const future = await setupShipmentContract({ lotNumber: '25400' });
-    await prisma.saleContract.update({
-      where: { id: future.id },
-      data: { invoiceDate: futureDate },
-    });
-    const past = await setupShipmentContract({ lotNumber: '25401' });
-    await prisma.saleContract.update({
-      where: { id: past.id },
-      data: { invoiceDate: pastDate },
-    });
-    const done = await setupShipmentContract({ lotNumber: '25402' });
-    await prisma.saleContract.update({
-      where: { id: done.id },
-      data: { invoiceDate: doneDate },
-    });
-    await shipmentService.confirmShipment(
-      done.id,
-      { shippedAt: dayKey(doneDate), transporte: 'THIRD_PARTY', files: [] },
-      adminActor
-    );
-
-    const events = await saleContractService.getDashboardShipmentEvents(
-      { from: dayKey(bizDay(-20)), to: dayKey(bizDay(20)) },
-      adminActor
-    );
-    const fk = dayKey(futureDate);
-    const pk = dayKey(pastDate);
-    const dk = dayKey(doneDate);
-    // Previsto = azul; atrasado = vermelho; realizado = verde (cor por estado, DSB-D10).
-    assert.equal(events[fk]?.[0]?.typeKey, 'contract_shipment');
-    assert.equal(events[pk]?.[0]?.typeKey, 'contract_shipment_overdue');
-    assert.equal(events[dk]?.[0]?.typeKey, 'contract_shipment_done');
-    // Label recolhido + id namespaced (não colide com pagamento/aprovação do mesmo dia).
-    assert.ok(events[fk][0].label.startsWith('embarque · '));
-    assert.ok(events[fk][0].id.startsWith('shipment:'));
-  });
-
-  // Faturamento (DSB-D11): getDashboardInvoiceEvents — feed do card de Eventos, irmao
-  // do embarque (auth-only). Agendado = EMITIDO no invoiceDate; realizado = FATURADO/
-  // PAGO no invoicedAt (dia REAL do faturamento). WASH_OUT fora; janela filtra.
-  test('getDashboardInvoiceEvents: EMITIDO no invoiceDate; FATURADO realizado no invoicedAt; janela + WASH_OUT', async () => {
-    // (1) EMITIDO com invoiceDate em janela → aparece como agendado (contract_invoice*).
-    // Data ancorada em hoje: com a fixa de 2026-07-15 o "agendado" virou
-    // "atrasado" quando o dia passou, e a asserta tinha sido AFROUXADA pra
-    // aceitar os dois — o teste deixava de provar qual estado é. Este feed
-    // agrupa no dia REAL (DSB-D18, sem roll de fim de semana) → calendarDay.
+  // Faturamento (DSB-D11): getDashboardInvoiceEvents — feed do card de Eventos.
+  // RC-D64: LEMBRETE PURO — só EMITIDO no invoiceDate, sempre 'previsto'. WASH_OUT
+  // e FINALIZADO ficam fora (não têm o que lembrar); a janela filtra.
+  test('getDashboardInvoiceEvents (RC-D64): EMITIDO no invoiceDate, sempre previsto; terminais fora', async () => {
+    // Data ancorada em hoje: com data fixa o "agendado" viraria outra coisa quando
+    // o dia passasse. Este feed agrupa no dia REAL (DSB-D18, sem roll de fim de
+    // semana) → calendarDay.
     const schedDate = calendarDay(10);
     const emitido = await setupConfirmedContract({ lotNumber: '25060' });
     await prisma.saleContract.update({
@@ -971,7 +365,7 @@ if (!databaseUrl || !databaseReachable) {
       data: { invoiceDate: schedDate },
     });
 
-    // (2) WASH_OUT não deve aparecer no feed.
+    // WASH_OUT não deve aparecer no feed.
     const washed = await setupEmittableContract({ lotNumber: '25061' });
     await saleContractService.washoutSaleContract(
       washed.contractId,
@@ -979,140 +373,41 @@ if (!databaseUrl || !databaseReachable) {
       adminActor
     );
 
-    // (3) FATURADO → realizado no invoicedAt (2026-07-08), NÃO no invoiceDate.
-    const toInvoice = await setupConfirmedContract({ lotNumber: '25062' });
-    await saleContractService.invoiceSaleContract(
-      toInvoice.contractId,
-      { expectedVersion: toInvoice.version, date: '2026-07-08' },
+    // FINALIZADO também não: o contrato não pede mais nada (RC-D62).
+    const done = await setupConfirmedContract({ lotNumber: '25062' });
+    await prisma.saleContract.update({
+      where: { id: done.contractId },
+      data: { invoiceDate: schedDate },
+    });
+    await saleContractService.finalizeSaleContract(
+      done.contractId,
+      { expectedVersion: done.version },
       adminActor
     );
 
-    // Janela abre em 2026-07-01 (cobre o realizado de 07-08) e fecha depois do
-    // agendado, que anda com o relógio.
     const res = await saleContractService.getDashboardInvoiceEvents(
       { from: '2026-07-01', to: dayKey(calendarDay(20)) },
       adminActor
     );
 
-    // (1) agendado no invoiceDate — typeKey/state do faturamento, label + id.
     const sched = (res[dayKey(schedDate)] ?? []).find((e) => e.contractId === emitido.contractId);
     assert.ok(sched, 'EMITIDO deve aparecer no invoiceDate');
     assert.equal(sched.typeKey, 'contract_invoice');
     assert.equal(sched.state, 'previsto');
     assert.ok(sched.label.startsWith('faturamento · '));
-    assert.ok(sched.id.startsWith('invoice:')); // namespaced (não colide com pagamento/embarque)
+    assert.ok(sched.id.startsWith('invoice:')); // namespaced (não colide com pagamento)
 
-    // (2) WASH_OUT fora (em qualquer dia).
-    assert.ok(
-      !Object.values(res)
-        .flat()
-        .some((e) => e.contractId === washed.contractId),
-      'WASH_OUT fora do feed'
-    );
-
-    // (3) realizado no invoicedAt 07-08 (não no invoiceDate original 07-10).
-    const done = (res['2026-07-08'] ?? []).find((e) => e.contractId === toInvoice.contractId);
-    assert.ok(done, 'FATURADO deve aparecer no invoicedAt');
-    assert.equal(done.typeKey, 'contract_invoice_done');
-    assert.equal(done.state, 'realizado');
-    assert.ok(
-      !(res['2026-07-10'] ?? []).some((e) => e.contractId === toInvoice.contractId),
-      'FATURADO não aparece no invoiceDate como agendado'
-    );
-
-    // Janela depois do agendado → nenhum dos contratos aparece (filtro de data).
-    // Ancorada também: com uma janela fixa de agosto o agendado (hoje+10) podia
-    // cair DENTRO dela e o teste virava falso-negativo.
-    const out = await saleContractService.getDashboardInvoiceEvents(
-      { from: dayKey(calendarDay(30)), to: dayKey(calendarDay(44)) },
-      adminActor
-    );
-    assert.ok(
-      !Object.values(out)
-        .flat()
-        .some((e) => e.contractId === emitido.contractId),
-      'fora da janela não aparece'
-    );
+    const all = Object.values(res).flat();
+    assert.ok(!all.some((e) => e.contractId === washed.contractId), 'WASH_OUT fora do feed');
+    assert.ok(!all.some((e) => e.contractId === done.contractId), 'FINALIZADO fora do feed');
   });
 
   // Embarque F5 (EMB28): portão do pagamento — não paga sem embarcar; após confirmar,
   // segue direto pro pagamento (a version não muda no confirm).
-  test('paySaleContract: portão do embarque (422 → confirma → paga)', async () => {
-    const contract = await setupShipmentContract({ lotNumber: '25500' });
-    await saleContractService.invoiceSaleContract(
-      contract.id,
-      { expectedVersion: contract.version, date: '2026-07-06' },
-      adminActor
-    );
-    const faturado = await saleContractService.getSaleContract(contract.id, adminActor);
-    await assert.rejects(
-      () =>
-        saleContractService.paySaleContract(
-          contract.id,
-          { expectedVersion: faturado.contract.version, date: '2026-07-08' },
-          adminActor
-        ),
-      (err) => err.status === 422 && err.details?.code === 'CONTRACT_SHIPMENT_REQUIRED'
-    );
-    // Confirma o embarque (não bumpa version) → pagar passa com a MESMA expectedVersion.
-    await shipmentService.confirmShipment(
-      contract.id,
-      { shippedAt: '2026-07-08', transporte: 'THIRD_PARTY', files: [] },
-      adminActor
-    );
-    const paid = await saleContractService.paySaleContract(
-      contract.id,
-      { expectedVersion: faturado.contract.version, date: '2026-07-08' },
-      adminActor
-    );
-    assert.equal(paid.contract.status, 'PAGO');
-  });
-
   // AP18 (F2 do portão): faturar exige a aprovação enviada. Contrato marcado sem
   // etiqueta trava no faturar (422); após enviar 1 etiqueta, libera (a version não
   // muda no envio, então o retry do modal segue com a mesma expectedVersion). Pagar
   // HERDA (E3) — não precisa de gate próprio.
-  test('invoiceSaleContract: portão da aprovação (marcado sem etiqueta 422 → envia → fatura)', async () => {
-    const { contractId, version } = await setupEmittableContract({ lotNumber: '25610' });
-    // Marca "precisa de aprovação" (o setup nasce não-marcado). Não bumpa version.
-    await prisma.saleContract.update({
-      where: { id: contractId },
-      data: { requiresApproval: true },
-    });
-
-    await assert.rejects(
-      () =>
-        saleContractService.invoiceSaleContract(
-          contractId,
-          { expectedVersion: version, date: '2026-07-06' },
-          adminActor
-        ),
-      (err) => err.status === 422 && err.details?.code === 'CONTRACT_APPROVAL_REQUIRED'
-    );
-
-    // Grava 1 aprovação enviada (approval_label_log) → libera o faturamento.
-    const job = await prisma.customPrintJob.create({
-      data: { status: 'PENDING', payload: { lines: [] } },
-      select: { id: true },
-    });
-    await prisma.approvalLabelLog.create({
-      data: {
-        id: randomUUID(),
-        saleContractId: contractId,
-        actorUserId: adminActor.actorUserId,
-        customPrintJobId: job.id,
-        payload: { lines: [] },
-      },
-    });
-
-    const invoiced = await saleContractService.invoiceSaleContract(
-      contractId,
-      { expectedVersion: version, date: '2026-07-06' },
-      adminActor
-    );
-    assert.equal(invoiced.contract.status, 'FATURADO');
-  });
-
   test('numeracao continua: 2 vendas => 0001 e 0002', async () => {
     const buyerId = randomUUID();
     await createBuyerClient(buyerId);
@@ -1242,10 +537,10 @@ if (!databaseUrl || !databaseReachable) {
 
   test('RC-F6 lista: status e tipo sao MULTI e filtram no servidor', async () => {
     const emitido = await setupConfirmedContract({ lotNumber: '20120' });
-    const faturado = await setupConfirmedContract({ lotNumber: '20121' });
-    await saleContractService.invoiceSaleContract(
-      faturado.contractId,
-      { expectedVersion: faturado.version, date: '2026-07-08' },
+    const finalizado = await setupConfirmedContract({ lotNumber: '20121' });
+    await saleContractService.finalizeSaleContract(
+      finalizado.contractId,
+      { expectedVersion: finalizado.version },
       adminActor
     );
     const buyerId = randomUUID();
@@ -1262,24 +557,24 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(all.total, 3);
 
     // Um valor so.
-    const soFaturado = await saleContractService.listSaleContracts(
-      { status: 'FATURADO' },
+    const soFinalizado = await saleContractService.listSaleContracts(
+      { status: 'FINALIZADO' },
       adminActor
     );
     assert.deepEqual(
-      soFaturado.items.map((i) => i.id),
-      [faturado.contractId]
+      soFinalizado.items.map((i) => i.id),
+      [finalizado.contractId]
     );
-    assert.equal(soFaturado.total, 1);
+    assert.equal(soFinalizado.total, 1);
 
     // Multi por csv (como viaja na querystring) e por lista.
     const doisStatus = await saleContractService.listSaleContracts(
-      { status: 'EMITIDO,FATURADO' },
+      { status: 'EMITIDO,FINALIZADO' },
       adminActor
     );
     assert.equal(doisStatus.items.length, 3); // o FUTURO tambem esta EMITIDO
     const porLista = await saleContractService.listSaleContracts(
-      { status: ['EMITIDO', 'FATURADO'] },
+      { status: ['EMITIDO', 'FINALIZADO'] },
       adminActor
     );
     assert.equal(porLista.items.length, 3);
@@ -1384,11 +679,6 @@ if (!databaseUrl || !databaseReachable) {
   test('RC-F6 lista: filtra por comprador, vendedor e janela de periodo', async () => {
     const a = await setupConfirmedContract({ lotNumber: '20140' });
     const b = await setupConfirmedContract({ lotNumber: '20141' });
-    await saleContractService.invoiceSaleContract(
-      b.contractId,
-      { expectedVersion: b.version, date: '2026-07-08' },
-      adminActor
-    );
 
     // Partes: cada fixture cria comprador e vendedor proprios.
     const porComprador = await saleContractService.listSaleContracts(
@@ -1568,7 +858,7 @@ if (!databaseUrl || !databaseReachable) {
     });
     const myActor = { ...commercialActor, actorUserId: commercialUserId };
 
-    // Fatura o PRÓPRIO contrato (é corretor dele) -> ok.
+    // Finaliza o PRÓPRIO contrato (é corretor dele) -> ok.
     const mine = await setupConfirmedContractWithBroker({
       lotNumber: '20020',
       brokerId: myBrokerId,
@@ -1577,12 +867,12 @@ if (!databaseUrl || !databaseReachable) {
       where: { id: mine.contractId },
       select: { version: true },
     });
-    const invoiced = await saleContractService.invoiceSaleContract(
+    const finalized = await saleContractService.finalizeSaleContract(
       mine.contractId,
-      { expectedVersion: cur.version, date: '2026-07-06' },
+      { expectedVersion: cur.version },
       myActor
     );
-    assert.equal(invoiced.contract.status, 'FATURADO');
+    assert.equal(finalized.contract.status, 'FINALIZADO');
 
     // Cria futuro incluindo a si mesmo como corretor -> ok.
     const buyerId = randomUUID();
@@ -1918,12 +1208,12 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(item.commissionTotal, 24);
   });
 
-  test('aplicar agio fora de EMITIDO -> 409 (FATURADO)', async () => {
-    // FATURADO (emitido + faturado): agio so vale em EMITIDO.
+  test('aplicar agio fora de EMITIDO -> 409 (FINALIZADO)', async () => {
+    // FINALIZADO: agio so vale em EMITIDO (reabrir devolve a possibilidade).
     const refs = await setupConfirmedContract({ lotNumber: '21103' });
-    const invoiced = await saleContractService.invoiceSaleContract(
+    const finalized = await saleContractService.finalizeSaleContract(
       refs.contractId,
-      { expectedVersion: refs.version, date: '2026-07-06' },
+      { expectedVersion: refs.version },
       adminActor
     );
     await assert.rejects(
@@ -1931,7 +1221,7 @@ if (!databaseUrl || !databaseReachable) {
         saleContractService.applyAgioSaleContract(
           refs.contractId,
           {
-            expectedVersion: invoiced.contract.version,
+            expectedVersion: finalized.contract.version,
             agioDesagioType: 'AGIO',
             agioDesagioValue: 10,
           },
@@ -1971,12 +1261,12 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(logs.length, 0);
   });
 
-  test('guards: editar FATURADO -> 409 (so EMITIDO edita)', async () => {
+  test('guards: editar FINALIZADO -> 409 (so EMITIDO edita)', async () => {
     const refs = await setupConfirmedContract({ lotNumber: '21005' });
     const lookups = await fetchLookups();
-    const invoiced = await saleContractService.invoiceSaleContract(
+    const finalized = await saleContractService.finalizeSaleContract(
       refs.contractId,
-      { expectedVersion: refs.version, date: '2026-07-06' },
+      { expectedVersion: refs.version },
       adminActor
     );
     await assert.rejects(
@@ -1986,7 +1276,7 @@ if (!databaseUrl || !databaseReachable) {
           etapa2Payload({
             bankAccountId: refs.bankAccountId,
             lookups,
-            expectedVersion: invoiced.contract.version,
+            expectedVersion: finalized.contract.version,
           }),
           adminActor
         ),
@@ -2516,9 +1806,7 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(item.brokers[0].share, undefined); // D136: sem cota por corretor
     assert.equal(item.brokerCount, undefined); // D136: sem contagem/rateio
     // só status congelados entram
-    assert.ok(
-      res.items.every((i) => ['EMITIDO', 'FATURADO', 'PAGO', 'WASH_OUT'].includes(i.status))
-    );
+    assert.ok(res.items.every((i) => ['EMITIDO', 'FINALIZADO', 'WASH_OUT'].includes(i.status)));
   });
 
   test('Financeiro (escopo aberto): ADMIN vê TODOS os fechamentos, co-corretores visíveis', async () => {
@@ -2736,10 +2024,12 @@ if (!databaseUrl || !databaseReachable) {
 
   // ── Revisão do Pagamento (FN1–FN6): casa do pagamento ──
 
-  test('Financeiro (FN1/FN4/FN6): ordem vencido→a_vencer→pago→cancelado + chips + N vencidos', async () => {
+  test('Financeiro (FN1/FN4/FN6): ordem vencido→a_vencer→recebida→cancelado + chips + N vencidos', async () => {
     const venc = await setupConfirmedContract({ lotNumber: '26010' });
     const aVenc = await setupConfirmedContract({ lotNumber: '26011' });
-    const pago = await setupConfirmedContract({ lotNumber: '26012' });
+    // RC-D67: 'recebida' vem do CONTRATO estar FINALIZADO — o /financeiro não tem
+    // ação própria, então a corretagem sai da fila em /contratos.
+    const recebida = await setupConfirmedContract({ lotNumber: '26012' });
     // D145: o cancelado precisa ser FUTURO para aparecer no Financeiro (o físico em
     // washout some). Wrapper mantém a forma { contractId } dos demais setups.
     const cancBuyerId = randomUUID();
@@ -2759,8 +2049,8 @@ if (!databaseUrl || !databaseReachable) {
       data: { paymentDate: new Date('2100-01-01T00:00:00.000Z') }, // a vencer (futuro)
     });
     await prisma.saleContract.update({
-      where: { id: pago.contractId },
-      data: { status: 'PAGO', paidAt: new Date('2026-07-05T00:00:00.000Z') },
+      where: { id: recebida.contractId },
+      data: { status: 'FINALIZADO' },
     });
     await prisma.saleContract.update({
       where: { id: canc.contractId },
@@ -2770,12 +2060,12 @@ if (!databaseUrl || !databaseReachable) {
     const res = await saleContractService.listBrokerReceivables({}, adminActor);
     assert.deepEqual(
       res.items.map((i) => i.id),
-      [venc.contractId, aVenc.contractId, pago.contractId, canc.contractId]
+      [venc.contractId, aVenc.contractId, recebida.contractId, canc.contractId]
     );
     const byId = Object.fromEntries(res.items.map((i) => [i.id, i]));
     assert.equal(byId[venc.contractId].paymentState, 'vencido');
     assert.equal(byId[aVenc.contractId].paymentState, 'a_vencer');
-    assert.equal(byId[pago.contractId].paymentState, 'pago');
+    assert.equal(byId[recebida.contractId].paymentState, 'recebida');
     assert.equal(byId[canc.contractId].paymentState, 'cancelado');
     // FN6: 1 vencido, corretagem 30 (2% + 1% de 1000)
     assert.equal(res.overdueCount, 1);
@@ -2785,7 +2075,7 @@ if (!databaseUrl || !databaseReachable) {
   test('Financeiro (FN5): filtros por estado, independentes do cabeçalho', async () => {
     const venc = await setupConfirmedContract({ lotNumber: '26020' });
     const aVenc = await setupConfirmedContract({ lotNumber: '26021' });
-    const pago = await setupConfirmedContract({ lotNumber: '26022' });
+    const recebida = await setupConfirmedContract({ lotNumber: '26022' });
     await prisma.saleContract.update({
       where: { id: venc.contractId },
       data: { paymentDate: new Date('2000-01-01T00:00:00.000Z') },
@@ -2795,8 +2085,8 @@ if (!databaseUrl || !databaseReachable) {
       data: { paymentDate: new Date('2100-01-01T00:00:00.000Z') },
     });
     await prisma.saleContract.update({
-      where: { id: pago.contractId },
-      data: { status: 'PAGO', paidAt: new Date('2026-07-05T00:00:00.000Z') },
+      where: { id: recebida.contractId },
+      data: { status: 'FINALIZADO' },
     });
 
     const vencidos = await saleContractService.listBrokerReceivables(
@@ -2815,10 +2105,13 @@ if (!databaseUrl || !databaseReachable) {
       aVencer.items.map((i) => i.id),
       [aVenc.contractId]
     );
-    const pagos = await saleContractService.listBrokerReceivables({ filter: 'pago' }, adminActor);
+    const recebidas = await saleContractService.listBrokerReceivables(
+      { filter: 'recebida' },
+      adminActor
+    );
     assert.deepEqual(
-      pagos.items.map((i) => i.id),
-      [pago.contractId]
+      recebidas.items.map((i) => i.id),
+      [recebida.contractId]
     );
     // o cabeçalho (total + vencidos) independe do filtro FN5 ativo
     assert.equal(vencidos.totalCommission, 90); // 3 x 30
@@ -2844,7 +2137,7 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(res.items[0].buyerName, 'Fazenda Aurora');
   });
 
-  test('Financeiro (FN4): paginação keyset atravessa os grupos (não-pago → pago)', async () => {
+  test('Financeiro (FN4): paginação keyset atravessa os grupos (a receber → recebida)', async () => {
     const u1 = await setupConfirmedContract({ lotNumber: '26040' });
     const u2 = await setupConfirmedContract({ lotNumber: '26041' });
     const p1 = await setupConfirmedContract({ lotNumber: '26042' });
@@ -2858,7 +2151,7 @@ if (!databaseUrl || !databaseReachable) {
     });
     await prisma.saleContract.update({
       where: { id: p1.contractId },
-      data: { status: 'PAGO', paidAt: new Date('2026-07-05T00:00:00.000Z') },
+      data: { status: 'FINALIZADO' },
     });
     const page1 = await saleContractService.listBrokerReceivables({ limit: 2 }, adminActor);
     assert.deepEqual(
@@ -2875,38 +2168,6 @@ if (!databaseUrl || !databaseReachable) {
       [p1.contractId]
     );
     assert.equal(page2.nextCursor, null);
-  });
-
-  test('Pagar (E30): rejeita data futura (após faturar); hoje passa', async () => {
-    const { contractId, version } = await setupConfirmedContract({ lotNumber: '26050' });
-    const inv = await saleContractService.invoiceSaleContract(
-      contractId,
-      { expectedVersion: version, date: '2026-07-06' },
-      adminActor
-    );
-    await assert.rejects(
-      () =>
-        saleContractService.paySaleContract(
-          contractId,
-          { expectedVersion: inv.contract.version, date: '2999-12-31' },
-          adminActor
-        ),
-      (err) => err.status === 422
-    );
-    // DSB-D7: um dia útil não-futuro passa (pagar recusa fim de semana + futuro).
-    // Recua "hoje BRT" pro dia útil mais recente (≤ hoje) — robusto em qualquer dia.
-    const payDate = (() => {
-      const d = new Date(Date.now() - 3 * 3600_000);
-      d.setUTCHours(0, 0, 0, 0);
-      while (d.getUTCDay() === 0 || d.getUTCDay() === 6) d.setUTCDate(d.getUTCDate() - 1);
-      return d.toISOString().slice(0, 10);
-    })();
-    const paid = await saleContractService.paySaleContract(
-      contractId,
-      { expectedVersion: inv.contract.version, date: payDate },
-      adminActor
-    );
-    assert.equal(paid.contract.status, 'PAGO');
   });
 
   test('criar lookup inline: cria ACTIVE, aparece na lista e fica no fim (append)', async () => {
@@ -2972,34 +2233,6 @@ if (!databaseUrl || !databaseReachable) {
     );
   });
 
-  test('faturar: EMITIDO -> FATURADO grava invoicedAt', async () => {
-    const { contractId, version } = await setupConfirmedContract({ lotNumber: '22001' });
-    const r = await saleContractService.invoiceSaleContract(
-      contractId,
-      { expectedVersion: version, date: '2026-07-06' },
-      adminActor
-    );
-    assert.equal(r.contract.status, 'FATURADO');
-    assert.equal(r.contract.invoicedAt?.slice(0, 10), '2026-07-06');
-  });
-
-  test('pagar (apos faturar): FATURADO -> PAGO grava paidAt e preserva invoicedAt', async () => {
-    const { contractId, version } = await setupConfirmedContract({ lotNumber: '22002' });
-    const inv = await saleContractService.invoiceSaleContract(
-      contractId,
-      { expectedVersion: version, date: '2026-07-06' },
-      adminActor
-    );
-    const pay = await saleContractService.paySaleContract(
-      contractId,
-      { expectedVersion: inv.contract.version, date: '2026-07-08' }, // E30: máx hoje (BRT)
-      adminActor
-    );
-    assert.equal(pay.contract.status, 'PAGO');
-    assert.equal(pay.contract.paidAt?.slice(0, 10), '2026-07-08');
-    assert.equal(pay.contract.invoicedAt?.slice(0, 10), '2026-07-06');
-  });
-
   // F1 (E21-E27/D138): getDashboardPaymentEvents — feed do card de Eventos.
   test('Eventos (D138): ADMIN vê agendado no paymentDate; janela filtra; WASH_OUT fora', async () => {
     const emitido = await setupConfirmedContract({ lotNumber: '25010' }); // paymentDate 2026-07-20
@@ -3043,34 +2276,6 @@ if (!databaseUrl || !databaseReachable) {
     );
   });
 
-  test('Eventos (D138): contrato PAGO aparece como realizado no paidAt (não no paymentDate)', async () => {
-    const { contractId, version } = await setupConfirmedContract({ lotNumber: '25020' }); // paymentDate 2026-07-20
-    const inv = await saleContractService.invoiceSaleContract(
-      contractId,
-      { expectedVersion: version, date: '2026-07-06' },
-      adminActor
-    );
-    await saleContractService.paySaleContract(
-      contractId,
-      { expectedVersion: inv.contract.version, date: '2026-07-08' }, // E30: máx hoje (BRT)
-      adminActor
-    );
-
-    const res = await saleContractService.getDashboardPaymentEvents(
-      { from: '2026-07-01', to: '2026-07-26' },
-      adminActor
-    );
-    // realizado no paidAt (2026-07-08), NÃO no paymentDate (2026-07-20).
-    const ev = (res['2026-07-08'] ?? []).find((e) => e.contractId === contractId);
-    assert.ok(ev, 'PAGO deve aparecer no paidAt');
-    assert.equal(ev.typeKey, 'contract_payment_paid');
-    assert.equal(ev.status, 'PAGO');
-    assert.ok(
-      !(res['2026-07-20'] ?? []).some((e) => e.contractId === contractId),
-      'PAGO não aparece no paymentDate'
-    );
-  });
-
   test('Eventos (escopo aberto): COMMERCIAL vê eventos de todos; só PROSPECTOR → 403', async () => {
     const { actor: myActor, brokerId: myBrokerId } =
       await createCommercialBrokerUser('Corretor Eventos');
@@ -3111,43 +2316,89 @@ if (!databaseUrl || !databaseReachable) {
     );
   });
 
-  test('pagar de EMITIDO -> 409 (precisa faturar antes, D106)', async () => {
-    const { contractId, version } = await setupConfirmedContract({ lotNumber: '22003' });
-    await assert.rejects(
-      () =>
-        saleContractService.paySaleContract(
-          contractId,
-          { expectedVersion: version, date: '2026-07-24' }, // dia útil (sexta) — DSB-D7
-          adminActor
-        ),
-      (err) => err.status === 409
-    );
-  });
-
   // ── Fase J (D123–D125): auditoria de marcos + espelho + timeline ──
 
-  test('Fase J: faturar e pagar gravam SaleContractStatusLog com ator', async () => {
+  // RC-D63: finalizar VOLTA. O log acumula as duas pontas e é a ÚNICA fonte de
+  // "quem e quando" — por isso o marco não ganhou coluna no contrato: na segunda
+  // passada a coluna estaria mentindo sobre a primeira.
+  test('Fase J/RC-D63: finalizar → reabrir → finalizar acumula 3 marcos com ator', async () => {
     const { contractId, version } = await setupConfirmedContract({ lotNumber: '24101' });
-    const inv = await saleContractService.invoiceSaleContract(
+    const fin1 = await saleContractService.finalizeSaleContract(
       contractId,
-      { expectedVersion: version, date: '2026-07-06' },
+      { expectedVersion: version },
       adminActor
     );
-    await saleContractService.paySaleContract(
+    assert.equal(fin1.contract.status, 'FINALIZADO');
+    const reopened = await saleContractService.reopenSaleContract(
       contractId,
-      { expectedVersion: inv.contract.version, date: '2026-07-08' }, // E30: máx hoje (BRT)
+      { expectedVersion: fin1.contract.version },
       adminActor
     );
+    assert.equal(reopened.contract.status, 'EMITIDO');
+    const fin2 = await saleContractService.finalizeSaleContract(
+      contractId,
+      { expectedVersion: reopened.contract.version },
+      adminActor
+    );
+    assert.equal(fin2.contract.status, 'FINALIZADO');
 
     const logs = await prisma.saleContractStatusLog.findMany({
       where: { saleContractId: contractId },
       orderBy: { createdAt: 'asc' },
     });
-    assert.equal(logs.length, 2);
-    assert.equal(logs[0].toStatus, 'FATURADO');
-    assert.equal(logs[0].actorUserId, adminActor.actorUserId);
-    assert.equal(logs[1].toStatus, 'PAGO');
-    assert.equal(logs[1].actorUserId, adminActor.actorUserId);
+    assert.deepEqual(
+      logs.map((l) => l.toStatus),
+      ['FINALIZADO', 'EMITIDO', 'FINALIZADO']
+    );
+    assert.ok(logs.every((l) => l.actorUserId === adminActor.actorUserId));
+  });
+
+  test('RC-D62: finalizar só de EMITIDO e reabrir só de FINALIZADO (409 no resto)', async () => {
+    const { contractId, version } = await setupConfirmedContract({ lotNumber: '24110' });
+    // Reabrir um contrato em andamento não faz sentido.
+    await assert.rejects(
+      () =>
+        saleContractService.reopenSaleContract(
+          contractId,
+          { expectedVersion: version },
+          adminActor
+        ),
+      (err) => err.status === 409 && err.details?.code === 'SALE_CONTRACT_NOT_REOPENABLE'
+    );
+    const fin = await saleContractService.finalizeSaleContract(
+      contractId,
+      { expectedVersion: version },
+      adminActor
+    );
+    // Finalizar duas vezes, idem.
+    await assert.rejects(
+      () =>
+        saleContractService.finalizeSaleContract(
+          contractId,
+          { expectedVersion: fin.contract.version },
+          adminActor
+        ),
+      (err) => err.status === 409 && err.details?.code === 'SALE_CONTRACT_NOT_FINALIZABLE'
+    );
+  });
+
+  test('RC-D62: finalizar com version stale -> 409 e nada muda', async () => {
+    const { contractId, version } = await setupConfirmedContract({ lotNumber: '24111' });
+    await assert.rejects(
+      () =>
+        saleContractService.finalizeSaleContract(
+          contractId,
+          { expectedVersion: version + 5 },
+          adminActor
+        ),
+      (err) => err.status === 409 && err.details?.code === 'SALE_CONTRACT_VERSION_CONFLICT'
+    );
+    const after = await saleContractService.getSaleContract(contractId, adminActor);
+    assert.equal(after.contract.status, 'EMITIDO');
+    const logs = await prisma.saleContractStatusLog.findMany({
+      where: { saleContractId: contractId },
+    });
+    assert.equal(logs.length, 0);
   });
 
   test('Fase J: washout manual (a vista, via cancel da venda) grava StatusLog com ator e motivo', async () => {
@@ -3201,9 +2452,9 @@ if (!databaseUrl || !databaseReachable) {
 
   test('Fase J: timeline agrega criacao/marco/espelho/aprovacao com nomes; legado sem log fica sem autor', async () => {
     const { contractId, version } = await setupConfirmedContract({ lotNumber: '24104' });
-    await saleContractService.invoiceSaleContract(
+    await saleContractService.finalizeSaleContract(
       contractId,
-      { expectedVersion: version, date: '2026-07-06' },
+      { expectedVersion: version },
       adminActor
     );
     await saleContractService.logEspelhoGenerated(contractId, 'buyer', adminActor);
@@ -3231,18 +2482,16 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(kinds[kinds.length - 1], 'CRIACAO');
 
     const mark = timeline.items.find((item) => item.kind === 'STATUS');
-    assert.equal(mark.toStatus, 'FATURADO');
+    assert.equal(mark.toStatus, 'FINALIZADO');
     assert.equal(mark.legacy, false);
     assert.equal(mark.actorName, `Admin ${adminActor.actorUserId.slice(0, 8)}`);
     assert.equal(timeline.items.find((item) => item.kind === 'ESPELHO').side, 'buyer');
 
-    // LEGADO (D123): sem a linha auditada, o marco cai pro fallback so-com-data.
+    // RC-D62: o fallback legado so-com-data sobrou no WASHOUT — os marcos de
+    // faturar/pagar, que tinham data propria, morreram com eles.
     await prisma.saleContractStatusLog.deleteMany({ where: { saleContractId: contractId } });
-    const legacy = await saleContractService.getSaleContractTimeline(contractId, adminActor);
-    const legacyMark = legacy.items.find((item) => item.kind === 'STATUS');
-    assert.equal(legacyMark.legacy, true);
-    assert.equal(legacyMark.toStatus, 'FATURADO');
-    assert.equal(legacyMark.actorName, null);
+    const semLog = await saleContractService.getSaleContractTimeline(contractId, adminActor);
+    assert.ok(!semLog.items.some((item) => item.kind === 'STATUS'));
   });
 
   test('Fase J: timeline acessível ao COMMERCIAL sem vínculo (escopo aberto)', async () => {
@@ -3252,40 +2501,14 @@ if (!databaseUrl || !databaseReachable) {
     assert.ok(Array.isArray(timeline.items), 'COMMERCIAL sem vínculo acessa o timeline');
   });
 
-  test('faturar: expectedVersion stale -> 409', async () => {
-    const { contractId } = await setupConfirmedContract({ lotNumber: '22009' });
-    await assert.rejects(
-      () =>
-        saleContractService.invoiceSaleContract(
-          contractId,
-          { expectedVersion: 99, date: '2026-07-06' },
-          adminActor
-        ),
-      (err) => err.status === 409
-    );
-  });
-
-  test('faturar: data invalida -> 422', async () => {
-    const { contractId, version } = await setupConfirmedContract({ lotNumber: '22010' });
-    await assert.rejects(
-      () =>
-        saleContractService.invoiceSaleContract(
-          contractId,
-          { expectedVersion: version, date: 'xx' },
-          adminActor
-        ),
-      (err) => err.status === 422
-    );
-  });
-
-  test('faturar: COMMERCIAL fatura qualquer contrato (escopo aberto)', async () => {
+  test('finalizar: COMMERCIAL finaliza qualquer contrato (escopo aberto)', async () => {
     const { contractId, version } = await setupConfirmedContract({ lotNumber: '22011' });
-    const res = await saleContractService.invoiceSaleContract(
+    const res = await saleContractService.finalizeSaleContract(
       contractId,
-      { expectedVersion: version, date: '2026-07-06' },
+      { expectedVersion: version },
       commercialActor
     );
-    assert.equal(res.contract.status, 'FATURADO');
+    assert.equal(res.contract.status, 'FINALIZADO');
   });
 
   test('quebra manual: EMITIDO -> WASH_OUT, cancela a venda e restaura as sacas', async () => {
@@ -3314,36 +2537,16 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(after.soldSacks, 0);
   });
 
-  test('quebra manual: a partir de FATURADO -> WASH_OUT', async () => {
+  test('quebra manual: a partir de FINALIZADO -> WASH_OUT', async () => {
     const { contractId, version } = await setupConfirmedContract({ lotNumber: '23002' });
-    const inv = await saleContractService.invoiceSaleContract(
+    const fin = await saleContractService.finalizeSaleContract(
       contractId,
-      { expectedVersion: version, date: '2026-07-06' },
+      { expectedVersion: version },
       adminActor
     );
     const r = await saleContractService.washoutSaleContract(
       contractId,
-      { expectedVersion: inv.contract.version, reason: 'Quebra apos faturar' },
-      adminActor
-    );
-    assert.equal(r.contract.status, 'WASH_OUT');
-  });
-
-  test('quebra manual: a partir de PAGO -> WASH_OUT', async () => {
-    const { contractId, version } = await setupConfirmedContract({ lotNumber: '23003' });
-    const inv = await saleContractService.invoiceSaleContract(
-      contractId,
-      { expectedVersion: version, date: '2026-07-06' },
-      adminActor
-    );
-    const pay = await saleContractService.paySaleContract(
-      contractId,
-      { expectedVersion: inv.contract.version, date: '2026-07-08' }, // E30: máx hoje (BRT)
-      adminActor
-    );
-    const r = await saleContractService.washoutSaleContract(
-      contractId,
-      { expectedVersion: pay.contract.version, reason: 'Quebra apos pagar' },
+      { expectedVersion: fin.contract.version, reason: 'Quebra apos finalizar' },
       adminActor
     );
     assert.equal(r.contract.status, 'WASH_OUT');
@@ -3403,16 +2606,11 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(r.contract.status, 'WASH_OUT');
   });
 
-  test('lote: cancelar a venda de contrato PAGO -> WASH_OUT (extensao)', async () => {
+  test('lote: cancelar a venda de contrato FINALIZADO -> WASH_OUT (extensao)', async () => {
     const { contractId, sampleId, version } = await setupConfirmedContract({ lotNumber: '23010' });
-    const inv = await saleContractService.invoiceSaleContract(
+    await saleContractService.finalizeSaleContract(
       contractId,
-      { expectedVersion: version, date: '2026-07-06' },
-      adminActor
-    );
-    await saleContractService.paySaleContract(
-      contractId,
-      { expectedVersion: inv.contract.version, date: '2026-07-08' }, // E30: máx hoje (BRT)
+      { expectedVersion: version },
       adminActor
     );
     const movement = await prisma.sampleMovement.findFirst({ where: { sampleId } });
@@ -3619,87 +2817,25 @@ if (!databaseUrl || !databaseReachable) {
     );
   });
 
-  test('D144: faturar e pagar direto com planejadas "à definir" (data real basta)', async () => {
+  test('D144: finalizar direto com planejadas "à definir" (RC-D63: nao pede data)', async () => {
     const buyerId = randomUUID();
     await createBuyerClient(buyerId);
     const created = await saleContractService.createFutureSaleContract(
       await createFutureInput(buyerId, { invoiceDate: null, paymentDate: null }),
       adminActor
     );
-    const invoiced = await saleContractService.invoiceSaleContract(
+    // RC-D68: sem data nenhuma, a agenda diz que nao ha compromisso.
+    assert.equal(created.contract.agenda?.kind, 'nenhum');
+    const finalized = await saleContractService.finalizeSaleContract(
       created.contract.id,
-      { expectedVersion: created.contract.version, date: '2026-07-08' },
+      { expectedVersion: created.contract.version },
       adminActor
     );
-    assert.equal(invoiced.contract.status, 'FATURADO');
-    const paid = await saleContractService.paySaleContract(
-      created.contract.id,
-      { expectedVersion: invoiced.contract.version, date: '2026-07-08' },
-      adminActor
-    );
-    assert.equal(paid.contract.status, 'PAGO');
+    assert.equal(finalized.contract.status, 'FINALIZADO');
+    assert.equal(finalized.contract.agenda?.kind, 'finalizado');
     // As planejadas seguem "à definir" no histórico.
-    assert.equal(paid.contract.invoiceDate, null);
-    assert.equal(paid.contract.paymentDate, null);
-  });
-
-  test('D144: worklist de embarque inclui "à definir" no fim; sem atraso; sem evento no calendário', async () => {
-    const dated = await setupShipmentContract({ lotNumber: '25320' });
-    await prisma.saleContract.update({
-      where: { id: dated.id },
-      data: { invoiceDate: new Date('2000-01-01T00:00:00Z') },
-    });
-    const undated = await setupShipmentContract({ lotNumber: '25321' });
-    await prisma.saleContract.update({
-      where: { id: undated.id },
-      data: { invoiceDate: null },
-    });
-
-    const all = await saleContractService.listShipmentContracts({}, adminActor);
-    const byId = new Map(all.items.map((i) => [i.id, i]));
-    assert.equal(byId.get(undated.id)?.state, 'a_embarcar');
-    assert.equal(byId.get(undated.id)?.invoiceDate, null);
-    // Nulls-last: o datado (2000, atrasado) vem antes do "à definir".
-    const order = all.items.map((i) => i.id);
-    assert.ok(order.indexOf(dated.id) < order.indexOf(undated.id));
-    // Contador de atrasados não conta o "à definir".
-    assert.equal(all.overdueCount, 1);
-
-    // Filtros: a_embarcar inclui; atrasado exclui.
-    const fA = await saleContractService.listShipmentContracts(
-      { filter: 'a_embarcar' },
-      adminActor
-    );
-    assert.ok(fA.items.some((i) => i.id === undated.id));
-    const fAtr = await saleContractService.listShipmentContracts(
-      { filter: 'atrasado' },
-      adminActor
-    );
-    assert.ok(!fAtr.items.some((i) => i.id === undated.id));
-
-    // Keyset atravessa a cauda null: limit=1 → datado, cursor → "à definir".
-    const p1 = await saleContractService.listShipmentContracts({ limit: 1 }, adminActor);
-    assert.deepEqual(
-      p1.items.map((i) => i.id),
-      [dated.id]
-    );
-    const p2 = await saleContractService.listShipmentContracts(
-      { limit: 1, cursor: p1.nextCursor },
-      adminActor
-    );
-    assert.deepEqual(
-      p2.items.map((i) => i.id),
-      [undated.id]
-    );
-
-    // Calendário: o "à definir" não gera evento agendado em janela nenhuma.
-    const events = await saleContractService.getDashboardShipmentEvents(
-      { from: '1999-01-01', to: '2199-12-31' },
-      adminActor
-    );
-    const flat = Object.values(events).flat();
-    assert.ok(!flat.some((e) => e.id.includes(undated.id)));
-    assert.ok(flat.some((e) => e.id.includes(dated.id)));
+    assert.equal(finalized.contract.invoiceDate, null);
+    assert.equal(finalized.contract.paymentDate, null);
   });
 
   test('D144: financeiro trata paymentDate "à definir" como a_vencer, nunca vencido', async () => {
@@ -3940,8 +3076,8 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(res.contract.approvalReminderLeadDays, 15); // preservado, NÃO resetou p/ 30
   });
 
-  test('setSaleContractApprovalFlag: faturado congela — nem solicitar (409 NOT_EDITABLE)', async () => {
-    const c = await mkApprovalContract({ requiresApproval: true, status: 'FATURADO' });
+  test('setSaleContractApprovalFlag: finalizado congela — nem solicitar (409 NOT_EDITABLE)', async () => {
+    const c = await mkApprovalContract({ requiresApproval: true, status: 'FINALIZADO' });
     const v = await verOf(c);
     await assert.rejects(
       () =>
@@ -3954,10 +3090,13 @@ if (!databaseUrl || !databaseReachable) {
     );
   });
 
-  test('emitSaleContract NÃO altera requiresApproval — o portão do faturar sobrevive (AP32/🔴)', async () => {
+  // RC-D66: o portão AP18 morreu — a aprovação não trava mais nada. Mas o LATCH
+  // continua: um contrato que virou "Sim" não volta pra "Não" nem pelo Editar, e é
+  // ele que mantém o aviso de pé (o card de Avisos e a agenda RC-D68 leem daí).
+  test('emitSaleContract NÃO altera requiresApproval — o latch sobrevive ao Editar (AP32/🔴)', async () => {
     const buyerId = randomUUID();
     await createBuyerClient(buyerId);
-    // FUTURO marcado (Sim), sem etiqueta → portão AP18 ativo.
+    // FUTURO marcado (Sim), sem etiqueta.
     const sim = await saleContractService.createFutureSaleContract(
       await createFutureInput(buyerId, { requiresApproval: true, approvalReminderLeadDays: 20 }),
       adminActor
@@ -3975,16 +3114,15 @@ if (!databaseUrl || !databaseReachable) {
     );
     assert.equal(edited.contract.requiresApproval, true); // preservado — NÃO virou Não
 
-    // O portão AP18 do faturar segue exigindo etiqueta (não foi furado pelo Editar).
-    await assert.rejects(
-      () =>
-        saleContractService.invoiceSaleContract(
-          sim.contract.id,
-          { expectedVersion: edited.contract.version, date: '2026-07-10' },
-          adminActor
-        ),
-      (err) => err.status === 422 && err.details?.code === 'CONTRACT_APPROVAL_REQUIRED'
+    // RC-D66: sem etiqueta, finalizar PASSA — a aprovação avisa, não trava. E o
+    // aviso continua de pé enquanto ninguém gerou etiqueta (RC-D68).
+    assert.equal(edited.contract.agenda?.kind, 'aprovacao');
+    const finalized = await saleContractService.finalizeSaleContract(
+      sim.contract.id,
+      { expectedVersion: edited.contract.version },
+      adminActor
     );
+    assert.equal(finalized.contract.status, 'FINALIZADO');
   });
 
   test('listApprovalContracts: à vista washout NÃO entra no cancelado; futuro washout entra (AP33)', async () => {
@@ -4040,9 +3178,12 @@ if (!databaseUrl || !databaseReachable) {
       requiresApproval: false,
       invoiceDate: dayOffset(2),
     });
-    // Faturado (status != EMITIDO) → fora.
-    const invoiced = await mkApprovalContract({ status: 'FATURADO', invoiceDate: dayOffset(2) });
-    await setLead(invoiced, 30);
+    // Finalizado (status != EMITIDO) → fora.
+    const finalizado = await mkApprovalContract({
+      status: 'FINALIZADO',
+      invoiceDate: dayOffset(2),
+    });
+    await setLead(finalizado, 30);
     // Washout → fora.
     const washed = await mkApprovalContract({ status: 'WASH_OUT', invoiceDate: dayOffset(2) });
     // Alem da janela (data distante, lead 0 default) → fora.
@@ -4056,7 +3197,7 @@ if (!databaseUrl || !databaseReachable) {
     assert.ok(ids.has(noDate), '"À definir" aparece');
     assert.ok(!ids.has(sent), 'com etiqueta some');
     assert.ok(!ids.has(unmarked), 'não-marcado fora');
-    assert.ok(!ids.has(invoiced), 'faturado fora');
+    assert.ok(!ids.has(finalizado), 'finalizado fora');
     assert.ok(!ids.has(washed), 'washout fora');
     assert.ok(!ids.has(beyond), 'além da janela fora');
 
