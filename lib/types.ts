@@ -326,13 +326,37 @@ export interface BrokerResponse {
 // Fechamento (Fase B.2): contrato de venda "Mercado a vista". Os snapshots sao
 // JSON congelados de identidade/banco/armazens (preenchidos ao longo do fluxo).
 export type SaleContractType = 'MERCADO_A_VISTA' | 'FUTURO';
-export type SaleContractStatus = 'EMITIDO' | 'FATURADO' | 'PAGO' | 'WASH_OUT';
+// RC-D62: o contrato tem TRÊS situações. Não é máquina de status — EMITIDO é
+// "em andamento", FINALIZADO é "não pede mais nada" (reversível, RC-D63) e
+// WASH_OUT é cancelado. Faturar/Pagar/Embarcar deixaram de existir.
+export type SaleContractStatus = 'EMITIDO' | 'FINALIZADO' | 'WASH_OUT';
 export type AgioDesagioType = 'AGIO' | 'DESAGIO';
 
 export interface SaleContractBrokerView {
   id: string;
   brokerId: string;
   brokerNameSnapshot: string;
+}
+
+// RC-D68: a agenda do contrato — o PRÓXIMO COMPROMISSO, derivado no servidor das
+// datas que o próprio documento imprime + "já saiu etiqueta de aprovação?". É o que
+// a coluna "Situação" mostra no lugar de um rótulo de fase; nada aqui é mantido à
+// mão. Precedência: cancelado → finalizado → aprovação → pagamento vencido →
+// faturamento → pagamento → nenhum. O `dayKey` ('YYYY-MM-DD') é a data do
+// compromisso; nulo nos terminais e em 'nenhum'. A frase em pt-BR é montada no
+// front (`contractAgendaLabel`), que é quem sabe formatar data.
+export type ContractAgendaKind =
+  | 'cancelado'
+  | 'finalizado'
+  | 'aprovacao'
+  | 'pagamento_vencido'
+  | 'faturamento'
+  | 'pagamento'
+  | 'nenhum';
+
+export interface ContractAgenda {
+  kind: ContractAgendaKind;
+  dayKey: string | null;
 }
 
 // Aprovação do contrato (Fase I, D112–D119): prefill da etiqueta montado no
@@ -395,19 +419,14 @@ export interface SaleContract {
   packagingText: string | null;
   invoiceDate: string | null;
   paymentDate: string | null;
-  invoicedAt: string | null;
-  paidAt: string | null;
   observations: string | null;
   description: string | null;
   // Aprovacao (reforma AP1/AP6): sinal + lembrete (dias antes do faturamento).
   requiresApproval: boolean;
   approvalReminderLeadDays: number | null;
-  // Embarque (EMB21/EMB22): sinal herdado da modalidade + data real do embarque.
-  requiresShipment: boolean;
-  shippedAt: string | null;
-  // Embarque FASE 2 (EMB30): transporte + nome do responsável (snapshot), só no Detalhes.
-  shipmentCarrier: 'COMPANY' | 'THIRD_PARTY' | null;
-  shipmentResponsibleName: string | null;
+  // RC-D68: derivada no servidor, presente na lista E no detalhe (para os dois
+  // nunca divergirem). Opcional só para o payload legado dos testes de contrato.
+  agenda?: ContractAgenda;
   version: number;
   createdAt: string | null;
   updatedAt: string | null;
@@ -422,39 +441,6 @@ export interface SaleContractDetail extends SaleContract {
   // divergir do `sellerClientId` gravado se o dono mudou desde a emissao. null
   // quando nao ha lote (Futuro).
   sampleOwner: { clientId: string; displayName: string | null } | null;
-}
-
-// Embarque (EMB27) — fotos da confirmacao. A view nao expoe storagePath/checksum;
-// o download e por rota-proxy autenticada (shipmentPhotoDownloadUrl).
-export interface ShipmentPhoto {
-  id: string;
-  contractId: string;
-  fileName: string | null;
-  mimeType: string | null;
-  sizeBytes: number | null;
-  createdAt: string | null;
-}
-
-export interface ShipmentPhotoListResponse {
-  items: ShipmentPhoto[];
-}
-
-// Resumo NAO-sensivel do embarque (sem preco/corretagem): modal de confirmacao
-// (worklist + portao do pagamento) e secao "Embarque" do Detalhes.
-export interface ShipmentContext {
-  contractId: string;
-  contractNumber: string;
-  status: SaleContractStatus;
-  quantitySacks: number;
-  invoiceDate: string | null;
-  requiresShipment: boolean;
-  shippedAt: string | null;
-  buyerName: string | null;
-  sellerWarehouse: string | null;
-}
-
-export interface ShipmentContextResponse {
-  context: ShipmentContext;
 }
 
 // Fechamento ("Editar"): bloco da fase 1 (venda) editavel num contrato emitido.
@@ -558,10 +544,12 @@ export interface FinanceiroBroker {
 }
 
 // Revisão do Pagamento (FN1): estado de pagamento derivado — a lente do Financeiro.
-export type FinanceiroPaymentState = 'a_vencer' | 'vencido' | 'pago' | 'cancelado';
+// RC-D67: 'pago' virou 'recebida' e vem do contrato estar FINALIZADO — o /financeiro
+// não tem ação própria, é leitura.
+export type FinanceiroPaymentState = 'a_vencer' | 'vencido' | 'recebida' | 'cancelado';
 
 // Revisão do Pagamento (FN5): filtro do Financeiro (default 'todos').
-export type FinanceiroFilter = 'todos' | 'a_vencer' | 'vencido' | 'pago' | 'cancelado';
+export type FinanceiroFilter = 'todos' | 'a_vencer' | 'vencido' | 'recebida' | 'cancelado';
 
 export interface FinanceiroReceivable {
   id: string;
@@ -569,9 +557,8 @@ export interface FinanceiroReceivable {
   contractNumber: string;
   contractDate: string | null;
   paymentDate: string | null;
-  // Revisão do Pagamento (FN3): data real do pagamento ("pago em") + estado derivado
-  // (chip) + nome do comprador. paymentState vem do servidor (fonte única de "hoje").
-  paidAt: string | null;
+  // Revisão do Pagamento (FN3): estado derivado (chip) + nome do comprador.
+  // paymentState vem do servidor (fonte única de "hoje").
   paymentState: FinanceiroPaymentState;
   buyerName: string | null;
   status: SaleContractStatus;
@@ -597,35 +584,6 @@ export interface FinanceiroListResponse {
   // vencidos (não pagos + paymentDate < hoje), no mesmo escopo/busca.
   overdueCount: number;
   overdueCommission: number;
-}
-
-// Embarque (EMB23): estado derivado da worklist (chip). Sem enum no banco.
-export type ShipmentState = 'a_embarcar' | 'atrasado' | 'embarcado' | 'cancelado';
-
-// Filtro da worklist (EMB25, default 'todos').
-export type ShipmentFilter = 'todos' | 'a_embarcar' | 'atrasado' | 'embarcado' | 'cancelado';
-
-// Linha da worklist (EMB25): só dado NÃO-sensível (a aba é visível a todos os
-// não-PROSPECTOR) — sem preço/corretagem.
-export interface ShipmentReceivable {
-  id: string;
-  contractNumber: string;
-  state: ShipmentState;
-  status: SaleContractStatus;
-  buyerName: string | null;
-  sellerWarehouse: string | null;
-  quantitySacks: number;
-  invoiceDate: string | null;
-  shippedAt: string | null;
-}
-
-export interface ShipmentListResponse {
-  items: ShipmentReceivable[];
-  // Cursor keyset OPACO (base64url {g,key,seq}); null = última página.
-  nextCursor: string | null;
-  // "N atrasados" (EMB24): contagem estável dos não-embarcados vencidos (independe
-  // do filtro/cursor ativo).
-  overdueCount: number;
 }
 
 // Aprovação (AP26): estado derivado da worklist (chip). Sem enum no banco.
@@ -1239,9 +1197,9 @@ export interface DashboardAvisosResponse {
 }
 
 // Card de Eventos do dashboard (F1, E21-E27/D138): feed de "pagamentos de contrato".
-// Cada evento = 1 contrato no dia da sua data de pagamento — agendado
-// (contract_payment_due, no paymentDate) ou realizado (contract_payment_paid, no
-// paidAt). Escopado por papel (ADMIN todos / COMMERCIAL só os dele).
+// Cada evento = 1 contrato no dia da sua data de pagamento (contract_payment_due;
+// contract_payment_overdue quando o dia passou — RC-D64). RC-D62: não há mais
+// evento "realizado" — o calendário é AGENDA, não histórico.
 export interface DashboardCalendarEvent {
   id: string; // = contractId (1 evento por contrato)
   typeKey: string;
@@ -1250,7 +1208,7 @@ export interface DashboardCalendarEvent {
   // vermelho atrasado / verde realizado), não por tipo; o NOME DO TIPO no `label`
   // é que diferencia os eventos. Derivado do typeKey nos builders (support).
   state?: 'previsto' | 'atrasado' | 'realizado';
-  // Metadados do contrato (os 3 feeds setam contractId/contractNumber/buyerName/status).
+  // Metadados do contrato (os 2 feeds setam contractId/contractNumber/buyerName/status).
   // `version` e `sellerName` saíram no check-up: eram do atalho "Pago"/acordeão E25,
   // removidos por E28 (navegação pura) — nenhum componente os lia.
   contractId?: string;
@@ -1264,18 +1222,10 @@ export interface DashboardPaymentEventsResponse {
   events: Record<string, DashboardCalendarEvent[]>;
 }
 
-// Embarque (EMB10/EMB17/EMB26): feed de eventos de embarque do card de Eventos. Mesmo
-// formato (o `DashboardCalendarEvent` é genérico por `typeKey`); usa `contract_shipment`
-// (previsto), `contract_shipment_overdue` (atrasado) e `contract_shipment_done` (realizado)
-// — cor por ESTADO desde DSB-D10 (azul/vermelho/verde). `id` namespaced ('shipment:').
-// Navegação pura no front (→ o próprio contrato, `/contratos?details=<id>` — RC-D23).
-export interface DashboardShipmentEventsResponse {
-  events: Record<string, DashboardCalendarEvent[]>;
-}
-
 // Faturamento (DSB-D11): feed de eventos de faturamento do card de Eventos. Mesmo
-// formato (o `DashboardCalendarEvent` é genérico por `typeKey`); usa `contract_invoice`
-// / `contract_invoice_overdue` / `contract_invoice_done`, `id` namespaced ('invoice:').
+// formato (o `DashboardCalendarEvent` é genérico por `typeKey`); usa só
+// `contract_invoice`, `id` namespaced ('invoice:'). RC-D64: o faturamento é LEMBRETE
+// PURO — nenhuma ação o resolve, então nunca fica vermelho nem vira "realizado".
 // Navegação pura no front (→ /contratos?tab=contratos, com realce p/ quem tem a aba).
 export interface DashboardInvoiceEventsResponse {
   events: Record<string, DashboardCalendarEvent[]>;

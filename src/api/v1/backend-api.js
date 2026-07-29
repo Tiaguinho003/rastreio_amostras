@@ -244,7 +244,6 @@ export function createBackendApiV1({
   clientBankAccountService = null,
   clientAttachmentService = null,
   saleContractService = null,
-  saleContractShipmentService = null,
   saleContractPdfService = null,
   visitReportService = null,
   pushService = null,
@@ -2875,25 +2874,6 @@ export function createBackendApiV1({
         return { status: 200, body: result };
       }),
 
-    // Embarque (EMB23-EMB25): worklist da sub-aba. Auth-only (todos nao-PROSPECTOR).
-    listSaleContractShipments: (input) =>
-      executeApiForInput(input, async () => {
-        if (!saleContractService) {
-          throw new HttpError(501, 'Sale contract service is not configured');
-        }
-        const actor = await resolveActorContext(input, authService);
-        const result = await saleContractService.listShipmentContracts(
-          {
-            search: input?.query?.search,
-            limit: input?.query?.limit,
-            cursor: input?.query?.cursor,
-            filter: input?.query?.filter,
-          },
-          actor
-        );
-        return { status: 200, body: result };
-      }),
-
     // Aprovacao (AP25-AP28): worklist da sub-aba. Auth-only (todos os nao-PROSPECTOR,
     // AP10/AP30 — SEM escopo por corretor). Paginada por cursor keyset
     // (?search/?limit/?cursor/?filter). PROSPECTOR barrado pelo allowlist central.
@@ -2926,21 +2906,6 @@ export function createBackendApiV1({
         }
         const actor = await resolveActorContext(input, authService);
         const events = await saleContractService.getDashboardPaymentEvents(
-          { from: input?.query?.from, to: input?.query?.to },
-          actor
-        );
-        return { status: 200, body: { events } };
-      }),
-
-    // Embarque (EMB7/EMB26): feed de eventos de embarque do card de Eventos. Auth-only
-    // (todos os nao-PROSPECTOR); navegacao pura no front (→ aba Embarque).
-    getDashboardShipmentEvents: (input) =>
-      executeApiForInput(input, async () => {
-        if (!saleContractService) {
-          throw new HttpError(501, 'Sale contract service is not configured');
-        }
-        const actor = await resolveActorContext(input, authService);
-        const events = await saleContractService.getDashboardShipmentEvents(
           { from: input?.query?.from, to: input?.query?.to },
           actor
         );
@@ -3040,25 +3005,6 @@ export function createBackendApiV1({
         return { status: 200, body: result };
       }),
 
-    // Fechamento (Fase B): ciclo LINEAR pos-EMITIDO (D106), SO PRA FRENTE
-    // (o "Desfazer" foi removido na Fase J, D122). "Faturar" (EMITIDO->FATURADO)
-    // e "Pagar" (FATURADO->PAGO, só após faturar) gravam a data real + o marco
-    // auditado (D123).
-    invoiceSaleContract: (input) =>
-      executeApiForInput(input, async () => {
-        if (!saleContractService) {
-          throw new HttpError(501, 'Sale contract service is not configured');
-        }
-        const actor = await resolveActorContext(input, authService);
-        const contractId = input?.params?.contractId;
-        if (typeof contractId !== 'string' || contractId.length === 0) {
-          throw new HttpError(422, 'contractId path param is required');
-        }
-        const body = readRequestBody(input);
-        const result = await saleContractService.invoiceSaleContract(contractId, body, actor);
-        return { status: 200, body: result };
-      }),
-
     // AP23: toggle rapido Sim/Nao do requiresApproval (Detalhes). So ADMIN/COMMERCIAL
     // (gate no service); travas AP20 (so EMITIDO; Sim->Nao so sem etiqueta).
     setSaleContractApprovalFlag: (input) =>
@@ -3080,7 +3026,10 @@ export function createBackendApiV1({
         return { status: 200, body: result };
       }),
 
-    paySaleContract: (input) =>
+    // RC-D62/D63: o unico marco que sobrou do ciclo pos-EMITIDO. "Finalizar" nao
+    // grava data (nao afirma fato do mundo, so tira o contrato da fila) e volta
+    // por "Reabrir" — quem e quando ficam no status log.
+    finalizeSaleContract: (input) =>
       executeApiForInput(input, async () => {
         if (!saleContractService) {
           throw new HttpError(501, 'Sale contract service is not configured');
@@ -3091,7 +3040,22 @@ export function createBackendApiV1({
           throw new HttpError(422, 'contractId path param is required');
         }
         const body = readRequestBody(input);
-        const result = await saleContractService.paySaleContract(contractId, body, actor);
+        const result = await saleContractService.finalizeSaleContract(contractId, body, actor);
+        return { status: 200, body: result };
+      }),
+
+    reopenSaleContract: (input) =>
+      executeApiForInput(input, async () => {
+        if (!saleContractService) {
+          throw new HttpError(501, 'Sale contract service is not configured');
+        }
+        const actor = await resolveActorContext(input, authService);
+        const contractId = input?.params?.contractId;
+        if (typeof contractId !== 'string' || contractId.length === 0) {
+          throw new HttpError(422, 'contractId path param is required');
+        }
+        const body = readRequestBody(input);
+        const result = await saleContractService.reopenSaleContract(contractId, body, actor);
         return { status: 200, body: result };
       }),
 
@@ -3458,73 +3422,6 @@ export function createBackendApiV1({
           actor
         );
         return { status: 200, body: result };
-      }),
-
-    // ============================================================
-    // Embarque — confirmacao + fotos (EMB27). Auth-only (todos os
-    // nao-PROSPECTOR); PROSPECTOR barrado no allowlist central.
-    // ============================================================
-    getSaleContractShipmentContext: (input) =>
-      executeApiForInput(input, async () => {
-        if (!saleContractShipmentService) {
-          throw new HttpError(501, 'Sale contract shipment service is not configured');
-        }
-        const actor = await resolveActorContext(input, authService);
-        const result = await saleContractShipmentService.getShipmentContext(
-          input?.params?.contractId,
-          actor
-        );
-        return { status: 200, body: result };
-      }),
-
-    listSaleContractShipmentPhotos: (input) =>
-      executeApiForInput(input, async () => {
-        if (!saleContractShipmentService) {
-          throw new HttpError(501, 'Sale contract shipment service is not configured');
-        }
-        const actor = await resolveActorContext(input, authService);
-        const result = await saleContractShipmentService.listShipmentPhotos(
-          input?.params?.contractId,
-          actor
-        );
-        return { status: 200, body: result };
-      }),
-
-    confirmSaleContractShipment: (input) =>
-      executeApiForInput(input, async () => {
-        if (!saleContractShipmentService) {
-          throw new HttpError(501, 'Sale contract shipment service is not configured');
-        }
-        const actor = await resolveActorContext(input, authService);
-        const body = readRequestBody(input);
-        const result = await saleContractShipmentService.confirmShipment(
-          input?.params?.contractId,
-          {
-            shippedAt: body.shippedAt ?? null,
-            files: Array.isArray(body.files) ? body.files : [],
-            transporte: body.transporte ?? null,
-            responsibleUserId: body.responsibleUserId ?? null,
-          },
-          actor
-        );
-        return { status: 201, body: result };
-      }),
-
-    // Descritor da foto de embarque: a rota binaria (que serve os bytes do disco)
-    // NAO passa pelo executeBackend, entao delega a auth aqui (molde da foto de
-    // amostra). resolveActorContext garante sessao + barra PROSPECTOR.
-    getSaleContractShipmentPhotoDescriptor: (input) =>
-      executeApiForInput(input, async () => {
-        if (!saleContractShipmentService) {
-          throw new HttpError(501, 'Sale contract shipment service is not configured');
-        }
-        const actor = await resolveActorContext(input, authService);
-        const descriptor = await saleContractShipmentService.getShipmentPhotoDescriptor(
-          input?.params?.contractId,
-          input?.params?.photoId,
-          actor
-        );
-        return { status: 200, body: descriptor };
       }),
 
     // ============================================================

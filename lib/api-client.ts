@@ -26,10 +26,6 @@ import type {
   ClientBankAccountResponse,
   ClientAttachmentListResponse,
   ClientAttachmentResponse,
-  ShipmentContextResponse,
-  ShipmentFilter,
-  ShipmentListResponse,
-  ShipmentPhotoListResponse,
   ApprovalFilter,
   ApprovalListResponse,
   ClientLookupKind,
@@ -49,7 +45,6 @@ import type {
   DetectFormResponse,
   RecentSendsResponse,
   DashboardPaymentEventsResponse,
-  DashboardShipmentEventsResponse,
   DashboardInvoiceEventsResponse,
   DashboardAvisosResponse,
   InvalidateReasonCode,
@@ -921,20 +916,6 @@ export function applyAgioSaleContract(
   });
 }
 
-// Fechamento (Fase B): ciclo pos-EMITIDO, SO PRA FRENTE (o "Desfazer" foi
-// removido na Fase J, D122). "Faturar" e "Pagar" gravam a data real (YYYY-MM-DD).
-export function invoiceSaleContract(
-  session: SessionData,
-  contractId: string,
-  data: { expectedVersion: number; date: string }
-) {
-  return request<SaleContractResponse>(`/sale-contracts/${contractId}/invoice`, {
-    method: 'POST',
-    session,
-    body: data,
-  });
-}
-
 // AP23: toggle rápido Sim/Não do requiresApproval, do modal de Detalhes (sem abrir o
 // "Editar" inteiro). Só ADMIN/COMMERCIAL; travas AP20 no backend.
 export function setSaleContractApprovalFlag(
@@ -949,12 +930,26 @@ export function setSaleContractApprovalFlag(
   });
 }
 
-export function paySaleContract(
+// RC-D62/D63: "Finalizar" tira o contrato da fila; "Reabrir" devolve. Sem data —
+// não é registro de um fato, é o contrato dizendo que não pede mais nada.
+export function finalizeSaleContract(
   session: SessionData,
   contractId: string,
-  data: { expectedVersion: number; date: string }
+  data: { expectedVersion: number }
 ) {
-  return request<SaleContractResponse>(`/sale-contracts/${contractId}/pay`, {
+  return request<SaleContractResponse>(`/sale-contracts/${contractId}/finalize`, {
+    method: 'POST',
+    session,
+    body: data,
+  });
+}
+
+export function reopenSaleContract(
+  session: SessionData,
+  contractId: string,
+  data: { expectedVersion: number }
+) {
+  return request<SaleContractResponse>(`/sale-contracts/${contractId}/reopen`, {
     method: 'POST',
     session,
     body: data,
@@ -1107,85 +1102,6 @@ export function deleteClientAttachment(
 // <a href>, <img src> ou <iframe src>; cookies same-origin acompanham.
 export function clientAttachmentDownloadUrl(clientId: string, attachmentId: string): string {
   return `${API_BASE}/clients/${clientId}/attachments/${attachmentId}`;
-}
-
-// Embarque (EMB27) — resumo, fotos e confirmacao. Auth-only (todos nao-PROSPECTOR).
-export function getShipmentContext(
-  session: SessionData,
-  contractId: string,
-  options: { signal?: AbortSignal } = {}
-) {
-  return request<ShipmentContextResponse>(`/sale-contracts/${contractId}/shipment-context`, {
-    method: 'GET',
-    session,
-    signal: options.signal,
-  });
-}
-
-export function listShipmentPhotos(
-  session: SessionData,
-  contractId: string,
-  options: { signal?: AbortSignal } = {}
-) {
-  return request<ShipmentPhotoListResponse>(`/sale-contracts/${contractId}/shipment-photos`, {
-    method: 'GET',
-    session,
-    signal: options.signal,
-  });
-}
-
-// Confirma o embarque: multipart com a data (shippedAt) + transporte/responsavel
-// (EMB30) + 0..10 fotos opcionais.
-export function confirmShipment(
-  session: SessionData,
-  contractId: string,
-  input: {
-    shippedAt: string;
-    files: File[];
-    transporte: 'COMPANY' | 'THIRD_PARTY';
-    responsibleUserId: string | null;
-  }
-) {
-  const formData = new FormData();
-  formData.append('shippedAt', input.shippedAt);
-  formData.append('transporte', input.transporte);
-  if (input.responsibleUserId) {
-    formData.append('responsibleUserId', input.responsibleUserId);
-  }
-  for (const file of input.files) {
-    formData.append('file', file);
-  }
-  return request<ShipmentContextResponse>(`/sale-contracts/${contractId}/shipment-confirmation`, {
-    method: 'POST',
-    session,
-    formData,
-  });
-}
-
-// URL da rota-proxy de uma foto de embarque (serve inline; cookies same-origin).
-export function shipmentPhotoDownloadUrl(contractId: string, photoId: string): string {
-  return `${API_BASE}/sale-contracts/${contractId}/shipment-photos/${photoId}`;
-}
-
-// Embarque (EMB23-EMB25): worklist paginada por cursor keyset. SEM CONSUMIDOR de UI
-// desde a RC-D2 (a sub-aba que a exibia morreu). Mantida de proposito: a RC-F3
-// reescreve a lista de contratos com filtro de fase e vai reusar este recorte.
-export function listShipments(
-  session: SessionData,
-  query: { search?: string; limit?: number; cursor?: string; filter?: ShipmentFilter } = {},
-  options: { signal?: AbortSignal } = {}
-) {
-  const params = new URLSearchParams();
-  if (query.search) params.set('search', query.search);
-  if (typeof query.limit === 'number') params.set('limit', String(query.limit));
-  if (query.cursor) params.set('cursor', query.cursor);
-  if (query.filter && query.filter !== 'todos') params.set('filter', query.filter);
-  const suffix = params.size ? `?${params.toString()}` : '';
-  return request<ShipmentListResponse>(`/sale-contracts/shipments${suffix}`, {
-    method: 'GET',
-    session,
-    signal: options.signal,
-  });
 }
 
 // Aprovação (AP25-AP28): worklist paginada. Default 'a_enviar' (o param só vai quando
@@ -1349,24 +1265,6 @@ export function getDashboardPaymentEvents(
     session,
     cachePolicy: 'default',
   });
-}
-
-// Embarque (EMB7/EMB26): feed de eventos de embarque do card de Eventos, por janela de
-// data. Visível a todos os não-PROSPECTOR (o card só monta no desktop); navegação pura
-// no front (→ o próprio contrato, `/contratos?details=<id>` — RC-D23).
-export function getDashboardShipmentEvents(
-  session: SessionData,
-  window: { from: string; to: string }
-) {
-  const params = new URLSearchParams({ from: window.from, to: window.to });
-  return request<DashboardShipmentEventsResponse>(
-    `/dashboard/shipment-events?${params.toString()}`,
-    {
-      method: 'GET',
-      session,
-      cachePolicy: 'default',
-    }
-  );
 }
 
 // Faturamento (DSB-D11): feed de eventos de faturamento do card de Eventos, por janela
