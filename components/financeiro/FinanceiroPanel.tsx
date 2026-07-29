@@ -247,19 +247,17 @@ export function FinanceiroPanel({ session }: { session: SessionData }) {
     return () => observer.disconnect();
   }, [runLoadMore, listState.nextCursor, listState.status, session]);
 
-  const { items, status, error, nextCursor, totalCommission, overdueCount, overdueCommission } =
-    listState;
+  const { items, status, error, nextCursor, overdueCount, overdueCommission } = listState;
   const isInitialLoading = status === 'loading-initial';
   // Piscada no contrato tocado no evento de pagamento do dashboard (?highlight=<id>).
   const highlightId = useContractHighlight(items, scrollRef);
 
+  // A faixa "Corretagem total" saiu do topo a pedido do Flavio (2026-07-29): ela
+  // somava TODOS os estados — o que ainda vem e o que ja foi recebido no mesmo
+  // numero. O `totalCommission` segue na resposta da API (e no estado) ate a
+  // decisao de KPI do redesenho; se ninguem o consumir depois dela, sai junto.
   return (
     <>
-      <div className="fin-total" role="status">
-        <span className="fin-total-label">Corretagem total</span>
-        <span className="fin-total-value">{BRL.format(totalCommission)}</span>
-      </div>
-
       {overdueCount > 0 ? (
         <div className="fin-overdue" role="status">
           <span className="fin-overdue-count">

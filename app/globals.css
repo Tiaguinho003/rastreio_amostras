@@ -28671,29 +28671,13 @@ body.is-selection-mode .mobile-tabbar {
 
 /* ---------------------------------------------------------------------------
    Financeiro (Fase F): pagina "Financeiro" — corretagem a receber por
-   fechamento. Total geral + cards (recolhido + expandido, acordeao) espelhando
-   o .ctr-card; figuras, corretores e o detalhe da corretagem (vend/comp).
+   fechamento. Cards (recolhido + expandido, acordeao) espelhando o .ctr-card;
+   figuras, corretores e o detalhe da corretagem (vend/comp).
+
+   🪦 `.fin-total*` (a faixa verde "Corretagem total" do topo) APAGADA em
+   2026-07-29 a pedido do Flavio: ela somava todos os estados — o que ainda vem
+   e o que ja foi recebido — num numero so.
    --------------------------------------------------------------------------- */
-.fin-total {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin: 0 clamp(0.5rem, 3vw, 1rem) 0.6rem;
-  padding: 0.75rem 1rem;
-  border-radius: 14px;
-  background: var(--brand-green-ink);
-  color: #fff;
-}
-.fin-total-label {
-  font-size: 0.85rem;
-  font-weight: 600;
-  opacity: 0.92;
-}
-.fin-total-value {
-  font-size: 1.25rem;
-  font-weight: 800;
-}
 /* FN6: indicador de vencidos ("N vencidos · R$ X") — vermelho, some quando 0. */
 .fin-overdue {
   display: flex;
