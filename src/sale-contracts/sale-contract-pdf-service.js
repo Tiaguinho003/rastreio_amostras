@@ -4,7 +4,7 @@ import path from 'node:path';
 
 import { PDFDocument, StandardFonts, degrees, rgb } from 'pdf-lib';
 
-import { computeEffectiveUnitPrice } from './sale-contract-support.js';
+import { snapshotPartyName } from './sale-contract-support.js';
 
 // Fechamento (Fase C): gera o PDF do "Contrato de Compra e Venda de Café" a
 // partir do SaleContract (+ snapshots), no estilo do app. Puro pdf-lib (mesmo
@@ -208,9 +208,10 @@ async function tryReadPng(candidate) {
   return null;
 }
 
-function snapshotName(snap) {
-  if (!snap) return null;
-  return snap.displayName ?? snap.legalName ?? snap.fullName ?? null;
+// Contagem inteira ("10", nao "10,00"): sacas sao coluna Int. Vazio quando ausente.
+function intOrEmpty(value) {
+  const parsed = decimalToNumber(value);
+  return parsed === null ? '' : String(Math.trunc(parsed));
 }
 
 function emptyToDash(value) {
@@ -554,7 +555,7 @@ export class SaleContractPdfService {
       const city = pick('city');
       const state = pick('state');
       return [
-        ['Nome', snapshotName(snap)],
+        ['Nome', snapshotPartyName(snap)],
         ['CNPJ', formatDocument(pick('cnpj'))],
         ['IE', pick('registrationNumber')],
         ['Endereço', pick('addressLine')],
@@ -752,13 +753,19 @@ export class SaleContractPdfService {
   }
 
   // Espelho de Corretagem (Fase E): demonstrativo de comissao DERIVADO de UM
-  // contrato (D70), on-demand. `side` = 'seller' | 'buyer' = a parte a quem o
-  // espelho e enderecado (D72): define o CLIENTE (topo) e a comissao impressa
-  // (sellerBrokerageValue/buyerBrokerageValue). Layout do legado: cabecalho do
-  // emissor + faixa-titulo + CLIENTE + tabela de 1 linha + TOTAL + dados
-  // bancarios da corretora (rodape, D74). Pagina unica. contract = view de
-  // getSaleContract (decimais como number, datas ISO, snapshots como objetos).
-  async renderEspelhoPdf(contract, { side, issuer }) {
+  // contrato (D70). O lado ('seller'|'buyer') e a parte a quem o espelho e
+  // enderecado (D72) e ja vem resolvido dentro do snapshot: define o CLIENTE
+  // (topo) e a comissao impressa. Layout do legado: cabecalho do emissor +
+  // faixa-titulo + CLIENTE + tabela de 1 linha + TOTAL + dados bancarios da
+  // corretora (rodape, D74). Pagina unica.
+  //
+  // RC-D103: entra um SNAPSHOT (buildEspelhoSnapshot), nao a view do contrato.
+  // Isto e o que faz o espelho guardado e o recem-gerado serem o MESMO caminho —
+  // antes cada celula lia a linha do contrato no momento do render, e regerar
+  // depois de um "Editar"/agio produzia um documento diferente do entregue.
+  // `generatedAt` vem de fora: `new Date()` na geracao nova, o created_at da linha
+  // de auditoria na releitura de um espelho guardado.
+  async renderEspelhoPdf(snapshot, { issuer, generatedAt = new Date() }) {
     const pdfDoc = await PDFDocument.create();
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
@@ -768,14 +775,12 @@ export class SaleContractPdfService {
     const contentW = PAGE_W - 2 * MARGIN;
     const page = pdfDoc.addPage([PAGE_W, PAGE_H]);
 
-    const isSeller = side === 'seller';
-    const partySnap = isSeller ? contract.sellerSnapshot : contract.buyerSnapshot;
-    const clientName = snapshotName(partySnap) ?? '—';
-    const commission = isSeller ? contract.sellerBrokerageValue : contract.buyerBrokerageValue;
+    const clientName = snapshot.clientName ?? '—';
+    const commission = snapshot.commission;
     const agioLabel =
-      contract.agioDesagioType === 'AGIO'
+      snapshot.agioDesagioType === 'AGIO'
         ? 'Ágio'
-        : contract.agioDesagioType === 'DESAGIO'
+        : snapshot.agioDesagioType === 'DESAGIO'
           ? 'Deságio'
           : '';
     // Numero BR com 2 casas, SEM "R$" (como no legado); null -> vazio.
@@ -845,32 +850,31 @@ export class SaleContractPdfService {
     // Data = data de GERACAO do espelho (D131, fuso do negocio); Pagamento =
     // paymentDate do contrato; a coluna "Comprador/Vendedor" saiu (D132 — era
     // o mesmo nome do CLIENTE do topo).
-    const generatedDate = new Date().toLocaleDateString('pt-BR', {
+    const generatedDate = new Date(generatedAt).toLocaleDateString('pt-BR', {
       timeZone: 'America/Sao_Paulo',
     });
-    // Preco EFETIVO (D133): cru ± agio/desagio POR SACA — a base real da comissao.
-    // Le da VIEW (effectiveUnitPrice, fonte unica computeEffectiveUnitPrice); fallback
-    // pro MESMO helper se vier um contrato cru (testes). Sem formula inline aqui — fecha
-    // o drift da coluna "Preco" vs a base da comissao.
-    const effectiveUnitPrice =
-      contract.effectiveUnitPrice ??
-      computeEffectiveUnitPrice(
-        decimalToNumber(contract.unitPrice),
-        contract.agioDesagioType ?? null,
-        decimalToNumber(contract.agioDesagioValue)
-      );
+    // RC-D109: o % da corretagem entra no CABECALHO da coluna da comissao. Sem ele o
+    // cliente nao tinha como conferir a conta — o papel trazia o produto e nenhum dos
+    // fatores, e a divisao inversa nem devolve um pct reconhecivel (185,18/12.345,60
+    // volta 1,49997%, nao 1,5%). O pct vem do snapshot, logo o espelho guardado imprime
+    // o que valia na entrega. Fallback pro rotulo antigo se vier 0/ausente (nao deveria:
+    // o gate ESPELHO_NO_BROKERAGE exige pct > 0).
+    const pct = decimalToNumber(snapshot.brokeragePct);
+    const commissionLabel = pct > 0 ? `Comissão (${DEC2.format(pct)}%)` : 'Valor Comissão';
     const columns = [
-      { label: 'N.º Contrato', value: contract.contractNumber, weight: 8.5 },
+      { label: 'N.º Contrato', value: snapshot.contractNumber, weight: 8.5 },
       { label: 'Data', value: generatedDate, weight: 8 },
       // D144: pagamento "A definir" imprime o texto (a celula saia em branco).
-      { label: 'Pagamento', value: formatDateBR(contract.paymentDate) ?? 'À definir', weight: 8 },
-      { label: 'Preço', value: dec(effectiveUnitPrice), weight: 7.5 },
-      { label: 'Sacas', value: dec(contract.quantitySacks), weight: 7 },
+      { label: 'Pagamento', value: formatDateBR(snapshot.paymentDate) ?? 'À definir', weight: 8 },
+      { label: 'Preço', value: dec(snapshot.effectiveUnitPrice), weight: 7.5 },
+      // RC-D109: sacas e CONTAGEM (coluna Int) — saia "10,00" porque usava o mesmo
+      // formatador dos valores monetarios.
+      { label: 'Sacas', value: intOrEmpty(snapshot.quantitySacks), weight: 7 },
       // Sem ágio → as DUAS células saem vazias (D130); dec(null) = ''.
       { label: 'Ágio/Deságio', value: agioLabel, weight: 9 },
-      { label: 'Valor', value: dec(contract.agioDesagioValue), weight: 6.5 },
-      { label: 'Valor Comissão', value: dec(commission), weight: 9.5 },
-      { label: 'Nº Compra', value: contract.purchaseNumber, weight: 7.5 },
+      { label: 'Valor', value: dec(snapshot.agioDesagioValue), weight: 6.5 },
+      { label: commissionLabel, value: dec(commission), weight: 9.5 },
+      { label: 'Nº Compra', value: snapshot.purchaseNumber, weight: 7.5 },
     ];
     const totalWeight = columns.reduce((sum, c) => sum + c.weight, 0);
     let cx = MARGIN;

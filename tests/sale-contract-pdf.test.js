@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import { PDFDocument } from 'pdf-lib';
 
 import { getContractIssuer } from '../src/sale-contracts/issuer-config.js';
+import { buildEspelhoSnapshot } from '../src/sale-contracts/sale-contract-support.js';
 import {
   SaleContractPdfService,
   formatCep,
@@ -108,9 +109,11 @@ test('renderContractPdf/renderEspelhoPdf: datas planejadas "À definir" (null, D
     issuer: getContractIssuer(),
   });
   assert.equal(buffer.subarray(0, 5).toString('latin1'), '%PDF-');
-  const espelho = await service.renderEspelhoPdf(contract, {
-    side: 'seller',
+  const snapshot = buildEspelhoSnapshot(contract, 'seller');
+  assert.equal(snapshot.paymentDate, null, 'pagamento "À definir" chega ao snapshot como null');
+  const espelho = await service.renderEspelhoPdf(snapshot, {
     issuer: getContractIssuer(),
+    generatedAt: new Date('2026-07-29T15:00:00.000Z'),
   });
   assert.equal(espelho.buffer.subarray(0, 5).toString('latin1'), '%PDF-');
 });
@@ -171,12 +174,22 @@ test('renderContractPdf: o documento cabe em UMA página (com todos os campos + 
   assert.equal(doc.getPageCount(), 1);
 });
 
+// RC-D103: o espelho renderiza de um SNAPSHOT, nao da view do contrato. Os testes
+// abaixo passam pelo buildEspelhoSnapshot de proposito — e o caminho de producao, e
+// e o que faz a asserção sobre o snapshot (no unit) valer para o papel.
+// `generatedAt` fixo: sem ele o checksum mudaria de um dia para o outro.
+const GENERATED_AT = new Date('2026-07-29T15:00:00.000Z');
+
+function espelhoOpts() {
+  return { issuer: getContractIssuer(), generatedAt: GENERATED_AT };
+}
+
 test('renderEspelhoPdf (vendedor): PDF válido (%PDF) e não-trivial', async () => {
   const service = new SaleContractPdfService();
-  const { buffer, checksumSha256 } = await service.renderEspelhoPdf(fakeContract(), {
-    side: 'seller',
-    issuer: getContractIssuer(),
-  });
+  const { buffer, checksumSha256 } = await service.renderEspelhoPdf(
+    buildEspelhoSnapshot(fakeContract(), 'seller'),
+    espelhoOpts()
+  );
   assert.ok(Buffer.isBuffer(buffer));
   assert.equal(buffer.subarray(0, 5).toString('latin1'), '%PDF-');
   assert.ok(buffer.length > 1200);
@@ -185,25 +198,62 @@ test('renderEspelhoPdf (vendedor): PDF válido (%PDF) e não-trivial', async () 
 
 test('renderEspelhoPdf: vendedor x comprador geram documentos diferentes (CLIENTE + comissão por lado)', async () => {
   const service = new SaleContractPdfService();
-  const seller = await service.renderEspelhoPdf(fakeContract(), {
-    side: 'seller',
-    issuer: getContractIssuer(),
-  });
-  const buyer = await service.renderEspelhoPdf(fakeContract(), {
-    side: 'buyer',
-    issuer: getContractIssuer(),
-  });
+  const seller = await service.renderEspelhoPdf(
+    buildEspelhoSnapshot(fakeContract(), 'seller'),
+    espelhoOpts()
+  );
+  const buyer = await service.renderEspelhoPdf(
+    buildEspelhoSnapshot(fakeContract(), 'buyer'),
+    espelhoOpts()
+  );
   assert.notEqual(seller.checksumSha256, buyer.checksumSha256);
 });
 
-test('renderEspelhoPdf: cabe em UMA página e lida com ágio/opcionais nulos', async () => {
+test('renderEspelhoPdf: cabe em UMA página e lida com opcionais nulos', async () => {
   const service = new SaleContractPdfService();
   const { buffer } = await service.renderEspelhoPdf(
-    fakeContract({ agioDesagioType: null, agioDesagioValue: null, purchaseNumber: null }),
-    { side: 'buyer', issuer: getContractIssuer() }
+    buildEspelhoSnapshot(
+      fakeContract({ agioDesagioType: null, agioDesagioValue: null, purchaseNumber: null }),
+      'buyer'
+    ),
+    espelhoOpts()
   );
   const doc = await PDFDocument.load(buffer);
   assert.equal(doc.getPageCount(), 1);
+});
+
+// A auditoria achou que o caminho do agio no PDF nunca era exercido: o teste que se
+// chamava "lida com agio" passava agioDesagioType NULO. Aqui ele e exercido de fato.
+test('renderEspelhoPdf: com ágio cabe em UMA página e muda o documento', async () => {
+  const service = new SaleContractPdfService();
+  const comAgio = fakeContract({ agioDesagioType: 'AGIO', agioDesagioValue: 50 });
+  const { buffer, checksumSha256 } = await service.renderEspelhoPdf(
+    buildEspelhoSnapshot(comAgio, 'seller'),
+    espelhoOpts()
+  );
+  const doc = await PDFDocument.load(buffer);
+  assert.equal(doc.getPageCount(), 1);
+  const semAgio = await service.renderEspelhoPdf(
+    buildEspelhoSnapshot(fakeContract(), 'seller'),
+    espelhoOpts()
+  );
+  assert.notEqual(checksumSha256, semAgio.checksumSha256);
+});
+
+// RC-D103: o mesmo snapshot + a mesma data sempre produzem o MESMO documento. E o que
+// sustenta a promessa "reabrir um espelho guardado entrega o papel que foi entregue".
+test('renderEspelhoPdf: snapshot igual => bytes iguais (releitura determinística)', async () => {
+  const service = new SaleContractPdfService();
+  const snapshot = buildEspelhoSnapshot(fakeContract(), 'seller');
+  const a = await service.renderEspelhoPdf(snapshot, espelhoOpts());
+  const b = await service.renderEspelhoPdf(structuredClone(snapshot), espelhoOpts());
+  assert.equal(a.checksumSha256, b.checksumSha256);
+  // ...e a data de geracao E o que muda quando so ela muda.
+  const outroDia = await service.renderEspelhoPdf(snapshot, {
+    issuer: getContractIssuer(),
+    generatedAt: new Date('2026-08-30T15:00:00.000Z'),
+  });
+  assert.notEqual(a.checksumSha256, outroDia.checksumSha256);
 });
 
 test('formatCep: 8 dígitos -> #####-###', () => {

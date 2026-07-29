@@ -8,6 +8,9 @@ import {
   assertBusinessDate,
   assertEspelhoEligible,
   buildApprovalPrefill,
+  buildEspelhoSnapshot,
+  ESPELHO_SNAPSHOT_VERSION,
+  snapshotPartyName,
   brtTodayDateOnly,
   brtTodayKey,
   buildContractTimeline,
@@ -1143,6 +1146,112 @@ test('assertEspelhoEligible: valida os 3 gates ESPELHO_* (D105/RC-D91/S74)', () 
     () => assertEspelhoEligible({ ...base, status: 'RASCUNHO' }, 'seller'),
     (err) => err.status === 409 && err.details?.code === 'ESPELHO_NOT_ELIGIBLE'
   );
+});
+
+test('snapshotPartyName: displayName > legalName > fullName, em branco = null', () => {
+  assert.equal(snapshotPartyName({ displayName: 'A', legalName: 'B', fullName: 'C' }), 'A');
+  assert.equal(snapshotPartyName({ legalName: 'B', fullName: 'C' }), 'B');
+  assert.equal(snapshotPartyName({ fullName: 'C' }), 'C');
+  assert.equal(snapshotPartyName(null), null);
+  assert.equal(snapshotPartyName({}), null);
+  // O motivo de existir uma fonte única: a cópia do PDF não tratava branco e
+  // imprimia "CLIENTE:  " num documento de cobrança.
+  assert.equal(snapshotPartyName({ displayName: '   ' }), null);
+  assert.equal(snapshotPartyName({ displayName: '   ', legalName: 'B' }), 'B');
+  assert.equal(snapshotPartyName({ displayName: '  A  ' }), 'A');
+});
+
+// RC-D103: ESTE é o teste que trava os números do papel. `pdf-lib` não extrai texto,
+// então não há como asseverar os glifos do PDF; como o renderizador passou a ler SÓ
+// deste objeto, asseverar o objeto é asseverar o documento.
+test('buildEspelhoSnapshot: congela o que o papel imprime, por lado (RC-D103)', () => {
+  const contract = {
+    version: 7,
+    contractNumber: '0042/26',
+    sellerSnapshot: { displayName: 'Vendedor X' },
+    buyerSnapshot: { legalName: 'Comprador Y LTDA' },
+    paymentDate: new Date('2026-08-15T00:00:00.000Z'),
+    unitPrice: 100,
+    effectiveUnitPrice: 150,
+    quantitySacks: 10,
+    agioDesagioType: 'AGIO',
+    agioDesagioValue: 50,
+    sellerBrokeragePct: 2,
+    sellerBrokerageValue: 30,
+    buyerBrokeragePct: 1.5,
+    buyerBrokerageValue: 22.5,
+    purchaseNumber: 'PA-01',
+  };
+
+  assert.deepEqual(buildEspelhoSnapshot(contract, 'seller'), {
+    v: ESPELHO_SNAPSHOT_VERSION,
+    side: 'seller',
+    contractVersion: 7,
+    clientName: 'Vendedor X',
+    contractNumber: '0042/26',
+    paymentDate: '2026-08-15T00:00:00.000Z',
+    effectiveUnitPrice: 150,
+    quantitySacks: 10,
+    agioDesagioType: 'AGIO',
+    agioDesagioValue: 50,
+    brokeragePct: 2,
+    commission: 30,
+    purchaseNumber: 'PA-01',
+  });
+
+  // O lado troca exatamente 4 campos: quem é o cliente, o pct, a comissão e o rótulo.
+  const buyer = buildEspelhoSnapshot(contract, 'buyer');
+  assert.equal(buyer.side, 'buyer');
+  assert.equal(buyer.clientName, 'Comprador Y LTDA');
+  assert.equal(buyer.brokeragePct, 1.5);
+  assert.equal(buyer.commission, 22.5);
+  // ...e nada mais: o preço, as sacas e o ágio são do CONTRATO, não do lado.
+  assert.equal(buyer.effectiveUnitPrice, 150);
+  assert.equal(buyer.quantitySacks, 10);
+  assert.equal(buyer.agioDesagioValue, 50);
+});
+
+test('buildEspelhoSnapshot: sem ágio, sem pagamento, sem parte — nada quebra', () => {
+  const snapshot = buildEspelhoSnapshot(
+    {
+      version: 1,
+      contractNumber: '0001/26',
+      sellerSnapshot: null,
+      buyerSnapshot: null,
+      paymentDate: null,
+      unitPrice: 200,
+      quantitySacks: 5,
+      agioDesagioType: null,
+      agioDesagioValue: null,
+      sellerBrokeragePct: 1,
+      sellerBrokerageValue: 10,
+      purchaseNumber: null,
+    },
+    'seller'
+  );
+  assert.equal(snapshot.clientName, null);
+  assert.equal(snapshot.paymentDate, null);
+  assert.equal(snapshot.agioDesagioType, null);
+  assert.equal(snapshot.purchaseNumber, null);
+  // Sem effectiveUnitPrice na view (contrato cru), cai no helper canônico: sem ágio
+  // o efetivo É o preço cru.
+  assert.equal(snapshot.effectiveUnitPrice, 200);
+});
+
+test('buildEspelhoSnapshot: sem effectiveUnitPrice na view, deriva com o ágio', () => {
+  const snapshot = buildEspelhoSnapshot(
+    {
+      version: 1,
+      unitPrice: 100,
+      quantitySacks: 10,
+      agioDesagioType: 'DESAGIO',
+      agioDesagioValue: 25,
+      sellerBrokeragePct: 2,
+      sellerBrokerageValue: 15,
+    },
+    'seller'
+  );
+  assert.equal(snapshot.effectiveUnitPrice, 75);
 });
 
 // D147: predicados canônicos por `type` — o washout ramifica por eles (predicado

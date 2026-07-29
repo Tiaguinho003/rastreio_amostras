@@ -754,6 +754,66 @@ export function assertEspelhoEligible(contract, side) {
   }
 }
 
+// Nome da parte a partir do snapshot congelado no contrato. Fonte UNICA no backend
+// (o PDF tinha uma copia propria que nao tratava string em branco). Ordem: displayName
+// -> legalName -> fullName, que e a ordem com que o buildPartySnapshot os preenche.
+// Devolve null quando nao ha nome usavel — inclusive para "" e "   ".
+export function snapshotPartyName(snap) {
+  if (!snap) return null;
+  for (const candidate of [snap.displayName, snap.legalName, snap.fullName]) {
+    if (typeof candidate === 'string' && candidate.trim() !== '') return candidate.trim();
+  }
+  return null;
+}
+
+export const ESPELHO_SNAPSHOT_VERSION = 1;
+
+// RC-D103: tudo que o papel do Espelho imprime DO CONTRATO, congelado num objeto.
+// O renderizador passa a ler SEMPRE daqui — na geracao nova e na releitura de um
+// espelho guardado —, o que torna fresco e guardado um caminho SO. Antes cada celula
+// ia buscar o valor na linha do contrato no momento do render, e por isso regerar
+// depois de um "Editar"/agio produzia um documento diferente do que foi entregue.
+//
+// O que NAO entra:
+//   - o EMISSOR (nome, CNPJ, banco): e dado da corretora, lido do issuer-config, e um
+//     reenvio deve levar a conta ATUAL. O que pode derivar sao os numeros do contrato.
+//   - a DATA de geracao: vem de fora (`generatedAt`) — na releitura e o created_at da
+//     propria linha de auditoria, que e a data autoritativa do registro.
+//   - FORMATACAO: aqui e dado (ISO, number). Quem formata e o renderizador.
+//
+// `clientName` e a excecao deliberada: resolve-se o nome AQUI porque a regra de
+// resolucao (displayName -> legalName -> fullName) pode mudar, e mudar a regra nao
+// pode reescrever o nome de um documento que ja foi entregue.
+export function buildEspelhoSnapshot(contract, side) {
+  const isSeller = side === 'seller';
+  const partySnap = isSeller ? contract.sellerSnapshot : contract.buyerSnapshot;
+  return {
+    v: ESPELHO_SNAPSHOT_VERSION,
+    side,
+    contractVersion: Number.isInteger(contract.version) ? contract.version : null,
+    clientName: snapshotPartyName(partySnap),
+    contractNumber: contract.contractNumber ?? null,
+    paymentDate: toIsoString(contract.paymentDate),
+    effectiveUnitPrice:
+      decimalToNumber(contract.effectiveUnitPrice) ??
+      computeEffectiveUnitPrice(
+        decimalToNumber(contract.unitPrice),
+        contract.agioDesagioType ?? null,
+        decimalToNumber(contract.agioDesagioValue)
+      ),
+    quantitySacks: decimalToNumber(contract.quantitySacks),
+    agioDesagioType: contract.agioDesagioType ?? null,
+    agioDesagioValue: decimalToNumber(contract.agioDesagioValue),
+    brokeragePct: decimalToNumber(
+      isSeller ? contract.sellerBrokeragePct : contract.buyerBrokeragePct
+    ),
+    commission: decimalToNumber(
+      isSeller ? contract.sellerBrokerageValue : contract.buyerBrokerageValue
+    ),
+    purchaseNumber: contract.purchaseNumber ?? null,
+  };
+}
+
 // Financeiro (Fase F): projecao de "corretagem a receber" de UM contrato. Soma a
 // corretagem das 2 pontas (commissionTotal). Os corretores sao ATRIBUICAO/metrica
 // (D34): lista de nomes, SEM valor por corretor — o sistema NAO divide a corretagem

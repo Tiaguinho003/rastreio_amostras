@@ -12,6 +12,7 @@ import {
   APPROVAL_ELIGIBLE_STATUSES,
   assertEspelhoEligible,
   buildApprovalPrefill,
+  buildEspelhoSnapshot,
   splitOriginLotForLabel,
 } from '../../sale-contracts/sale-contract-support.js';
 import { REGISTRATION_UPDATE_ALLOWED_STATUSES } from '../../samples/sample-command-service.js';
@@ -3276,14 +3277,16 @@ export function createBackendApiV1({
         };
       }),
 
-    // Espelho de Corretagem (Fase E): PDF on-demand DERIVADO de UM contrato
-    // (D70-D76). Gate via getSaleContract (todo nao-PROSPECTOR em qualquer
-    // contrato — escopo aberto D140; o own-only da S74 foi revogado);
-    // elegiveis = EMITIDO/FATURADO/
-    // PAGO/WASH_OUT (D105 inclui washout). `side` (query) = seller|buyer (D72)
-    // define o CLIENTE (topo) e o lado da comissao impressa. O espelho e um
-    // documento de CORRETAGEM: EXIGE comissao no lado pedido (S74). Sem
-    // persistencia (D71).
+    // Espelho de Corretagem (Fase E): PDF DERIVADO de UM contrato (D70-D76). Gate
+    // via getSaleContract (todo nao-PROSPECTOR em qualquer contrato — escopo aberto
+    // D140; o own-only da S74 foi revogado); elegiveis = EMITIDO/FINALIZADO/WASH_OUT
+    // (RC-D62 aposentou FATURADO/PAGO; D105 incluiu o washout). `side` (query) =
+    // seller|buyer (D72) define o CLIENTE (topo) e o lado da comissao impressa. O
+    // espelho e um documento de CORRETAGEM: EXIGE comissao no lado pedido (S74).
+    //
+    // RC-D103: o PDF e sempre renderizado de um SNAPSHOT — aqui, construido do
+    // contrato fresco. O que fica GUARDADO e o snapshot da entrega (POST /log), e a
+    // releitura de um espelho guardado renderiza dele. Os bytes seguem sem persistir.
     exportEspelhoPdf: (input) =>
       executeApiForInput(input, async () => {
         if (!saleContractService || !saleContractPdfService) {
@@ -3303,10 +3306,10 @@ export function createBackendApiV1({
         const { contract } = await saleContractService.getSaleContract(contractId, actor);
         // Elegibilidade (D105/D145/S74) — helper compartilhado com o logEspelhoExport.
         assertEspelhoEligible(contract, side);
-        const { buffer } = await saleContractPdfService.renderEspelhoPdf(contract, {
-          side,
-          issuer: getContractIssuer(),
-        });
+        const { buffer } = await saleContractPdfService.renderEspelhoPdf(
+          buildEspelhoSnapshot(contract, side),
+          { issuer: getContractIssuer() }
+        );
         // D127 (revisa a D124): a PRÉVIA do modal passa ?preview=1 e NÃO conta
         // como auditoria — o registro de exportação vem do POST /espelho/log
         // (Exportar/Baixar). Sem o param (acesso direto à URL) loga aqui,

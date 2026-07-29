@@ -10,6 +10,7 @@ import { SampleCommandService } from '../src/samples/sample-command-service.js';
 import { SaleContractService } from '../src/sale-contracts/sale-contract-service.js';
 import { SaleContractPdfService } from '../src/sale-contracts/sale-contract-pdf-service.js';
 import { getContractIssuer } from '../src/sale-contracts/issuer-config.js';
+import { buildEspelhoSnapshot } from '../src/sale-contracts/sale-contract-support.js';
 import { bizDay, calendarDay, dayKey } from './helpers/relative-dates.js';
 import { registrationConfirmedEvent } from './helpers/event-builders.js';
 import { TEST_BROKER_ID, seedTestBroker } from './helpers/sale-contract-fixtures.js';
@@ -1858,12 +1859,16 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(contract.sellerBrokerageValue, 20);
     assert.equal(contract.buyerBrokerageValue, 10);
 
-    const seller = await saleContractPdfService.renderEspelhoPdf(contract, {
-      side: 'seller',
+    // RC-D103: o renderizador le de um snapshot, e e o snapshot que carrega o lado.
+    const sellerSnapshot = buildEspelhoSnapshot(contract, 'seller');
+    const buyerSnapshot = buildEspelhoSnapshot(contract, 'buyer');
+    assert.equal(sellerSnapshot.commission, 20);
+    assert.equal(buyerSnapshot.commission, 10);
+
+    const seller = await saleContractPdfService.renderEspelhoPdf(sellerSnapshot, {
       issuer: getContractIssuer(),
     });
-    const buyer = await saleContractPdfService.renderEspelhoPdf(contract, {
-      side: 'buyer',
+    const buyer = await saleContractPdfService.renderEspelhoPdf(buyerSnapshot, {
       issuer: getContractIssuer(),
     });
     assert.equal(seller.buffer.subarray(0, 5).toString('latin1'), '%PDF-');
