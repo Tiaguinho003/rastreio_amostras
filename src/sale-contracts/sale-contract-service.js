@@ -20,14 +20,7 @@ import {
   normalizeReceivableFilter,
   normalizeUuidFilter,
   receivableKeysetWhere,
-  buildShipmentView,
-  bucketShipmentEvents,
-  decodeShipmentCursor,
-  encodeShipmentCursor,
-  normalizeShipmentFilter,
-  shipmentKeysetWhere,
-  SHIPMENT_EVENT_SELECT,
-  SHIPMENT_VIEW_SELECT,
+  deriveContractAgenda,
   buildApprovalWorklistView,
   decodeApprovalWlCursor,
   encodeApprovalWlCursor,
@@ -45,7 +38,6 @@ import {
   CONTRACT_LOOKUP_LISTS,
   formatContractNumber,
   isFutureContract,
-  normalizeActionDate,
   normalizeApprovalReminderLeadDays,
   normalizeContractLookupInput,
   normalizeEtapa2Input,
@@ -106,6 +98,19 @@ const RECENT_APPROVAL_SENDS_LIMIT = 40;
 // Financeiro (S86): pagina por cursor (contractSeq) com scroll infinito no front.
 const FINANCEIRO_LIST_LIMIT_DEFAULT = 30;
 const FINANCEIRO_LIST_LIMIT_MAX = 60;
+
+// RC-D68: os ingredientes da agenda. Tudo mora na linha do contrato menos "ja saiu
+// etiqueta?", que vem de fora (batch na lista, count no detalhe).
+function agendaInputOf(row, hasApprovalLabel) {
+  return {
+    status: row.status,
+    requiresApproval: row.requiresApproval,
+    hasApprovalLabel,
+    approvalReminderLeadDays: row.approvalReminderLeadDays,
+    invoiceDate: row.invoiceDate,
+    paymentDate: row.paymentDate,
+  };
+}
 
 export class SaleContractService {
   // commandService + queryService sao opcionais (usados so no D48 — sincronizar
@@ -186,10 +191,44 @@ export class SaleContractService {
     const pageRows = hasMore ? rows.slice(0, limit) : rows;
 
     return {
-      items: pageRows.map(toSaleContractView),
+      items: await this._withAgenda(pageRows),
       nextCursor: hasMore ? String(pageRows[pageRows.length - 1].contractSeq) : null,
       total,
     };
+  }
+
+  // RC-D68: a coluna "Situacao" da lista mostra o PROXIMO COMPROMISSO, nao um rotulo
+  // de fase — e o compromisso e derivado de dado que o contrato ja carrega. So um
+  // ingrediente nao mora na linha: "ja saiu etiqueta de aprovacao?". Vem num batch
+  // por pagina (<=30 ids), molde dos corretores do Financeiro; nao da pra ser join
+  // porque SaleContract nao tem @relation com approval_label_log (FKs so no SQL).
+  async _withAgenda(rows) {
+    const todayKey = brtTodayKey();
+    // So contrato marcado precisa da consulta — os demais nunca caem no ramo da
+    // aprovacao, e numa pagina sem nenhum marcado a query nao acontece.
+    const needing = rows.filter((row) => row.requiresApproval).map((row) => row.id);
+    let labeled = new Set();
+    if (needing.length) {
+      const logs = await this.prisma.approvalLabelLog.groupBy({
+        by: ['saleContractId'],
+        where: { saleContractId: { in: needing } },
+      });
+      labeled = new Set(logs.map((log) => log.saleContractId));
+    }
+    return rows.map((row) => ({
+      ...toSaleContractView(row),
+      agenda: deriveContractAgenda(agendaInputOf(row, labeled.has(row.id)), todayKey),
+    }));
+  }
+
+  // A mesma agenda para UM contrato (o Detalhes). Deriva do mesmo lugar que a lista
+  // de proposito: se a linha diz "aprovacao a enviar" e o detalhe dissesse outra
+  // coisa, o usuario nao teria como saber qual das duas acreditar.
+  async _agendaFor(row) {
+    const hasApprovalLabel = row.requiresApproval
+      ? (await this.prisma.approvalLabelLog.count({ where: { saleContractId: row.id } })) > 0
+      : false;
+    return deriveContractAgenda(agendaInputOf(row, hasApprovalLabel), brtTodayKey());
   }
 
   // RC-F6: ids dos contratos cujo vendedor OU comprador casa com a busca. Os nomes
@@ -207,8 +246,8 @@ export class SaleContractService {
   }
 
   // Financeiro (Fase F): lista a corretagem A RECEBER por fechamento. Relatorio
-  // DERIVADO (sem persistencia): TODOS os contratos congelados (EMITIDO/FATURADO/
-  // PAGO), inclusive os SEM corretagem (P24/D92 — e o unico lugar onde o total do
+  // DERIVADO (sem persistencia): TODOS os contratos congelados (EMITIDO/
+  // FINALIZADO), inclusive os SEM corretagem (P24/D92 — e o unico lugar onde o total do
   // contrato aparece) E os em WASH_OUT do FUTURO (D105 refinada pela D145: o
   // corretor recebe a comissao no washout so no FUTURO; o fisico cancelado
   // nao paga e sai do Financeiro). SEM rateio ÷N (D136 removeu a "cota por
@@ -258,13 +297,17 @@ export class SaleContractService {
     }
     const filterWhere = andClauses.length ? { AND: andClauses } : {};
 
-    // FN4 (fila de trabalho): G0 nao-pago por vencimento (asc, nulos ao fim -> vencido
-    // no topo -> a vencer -> sem data); G1 pago e G2 cancelado no arquivo (seq desc). O
-    // filtro FN5 escolhe quais grupos e refina o G0 (vencido = < hoje; a vencer = >=
-    // hoje ou sem data). O corte vencido/a-vencer cai da ordenacao por paymentDate.
+    // FN4 (fila de trabalho): G0 a receber por vencimento (asc, nulos ao fim -> vencido
+    // no topo -> a vencer -> sem data); G1 recebida e G2 cancelado no arquivo (seq
+    // desc). O filtro FN5 escolhe quais grupos e refina o G0 (vencido = < hoje; a vencer
+    // = >= hoje ou sem data). O corte vencido/a-vencer cai da ordenacao por paymentDate.
+    //
+    // RC-D67: o /financeiro nao tem mais acao propria — a corretagem sai da fila quando
+    // o CONTRATO e finalizado, em /contratos. "Recebida" = FINALIZADO (era o PAGO que
+    // se marcava aqui); "a receber" = o contrato ainda em andamento.
     const G0_ORDER = [{ paymentDate: { sort: 'asc', nulls: 'last' } }, { contractSeq: 'asc' }];
     const ARCHIVE_ORDER = [{ contractSeq: 'desc' }];
-    const UNPAID = { status: { in: ['EMITIDO', 'FATURADO'] } };
+    const UNPAID = { status: { in: ['EMITIDO'] } };
     // D145 (revisa D105): washout so paga corretagem no FUTURO. O fisico (a vista)
     // cancelado por washout nao gera cobranca — sai do Financeiro (lista + total).
     const WASHOUT_BILLABLE = { status: 'WASH_OUT', type: 'FUTURO' };
@@ -283,14 +326,14 @@ export class SaleContractService {
           orderBy: G0_ORDER,
         },
       ];
-    } else if (filter === 'pago') {
-      groups = [{ g: 1, where: { status: 'PAGO' }, orderBy: ARCHIVE_ORDER }];
+    } else if (filter === 'recebida') {
+      groups = [{ g: 1, where: { status: 'FINALIZADO' }, orderBy: ARCHIVE_ORDER }];
     } else if (filter === 'cancelado') {
       groups = [{ g: 2, where: WASHOUT_BILLABLE, orderBy: ARCHIVE_ORDER }];
     } else {
       groups = [
         { g: 0, where: UNPAID, orderBy: G0_ORDER },
-        { g: 1, where: { status: 'PAGO' }, orderBy: ARCHIVE_ORDER },
+        { g: 1, where: { status: 'FINALIZADO' }, orderBy: ARCHIVE_ORDER },
         { g: 2, where: WASHOUT_BILLABLE, orderBy: ARCHIVE_ORDER },
       ];
     }
@@ -329,7 +372,7 @@ export class SaleContractService {
         where: {
           AND: [
             filterWhere,
-            { OR: [{ status: { in: ['EMITIDO', 'FATURADO', 'PAGO'] } }, WASHOUT_BILLABLE] },
+            { OR: [{ status: { in: ['EMITIDO', 'FINALIZADO'] } }, WASHOUT_BILLABLE] },
           ],
         },
         _sum: { sellerBrokerageValue: true, buyerBrokerageValue: true },
@@ -405,133 +448,9 @@ export class SaleContractService {
     return [...new Set(rows.map((r) => r.id))];
   }
 
-  // Embarque (EMB23-EMB25): a worklist da sub-aba. Auth-only (todos nao-PROSPECTOR,
-  // EMB7/EMB16 — SEM escopo por corretor, SEM dado sensivel). Keyset particionado por
-  // grupo (molde do listBrokerReceivables): G0 nao-embarcado por invoiceDate ASC (mais
-  // antigo/atrasado no topo, EMB25), G1 embarcado por shippedAt DESC, G2 cancelado por
-  // contractSeq DESC. Filtros escolhem/refinam grupos; contador "N atrasados" (EMB24)
-  // e estavel (independe de filtro/cursor). So contratos requiresShipment.
-  async listShipmentContracts(input, actorContext) {
-    assertAuthenticatedActor(actorContext, 'list shipment contracts');
-
-    const todayKey = brtTodayKey();
-    const brtToday = brtTodayDateOnly();
-
-    const limit = readLimitQuery(input?.limit, {
-      fallback: FINANCEIRO_LIST_LIMIT_DEFAULT,
-      max: FINANCEIRO_LIST_LIMIT_MAX,
-    });
-    const cursor = decodeShipmentCursor(input?.cursor);
-    const search = typeof input?.search === 'string' ? input.search.trim() : '';
-    const filter = normalizeShipmentFilter(input?.filter);
-
-    // Base = so contratos que embarcam. Busca = nº OU comprador (sem corretor — a
-    // aba nao expoe dado sensivel). O comprador via ILIKE no buyer_snapshot.
-    const andClauses = [{ requiresShipment: true }];
-    if (search.length >= 1) {
-      const buyerMatchIds = await this._searchBuyerContractIds(search);
-      andClauses.push({
-        OR: [
-          { contractNumber: { contains: search, mode: 'insensitive' } },
-          { id: { in: buyerMatchIds } },
-        ],
-      });
-    }
-    const filterWhere = { AND: andClauses };
-
-    const G0_ORDER = [{ invoiceDate: { sort: 'asc', nulls: 'last' } }, { contractSeq: 'asc' }];
-    const SHIPPED_ORDER = [{ shippedAt: 'desc' }, { contractSeq: 'desc' }];
-    const CANCELLED_ORDER = [{ contractSeq: 'desc' }];
-    // G0 = nao embarcado. Sem invoiceDate ("A definir" no FUTURO — D144, revisa
-    // a exclusao da EMB22): ENTRA na fila, sempre a_embarcar (nunca atrasado),
-    // no fim do G0 (nulls-last) em ordem de emissao (contractSeq).
-    const UNSHIPPED = {
-      status: { in: ['EMITIDO', 'FATURADO'] },
-      shippedAt: null,
-    };
-    const SHIPPED = { shippedAt: { not: null }, status: { in: ['EMITIDO', 'FATURADO', 'PAGO'] } };
-    const CANCELLED = { status: 'WASH_OUT' };
-
-    let groups;
-    if (filter === 'atrasado') {
-      groups = [
-        { g: 0, where: { AND: [UNSHIPPED, { invoiceDate: { lt: brtToday } }] }, orderBy: G0_ORDER },
-      ];
-    } else if (filter === 'a_embarcar') {
-      groups = [
-        {
-          g: 0,
-          // "A definir" (invoiceDate null) conta como a_embarcar (D144).
-          where: {
-            AND: [UNSHIPPED, { OR: [{ invoiceDate: { gte: brtToday } }, { invoiceDate: null }] }],
-          },
-          orderBy: G0_ORDER,
-        },
-      ];
-    } else if (filter === 'embarcado') {
-      groups = [{ g: 1, where: SHIPPED, orderBy: SHIPPED_ORDER }];
-    } else if (filter === 'cancelado') {
-      groups = [{ g: 2, where: CANCELLED, orderBy: CANCELLED_ORDER }];
-    } else {
-      groups = [
-        { g: 0, where: UNSHIPPED, orderBy: G0_ORDER },
-        { g: 1, where: SHIPPED, orderBy: SHIPPED_ORDER },
-        { g: 2, where: CANCELLED, orderBy: CANCELLED_ORDER },
-      ];
-    }
-
-    const effectiveCursor = cursor && groups.some((gr) => gr.g === cursor.g) ? cursor : null;
-    const startG = effectiveCursor ? effectiveCursor.g : groups[0].g;
-
-    const pageEntries = [];
-    for (const group of groups) {
-      if (group.g < startG) continue;
-      const need = limit + 1 - pageEntries.length;
-      if (need <= 0) break;
-      const afterWhere =
-        group.g === startG && effectiveCursor ? [shipmentKeysetWhere(effectiveCursor)] : [];
-      const rows = await this.prisma.saleContract.findMany({
-        where: { AND: [filterWhere, group.where, ...afterWhere] },
-        orderBy: group.orderBy,
-        take: need,
-        select: SHIPMENT_VIEW_SELECT,
-      });
-      for (const row of rows) pageEntries.push({ row, g: group.g });
-      if (rows.length === need) break;
-    }
-
-    // Contador "N atrasados" (EMB24): estavel, independe de filtro/cursor.
-    const overdue = await this.prisma.saleContract.aggregate({
-      where: { AND: [filterWhere, UNSHIPPED, { invoiceDate: { lt: brtToday } }] },
-      _count: { _all: true },
-    });
-    const overdueCount = overdue._count._all;
-
-    const hasMore = pageEntries.length > limit;
-    const page = hasMore ? pageEntries.slice(0, limit) : pageEntries;
-    if (page.length === 0) {
-      return { items: [], nextCursor: null, overdueCount };
-    }
-    const last = page[page.length - 1];
-    const cursorKey = (g, row) => {
-      if (g === 0) return row.invoiceDate ? row.invoiceDate.toISOString().slice(0, 10) : null;
-      if (g === 1) return row.shippedAt ? row.shippedAt.toISOString().slice(0, 10) : null;
-      return null;
-    };
-    const nextCursor = hasMore
-      ? encodeShipmentCursor({
-          g: last.g,
-          key: cursorKey(last.g, last.row),
-          seq: last.row.contractSeq,
-        })
-      : null;
-
-    return {
-      items: page.map((e) => buildShipmentView(e.row, todayKey)),
-      nextCursor,
-      overdueCount,
-    };
-  }
+  // 🪦 listShipmentContracts (EMB23-EMB25) — a worklist de embarque morreu com o
+  // embarque inteiro (RC-D65 §6): confirmacao, fotos, transporte e responsavel eram
+  // escrituracao pura, e o portao EMB28 travava o pagamento em cima dela.
 
   // Aprovacao (AP25-AP28): a worklist da sub-aba. Auth-only (todos nao-PROSPECTOR,
   // AP10/AP30 — SEM escopo por corretor, SEM dado sensivel). O estado depende de um
@@ -708,12 +627,15 @@ export class SaleContractService {
   }
 
   // F1 (E21-E27/D138): eventos de "pagamento de contrato" do card de Eventos do
-  // dashboard. Agendado = NAO pagos (EMITIDO/FATURADO) no paymentDate; realizado =
-  // PAGO no paidAt; WASH_OUT fora. Escopo aberto (own-only revogado; ACESSO
-  // UNIFICADO 2026-07-15): todo nao-PROSPECTOR ve todos; so o PROSPECTOR nem chega
-  // (gate PAYMENT_FEED_ROLES — RC-D5: o calendario NAO seguiu a carteira pro
-  // ADMIN-only). Janela [from, to] = 'YYYY-MM-DD' (a quinzena visivel do card).
-  // Retorna Record<'YYYY-MM-DD', evento[]> (o formato da prop `events` do card).
+  // dashboard. RC-D62/D68: o calendario carrega SO o contrato em andamento — o
+  // finalizado e o cancelado nao tem nada a lembrar, e o marco "realizado" (o
+  // paidAt) deixou de existir. Sobra o compromisso no paymentDate, que continua
+  // virando vermelho quando o dia passa (RC-D64: o atraso e SO do pagamento).
+  // Escopo aberto (own-only revogado; ACESSO UNIFICADO 2026-07-15): todo
+  // nao-PROSPECTOR ve todos; so o PROSPECTOR nem chega (gate PAYMENT_FEED_ROLES —
+  // RC-D5: o calendario NAO seguiu a carteira pro ADMIN-only). Janela [from, to] =
+  // 'YYYY-MM-DD' (a quinzena visivel do card). Retorna Record<'YYYY-MM-DD',
+  // evento[]> (o formato da prop `events` do card).
   async getDashboardPaymentEvents(input, actorContext) {
     const actor = assertAuthenticatedActor(actorContext, 'list dashboard payment events');
     assertRoleAllowed(actor.role, PAYMENT_FEED_ROLES, 'list dashboard payment events');
@@ -729,73 +651,28 @@ export class SaleContractService {
     // eventos de pagamento de TODOS os contratos (o feed nao filtra por corretor).
     const scope = {};
 
-    // paymentDate/paidAt sao @db.Date (midnight UTC); a janela 'YYYY-MM-DD' vira
-    // Date UTC — inclui os dois extremos.
+    // paymentDate e @db.Date (midnight UTC); a janela 'YYYY-MM-DD' vira Date UTC —
+    // inclui os dois extremos.
     const gte = new Date(`${from}T00:00:00.000Z`);
     const lte = new Date(`${to}T00:00:00.000Z`);
 
-    const [dueRows, paidRows] = await Promise.all([
-      this.prisma.saleContract.findMany({
-        where: { ...scope, status: { in: ['EMITIDO', 'FATURADO'] }, paymentDate: { gte, lte } },
-        select: PAYMENT_EVENT_SELECT,
-      }),
-      this.prisma.saleContract.findMany({
-        where: { ...scope, status: 'PAGO', paidAt: { gte, lte } },
-        select: PAYMENT_EVENT_SELECT,
-      }),
-    ]);
+    const dueRows = await this.prisma.saleContract.findMany({
+      where: { ...scope, status: 'EMITIDO', paymentDate: { gte, lte } },
+      select: PAYMENT_EVENT_SELECT,
+    });
 
     // E29: "hoje" BRT reclassifica os agendados vencidos (dot vermelho).
-    return bucketPaymentEvents(dueRows, paidRows, brtTodayKey());
+    return bucketPaymentEvents(dueRows, brtTodayKey());
   }
 
-  // Embarque (EMB8/EMB9/EMB24): evento do card de Eventos — companheiro da worklist.
-  // Agendado = requiresShipment + EMITIDO/FATURADO + NAO embarcado, no dia previsto
-  // (invoiceDate; vira vermelho se o dia passar, EMB24); realizado = embarcado
-  // (shippedAt), no dia real (verde/realizado — cor por ESTADO, DSB-D10). Visibilidade: TODOS os nao-PROSPECTOR
-  // (EMB7 — auth-only, sem escopo por corretor; PROSPECTOR barrado no allowlist central).
-  // Janela [from, to] = 'YYYY-MM-DD'. Retorna Record<'YYYY-MM-DD', evento[]>.
-  async getDashboardShipmentEvents(input, actorContext) {
-    assertAuthenticatedActor(actorContext, 'list dashboard shipment events');
+  // 🪦 getDashboardShipmentEvents (EMB8/EMB9/EMB24) — junto com o resto do embarque
+  // (RC-D65 §6). Os tres eventos de embarque sumiram do calendario.
 
-    const dayKeyRe = /^\d{4}-\d{2}-\d{2}$/;
-    const from = typeof input?.from === 'string' && dayKeyRe.test(input.from) ? input.from : null;
-    const to = typeof input?.to === 'string' && dayKeyRe.test(input.to) ? input.to : null;
-    if (!from || !to) {
-      return {};
-    }
-
-    const gte = new Date(`${from}T00:00:00.000Z`);
-    const lte = new Date(`${to}T00:00:00.000Z`);
-
-    const [scheduledRows, doneRows] = await Promise.all([
-      this.prisma.saleContract.findMany({
-        where: {
-          requiresShipment: true,
-          status: { in: ['EMITIDO', 'FATURADO'] },
-          shippedAt: null,
-          invoiceDate: { gte, lte },
-        },
-        select: SHIPMENT_EVENT_SELECT,
-      }),
-      this.prisma.saleContract.findMany({
-        where: {
-          requiresShipment: true,
-          status: { in: ['EMITIDO', 'FATURADO', 'PAGO'] },
-          shippedAt: { gte, lte },
-        },
-        select: SHIPMENT_EVENT_SELECT,
-      }),
-    ]);
-
-    return bucketShipmentEvents(scheduledRows, doneRows, brtTodayKey());
-  }
-
-  // Faturamento (DSB-D11): evento do card de Eventos — irmao do embarque. Agendado =
-  // EMITIDO no dia previsto (invoiceDate; vira vermelho se o dia passar); realizado =
-  // FATURADO/PAGO no dia REAL do faturamento (invoicedAt). Visibilidade: TODOS os
-  // nao-PROSPECTOR (auth-only, sem escopo por corretor — mesmo do embarque; o chip so
-  // navega pra aba Contratos p/ quem a tem). Janela [from, to] = 'YYYY-MM-DD'.
+  // Faturamento (DSB-D11): evento do card de Eventos. RC-D64: o faturamento e
+  // LEMBRETE PURO — nao existe acao que o resolva, entao ele nunca fica vermelho e
+  // nao tem marco "realizado"; passou o dia, o aviso se recolhe sozinho. Visibilidade:
+  // TODOS os nao-PROSPECTOR (auth-only, sem escopo por corretor; o chip so navega pra
+  // aba Contratos p/ quem a tem). Janela [from, to] = 'YYYY-MM-DD'.
   async getDashboardInvoiceEvents(input, actorContext) {
     assertAuthenticatedActor(actorContext, 'list dashboard invoice events');
 
@@ -809,18 +686,12 @@ export class SaleContractService {
     const gte = new Date(`${from}T00:00:00.000Z`);
     const lte = new Date(`${to}T00:00:00.000Z`);
 
-    const [scheduledRows, doneRows] = await Promise.all([
-      this.prisma.saleContract.findMany({
-        where: { status: 'EMITIDO', invoiceDate: { gte, lte } },
-        select: INVOICE_EVENT_SELECT,
-      }),
-      this.prisma.saleContract.findMany({
-        where: { status: { in: ['FATURADO', 'PAGO'] }, invoicedAt: { gte, lte } },
-        select: INVOICE_EVENT_SELECT,
-      }),
-    ]);
+    const scheduledRows = await this.prisma.saleContract.findMany({
+      where: { status: 'EMITIDO', invoiceDate: { gte, lte } },
+      select: INVOICE_EVENT_SELECT,
+    });
 
-    return bucketInvoiceEvents(scheduledRows, doneRows, brtTodayKey());
+    return bucketInvoiceEvents(scheduledRows);
   }
 
   // AP31/DSB-D19: card de "Avisos" do dashboard — 1º tipo = "aprovacao a enviar".
@@ -943,6 +814,7 @@ export class SaleContractService {
     return {
       contract: {
         ...toSaleContractView(row),
+        agenda: await this._agendaFor(row),
         brokers: brokers.map(toSaleContractBrokerView),
         sampleIsBlend,
         sampleOwner,
@@ -1208,22 +1080,6 @@ export class SaleContractService {
       data.approvalReminderLeadDays = null;
     }
 
-    // EMB32: requiresShipment tambem e snapshot congelado na emissao (EMB21) — o
-    // Editar so re-deriva se a MODALIDADE do contrato mudar E o embarque ainda nao
-    // foi confirmado; senao preserva o do banco. Fecha o flip silencioso (gemeo do
-    // furo AP20/AP32: mexer na flag da modalidade nao vaza pra contratos antigos num
-    // editar de campo qualquer) e nunca "des-embarca" um contrato ja confirmado
-    // (evita o orfao requiresShipment=false+shippedAt setado da corrida confirm+edit).
-    if (data.modalityId === contract.modalityId || contract.shippedAt) {
-      delete data.requiresShipment;
-    }
-    // Se sobrou um requiresShipment=false (modalidade nova nao-embarca, contrato ainda
-    // nao embarcado), a trava por version NAO enxerga um confirm concorrente
-    // (confirmShipment nao bumpa version). Exige shippedAt:null no where do update pra
-    // um confirm que escapou entre o findUnique e a tx forcar um 409 retryavel — no
-    // retry o guard acima ja preserva o requiresShipment (contract.shippedAt agora true).
-    const droppingShipment = data.requiresShipment === false;
-
     // Corretores (Editar fase 1): resolve ANTES dos syncs cross-aggregate (D143)
     // — o assertBrokersResolved pode lancar 422, e depois dos syncs a unica
     // falha aceitavel e o proprio conflito de versao. Troca dentro da tx.
@@ -1274,11 +1130,7 @@ export class SaleContractService {
     // (concorrência otimista por version mantida no updateMany).
     await this.prisma.$transaction(async (tx) => {
       const result = await tx.saleContract.updateMany({
-        where: {
-          id: contractId,
-          version: expectedVersion,
-          ...(droppingShipment ? { shippedAt: null } : {}),
-        },
+        where: { id: contractId, version: expectedVersion },
         data: { ...data, version: { increment: 1 } },
       });
       if (result.count === 0) {
@@ -1396,81 +1248,11 @@ export class SaleContractService {
     return this.getSaleContract(contractId, actorContext);
   }
 
-  // "Faturar" — EMITIDO -> FATURADO. Grava a data REAL do faturamento
-  // (invoicedAt; pode diferir da planejada invoiceDate) + o marco auditado
-  // (D123). SEM volta (o "Desfazer" foi removido na Fase J, D122); engano ->
-  // Washout. CRUD direto + concorrencia otimista por version.
-  async invoiceSaleContract(contractId, input, actorContext) {
-    const actor = assertAuthenticatedActor(actorContext, 'invoice sale contract');
-    assertRoleAllowed(actor.role, SALE_CONTRACT_ACCESS_ROLES, 'invoice sale contract');
-    this._requireContractId(contractId);
-    const expectedVersion = this._requireExpectedVersion(input?.expectedVersion);
-    const invoicedAt = normalizeActionDate(input?.date, 'date');
-
-    const contract = await this.prisma.saleContract.findUnique({
-      where: { id: contractId },
-      select: { id: true, status: true, version: true, requiresApproval: true },
-    });
-    if (!contract) {
-      throw new HttpError(404, 'Sale contract not found', { code: 'SALE_CONTRACT_NOT_FOUND' });
-    }
-    if (contract.status !== 'EMITIDO') {
-      throw new HttpError(409, `Sale contract is ${contract.status} and cannot be invoiced`, {
-        code: 'SALE_CONTRACT_NOT_INVOICEABLE',
-      });
-    }
-    // Portão AP18: um contrato marcado "Sim" não passa de EMITIDO -> FATURADO sem
-    // >=1 aprovação enviada (approval_label_log). É o remédio do "esquecer de enviar"
-    // — vira contrato travado no faturar (visível em "a enviar", recuperável), não
-    // dado ruim silencioso. Pagar HERDA (E3: não fatura sem enviar => não paga sem
-    // enviar). Count fora da tx é seguro — o log é append-only (sem race nociva).
-    if (contract.requiresApproval) {
-      const labelCount = await this.prisma.approvalLabelLog.count({
-        where: { saleContractId: contractId },
-      });
-      if (labelCount === 0) {
-        throw new HttpError(422, 'Approval must be sent before invoicing', {
-          code: 'CONTRACT_APPROVAL_REQUIRED',
-        });
-      }
-    }
-    if (contract.version !== expectedVersion) {
-      throw new HttpError(409, 'Sale contract was modified concurrently', {
-        code: 'SALE_CONTRACT_VERSION_CONFLICT',
-        field: 'expectedVersion',
-      });
-    }
-    // Não se fatura no futuro — a data REAL do faturamento não passa de hoje (BRT),
-    // consistente com pagar (E30) e embarcar. DEPOIS dos guards de status/versão.
-    if (invoicedAt.getTime() > brtTodayDateOnly().getTime()) {
-      throw new HttpError(422, 'Invoice date must not be in the future', {
-        code: 'VALIDATION_ERROR',
-        field: 'date',
-      });
-    }
-
-    const result = await this.prisma.$transaction(async (tx) => {
-      const updated = await tx.saleContract.updateMany({
-        where: { id: contractId, version: expectedVersion, status: 'EMITIDO' },
-        data: { status: 'FATURADO', invoicedAt, version: { increment: 1 } },
-      });
-      if (updated.count > 0) {
-        // Fase J (D123): marco auditado (quem + quando) na MESMA tx.
-        await tx.saleContractStatusLog.create({
-          data: this._statusLogData(contractId, 'FATURADO', actor),
-        });
-      }
-      return updated;
-    });
-    if (result.count === 0) {
-      throw new HttpError(409, 'Sale contract was modified concurrently', {
-        code: 'SALE_CONTRACT_VERSION_CONFLICT',
-        field: 'expectedVersion',
-      });
-    }
-
-    return this.getSaleContract(contractId, actorContext);
-  }
+  // 🪦 invoiceSaleContract — "Faturar" (EMITIDO -> FATURADO) e o portao AP18 morreram
+  // na RC-D62/D66 (§6). Faturar era escrituracao pura: ninguem precisava dela pra
+  // fazer o proprio trabalho, entao era o marco que mais ia faltar — e ele travava o
+  // pagamento e mentia no calendario quando faltava. A aprovacao continua importando,
+  // mas como AVISO que se resolve sozinho ao gerar a etiqueta, sem travar nada.
 
   // AP32: "Solicitar aprovacao" — latch de MAO UNICA do requiresApproval no Detalhes
   // (sem abrir o "Editar"). So ADMIN/COMMERCIAL (AP9; COMMERCIAL nos dele). Nao->Sim so;
@@ -1535,35 +1317,63 @@ export class SaleContractService {
     return this.getSaleContract(contractId, actorContext);
   }
 
-  // "Pagar" — FATURADO -> PAGO (SÓ depois do faturamento — D106; na
-  // comercializacao o pagamento vem sempre depois de faturar). Grava a data REAL
-  // do pagamento (paidAt) + o marco auditado (D123). Sem volta (D122).
-  async paySaleContract(contractId, input, actorContext) {
-    const actor = assertAuthenticatedActor(actorContext, 'pay sale contract');
-    assertRoleAllowed(actor.role, SALE_CONTRACT_ACCESS_ROLES, 'pay sale contract');
+  // 🪦 paySaleContract — "Pagar" (FATURADO -> PAGO) e o portao EMB28 morreram na
+  // RC-D62/D65 (§6). O lugar do pagamento no dia a dia agora e a AGENDA: o
+  // paymentDate avisa, vence e fica vermelho (RC-D64) ate alguem finalizar.
+
+  // "Finalizar" — EMITIDO -> FINALIZADO (RC-D62). O UNICO marco que sobrou, e ele
+  // NAO afirma um fato do mundo ("foi pago em tal dia"): afirma que este contrato
+  // nao pede mais nada de ninguem. Por isso nao tem data (RC-D63) — data seria
+  // registro, e registro que as vezes falta apodrece; aqui o esquecimento so deixa
+  // uma linha a mais na fila. Bumpa version.
+  async finalizeSaleContract(contractId, input, actorContext) {
+    return this._flipContractStatus(contractId, input, actorContext, {
+      op: 'finalize sale contract',
+      from: 'EMITIDO',
+      to: 'FINALIZADO',
+      conflictCode: 'SALE_CONTRACT_NOT_FINALIZABLE',
+      conflictMessage: 'cannot be finalized',
+    });
+  }
+
+  // "Reabrir" — FINALIZADO -> EMITIDO (RC-D63). Rompe a D122 de proposito: la o
+  // marco era fato auditado e voltar atras seria reescrever a historia; aqui e
+  // sinalizador de conveniencia, e um toque errado nao pode ser definitivo. Nao
+  // apaga nada — o status log ganha a segunda linha, e o historico mostra as duas.
+  async reopenSaleContract(contractId, input, actorContext) {
+    return this._flipContractStatus(contractId, input, actorContext, {
+      op: 'reopen sale contract',
+      from: 'FINALIZADO',
+      to: 'EMITIDO',
+      conflictCode: 'SALE_CONTRACT_NOT_REOPENABLE',
+      conflictMessage: 'cannot be reopened',
+    });
+  }
+
+  // O motor das duas: guard de papel/estado, concorrencia otimista por version e o
+  // par update+log na MESMA tx (D123 — quem e quando saem do log, nao de coluna
+  // propria; e como a transicao volta, coluna seria mentira na segunda passada).
+  async _flipContractStatus(
+    contractId,
+    input,
+    actorContext,
+    { op, from, to, conflictCode, conflictMessage }
+  ) {
+    const actor = assertAuthenticatedActor(actorContext, op);
+    assertRoleAllowed(actor.role, SALE_CONTRACT_ACCESS_ROLES, op);
     this._requireContractId(contractId);
     const expectedVersion = this._requireExpectedVersion(input?.expectedVersion);
-    const paidAt = normalizeActionDate(input?.date, 'date');
 
     const contract = await this.prisma.saleContract.findUnique({
       where: { id: contractId },
-      select: { id: true, status: true, version: true, requiresShipment: true, shippedAt: true },
+      select: { id: true, status: true, version: true },
     });
     if (!contract) {
       throw new HttpError(404, 'Sale contract not found', { code: 'SALE_CONTRACT_NOT_FOUND' });
     }
-    if (contract.status !== 'FATURADO') {
-      throw new HttpError(409, `Sale contract is ${contract.status} and cannot be paid`, {
-        code: 'SALE_CONTRACT_NOT_PAYABLE',
-      });
-    }
-    // Portao do embarque (EMB28): nao se paga sem embarcar. Junto dos guards de status
-    // (contrato ja FATURADO), se exige embarque e ainda nao embarcou, 422 — o front abre
-    // o modal de confirmacao (unica acao), confirma e segue direto pro pagamento. Fecha o
-    // buraco "pago sem registro de embarque" (o atraso some no PAGO — EMB9).
-    if (contract.requiresShipment && !contract.shippedAt) {
-      throw new HttpError(422, 'Shipment must be confirmed before payment', {
-        code: 'CONTRACT_SHIPMENT_REQUIRED',
+    if (contract.status !== from) {
+      throw new HttpError(409, `Sale contract is ${contract.status} and ${conflictMessage}`, {
+        code: conflictCode,
       });
     }
     if (contract.version !== expectedVersion) {
@@ -1572,30 +1382,15 @@ export class SaleContractService {
         field: 'expectedVersion',
       });
     }
-    // E30 (Revisao do Pagamento): nao se paga no futuro — a data do pagamento nao passa
-    // de hoje (BRT). Regra de negocio DEPOIS dos guards de status/versao, pra um
-    // contrato invalido dar o erro de estado (nao o de data). paidAt e @db.Date
-    // (meia-noite UTC); comparar contra o ancora BRT deixa "pagar hoje" passar (igual).
-    if (paidAt.getTime() > brtTodayDateOnly().getTime()) {
-      throw new HttpError(422, 'Payment date must not be in the future', {
-        code: 'VALIDATION_ERROR',
-        field: 'date',
-      });
-    }
 
     const result = await this.prisma.$transaction(async (tx) => {
       const updated = await tx.saleContract.updateMany({
-        where: {
-          id: contractId,
-          version: expectedVersion,
-          status: 'FATURADO',
-        },
-        data: { status: 'PAGO', paidAt, version: { increment: 1 } },
+        where: { id: contractId, version: expectedVersion, status: from },
+        data: { status: to, version: { increment: 1 } },
       });
       if (updated.count > 0) {
-        // Fase J (D123): marco auditado (quem + quando) na MESMA tx.
         await tx.saleContractStatusLog.create({
-          data: this._statusLogData(contractId, 'PAGO', actor),
+          data: this._statusLogData(contractId, to, actor),
         });
       }
       return updated;
@@ -1610,7 +1405,7 @@ export class SaleContractService {
     return this.getSaleContract(contractId, actorContext);
   }
 
-  // Quebra MANUAL (P17): EMITIDO/FATURADO/PAGO -> WASH_OUT, cancelando
+  // Quebra MANUAL (P17): EMITIDO/FINALIZADO -> WASH_OUT, cancelando
   // a venda subjacente (devolve as sacas ao lote) com motivo OBRIGATORIO. Delega
   // ao cancelSampleMovement, que grava o SALE_CANCELLED e dispara o washout via
   // washoutSaleContractByMovement na mesma tx. DEFINITIVA (event store
@@ -1637,7 +1432,7 @@ export class SaleContractService {
     if (!contract) {
       throw new HttpError(404, 'Sale contract not found', { code: 'SALE_CONTRACT_NOT_FOUND' });
     }
-    if (!['EMITIDO', 'FATURADO', 'PAGO'].includes(contract.status)) {
+    if (!['EMITIDO', 'FINALIZADO'].includes(contract.status)) {
       throw new HttpError(409, `Sale contract is ${contract.status} and cannot be washed out`, {
         code: 'SALE_CONTRACT_NOT_WASHOUTABLE',
       });
@@ -1735,7 +1530,7 @@ export class SaleContractService {
 
   // Timeline do modal de Detalhes (Fase J — D125): agrega criacao/edicoes
   // (Export), agio (AgioLog), aprovacoes (ApprovalLabelLog), marcos de status
-  // (StatusLog + legados so-com-data) e espelhos (EspelhoLog), com os nomes dos
+  // (StatusLog; o legado so-com-data sobrou no washout) e espelhos (EspelhoLog), com os nomes dos
   // atores resolvidos via app_user (join manual — as satelites nao tem
   // @relation). Mesmo gate de papel do getSaleContract (o timeline vive no modal
   // de Detalhes do /contratos).
@@ -1746,7 +1541,7 @@ export class SaleContractService {
 
     const contract = await this.prisma.saleContract.findUnique({
       where: { id: contractId },
-      select: { id: true, invoicedAt: true, paidAt: true, washoutAt: true, washoutReason: true },
+      select: { id: true, washoutAt: true, washoutReason: true },
     });
     if (!contract) {
       throw new HttpError(404, 'Sale contract not found', { code: 'SALE_CONTRACT_NOT_FOUND' });
@@ -2033,16 +1828,7 @@ export class SaleContractService {
       etapa2.paymentFormId,
       'paymentFormId'
     );
-    // Embarque (EMB21): a modalidade carrega a flag "embarca?" — o contrato herda
-    // por snapshot (extraSelect so aqui; os outros 2 lookups nao tem a coluna).
-    const modality = await this._requireLookup(
-      'contractModality',
-      etapa2.modalityId,
-      'modalityId',
-      {
-        requiresShipment: true,
-      }
-    );
+    const modality = await this._requireLookup('contractModality', etapa2.modalityId, 'modalityId');
     const packaging = await this._requireLookup(
       'contractPackaging',
       etapa2.packagingId,
@@ -2098,11 +1884,6 @@ export class SaleContractService {
       // e editar de uma vez (todos derivam o data daqui).
       requiresApproval: etapa2.requiresApproval,
       approvalReminderLeadDays: etapa2.approvalReminderLeadDays,
-      // Embarque (EMB21/EMB22): o sinal NAO e escolha do usuario — herda da
-      // modalidade (flag semeada: Retirar/Posto=true, Disponivel=false) e CONGELA
-      // por snapshot aqui. Editar a modalidade depois nao altera contratos antigos.
-      // shippedAt nasce nulo (preenchido so na confirmacao do embarque, EMB27).
-      requiresShipment: modality.requiresShipment ?? false,
     };
 
     return { data };

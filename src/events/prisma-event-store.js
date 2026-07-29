@@ -475,10 +475,9 @@ class PrismaEventStoreTx {
   }
 
   // Cancelar a venda -> QUEBRA o contrato ligado ao movimento (D104):
-  // EMITIDO/FATURADO/PAGO -> WASH_OUT + motivo/data (FATURADO/PAGO preservam
-  // invoicedAt/paidAt — registro do que ocorreu antes da quebra). Ja WASH_OUT
-  // (ou sem contrato) -> no-op. O contrato NUNCA e apagado (o "Excluir" saiu na
-  // S72); o corretor mantem a comissao (aparece no Financeiro/Espelho).
+  // EMITIDO/FINALIZADO -> WASH_OUT + motivo/data. Ja WASH_OUT (ou sem contrato)
+  // -> no-op. O contrato NUNCA e apagado (o "Excluir" saiu na S72); o corretor
+  // mantem a comissao (aparece no Financeiro/Espelho).
   async washoutSaleContractByMovement(
     movementId,
     { reason = null, at = null, actorUserId = null } = {}

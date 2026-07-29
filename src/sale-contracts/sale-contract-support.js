@@ -8,7 +8,9 @@ import { toIsoString } from '../users/user-support.js';
 // numero NNNN/AA, snapshots de identidade e o mapeamento de saida (view).
 
 export const SALE_CONTRACT_TYPES = Object.freeze(['MERCADO_A_VISTA', 'FUTURO']);
-export const SALE_CONTRACT_STATUSES = Object.freeze(['EMITIDO', 'FATURADO', 'PAGO', 'WASH_OUT']);
+// RC-D62 (§6): tres situacoes, nao uma maquina de estados. EMITIDO = em andamento,
+// FINALIZADO = alguem marcou que acabou (reversivel, RC-D63), WASH_OUT = cancelado.
+export const SALE_CONTRACT_STATUSES = Object.freeze(['EMITIDO', 'FINALIZADO', 'WASH_OUT']);
 
 // Decimal(12,2) cabe ate 9.999.999.999,99. Preco/saca e corretagem sao bem
 // menores, mas o teto evita estouro silencioso no banco.
@@ -268,7 +270,7 @@ function decimalToNumber(value) {
 // snapshots JSON por linha que o Financeiro nao usa (a lista cresce sem limite;
 // os snapshots dominariam o payload do banco). Revisao do Pagamento (FN3): traz
 // UM dos 5 snapshots (buyerSnapshot) so pra derivar o nome do comprador na view
-// (o snapshot cru NAO vai no payload de saida) + paidAt (exibir "pago em").
+// (o snapshot cru NAO vai no payload de saida).
 export const RECEIVABLE_VIEW_SELECT = Object.freeze({
   id: true,
   version: true,
@@ -276,7 +278,6 @@ export const RECEIVABLE_VIEW_SELECT = Object.freeze({
   contractNumber: true,
   contractDate: true,
   paymentDate: true,
-  paidAt: true,
   status: true,
   // D147: carrega a modalidade pra qualquer consumidor do view re-derivar
   // billabilidade (D145: washout a vista nao cobra) via isSpotWashout.
@@ -290,15 +291,13 @@ export const RECEIVABLE_VIEW_SELECT = Object.freeze({
 });
 
 // F1 (E24/D138): select ENXUTO do feed de "pagamentos de contrato" do card de Eventos
-// — id/status, numero, as 2 datas (paymentDate/paidAt) e o snapshot do COMPRADOR (nome
-// no chip). O `version` e o `sellerSnapshot` (blob JSON) alimentavam o atalho "Pago"/
-// acordeao E25, removidos por E28 (navegação pura) → saíram do select (check-up).
+// — id/status, numero, a data PREVISTA e o snapshot do COMPRADOR (nome no chip).
+// RC-D62: nao ha mais data real (`paidAt` morreu) — o feed e agenda, nao historico.
 export const PAYMENT_EVENT_SELECT = Object.freeze({
   id: true,
   status: true,
   contractNumber: true,
   paymentDate: true,
-  paidAt: true,
   buyerSnapshot: true,
 });
 
@@ -345,18 +344,10 @@ export const SALE_CONTRACT_VIEW_SELECT = Object.freeze({
   packagingText: true,
   invoiceDate: true,
   paymentDate: true,
-  invoicedAt: true,
-  paidAt: true,
   observations: true,
   description: true,
   requiresApproval: true,
   approvalReminderLeadDays: true,
-  // Embarque (EMB21/EMB22): sinal herdado da modalidade + data real do embarque.
-  requiresShipment: true,
-  shippedAt: true,
-  // Embarque FASE 2 (EMB30): transporte + nome do responsavel (snapshot), exibidos no Detalhes.
-  shipmentCarrier: true,
-  shipmentResponsibleName: true,
   version: true,
   createdAt: true,
   updatedAt: true,
@@ -413,16 +404,10 @@ export function toSaleContractView(row) {
     packagingText: row.packagingText ?? null,
     invoiceDate: toIsoString(row.invoiceDate),
     paymentDate: toIsoString(row.paymentDate),
-    invoicedAt: toIsoString(row.invoicedAt),
-    paidAt: toIsoString(row.paidAt),
     observations: row.observations ?? null,
     description: row.description ?? null,
     requiresApproval: row.requiresApproval,
     approvalReminderLeadDays: row.approvalReminderLeadDays ?? null,
-    requiresShipment: row.requiresShipment,
-    shippedAt: toIsoString(row.shippedAt),
-    shipmentCarrier: row.shipmentCarrier ?? null,
-    shipmentResponsibleName: row.shipmentResponsibleName ?? null,
     version: row.version,
     createdAt: toIsoString(row.createdAt),
     updatedAt: toIsoString(row.updatedAt),
@@ -437,165 +422,99 @@ export function toSaleContractBrokerView(row) {
   };
 }
 
+// 🪦 RC-D65 (2026-07-28): TODO o embarque saiu daqui. Eram 13 pecas — as fotos
+// (`SHIPMENT_PHOTO_VIEW_SELECT`, `toShipmentPhotoView`), o contexto do modal
+// (`SHIPMENT_CONTEXT_SELECT`, `buildShipmentContext`) e a worklist inteira
+// (`SHIPMENT_VIEW_SELECT`, `deriveShipmentState`, `buildShipmentView`, os filtros,
+// os cursores e o `shipmentKeysetWhere`). Confirmar embarque + transporte +
+// responsavel + fotos era o registro mais caro do app e nenhuma parte dele era
+// subproduto de trabalho que ja se faz — so escrituracao, com o agravante de
+// TRAVAR o pagamento (portao EMB28). Ver §6 do Contratos-Plano-de-Trabalho.md.
+
 // ============================================================
-// Embarque (EMB25/EMB27) — fotos da confirmacao + contexto
+// A AGENDA do contrato (RC-D68) — o que substituiu o status
 // ============================================================
 
-// A view NAO expoe storagePath/checksum (internos); o download e por rota-proxy
-// autenticada via id (molde do anexo de cliente).
-export const SHIPMENT_PHOTO_VIEW_SELECT = Object.freeze({
-  id: true,
-  saleContractId: true,
-  fileName: true,
-  mimeType: true,
-  sizeBytes: true,
-  createdAt: true,
-});
-
-export function toShipmentPhotoView(photo) {
-  return {
-    id: photo.id,
-    contractId: photo.saleContractId,
-    fileName: photo.fileName ?? null,
-    mimeType: photo.mimeType ?? null,
-    sizeBytes: photo.sizeBytes ?? null,
-    createdAt: toIsoString(photo.createdAt),
-  };
-}
-
-// Colunas do resumo do embarque (modal de confirmacao + secao "Embarque" do
-// Detalhes). So dado NAO-sensivel (EMB25): sem preco/corretagem.
-export const SHIPMENT_CONTEXT_SELECT = Object.freeze({
-  id: true,
-  contractNumber: true,
-  status: true,
-  quantitySacks: true,
-  invoiceDate: true,
-  requiresShipment: true,
-  shippedAt: true,
-  buyerSnapshot: true,
-  sellerWarehouseSnapshot: true,
-});
-
-export function buildShipmentContext(row) {
-  return {
-    contractId: row.id,
-    contractNumber: row.contractNumber,
-    status: row.status,
-    quantitySacks: row.quantitySacks,
-    invoiceDate: toIsoString(row.invoiceDate),
-    requiresShipment: row.requiresShipment,
-    shippedAt: toIsoString(row.shippedAt),
-    buyerName: row.buyerSnapshot?.displayName ?? null,
-    sellerWarehouse: row.sellerWarehouseSnapshot?.displayName ?? null,
-  };
-}
-
-// ------------------------------------------------------------
-// Worklist do Embarque (EMB23-EMB25) — a "casa" na sub-aba
-// ------------------------------------------------------------
-
-// Select ENXUTO da worklist (so nao-sensivel — EMB25): sem preco/corretagem. Traz
-// contractSeq (tiebreak do cursor) + os 2 snapshots (nome do comprador + armazem).
-export const SHIPMENT_VIEW_SELECT = Object.freeze({
-  id: true,
-  contractSeq: true,
-  contractNumber: true,
-  status: true,
-  invoiceDate: true,
-  shippedAt: true,
-  quantitySacks: true,
-  buyerSnapshot: true,
-  sellerWarehouseSnapshot: true,
-});
-
-// Estado derivado (sem enum, EMB23): cancelado (WASH_OUT) · embarcado (shippedAt) ·
-// atrasado (nao embarcado + invoiceDate < hoje BRT) · a_embarcar (senao). O atraso
-// so acende a partir do dia SEGUINTE a invoiceDate (o proprio dia ainda e a_embarcar).
-function deriveShipmentState(status, invoiceDate, shippedAt, todayKey) {
-  if (status === 'WASH_OUT') return 'cancelado';
-  if (shippedAt) return 'embarcado';
-  const iso = toIsoString(invoiceDate);
-  const dayKey = iso ? iso.slice(0, 10) : null;
-  if (dayKey && todayKey && dayKey < todayKey) return 'atrasado';
-  return 'a_embarcar';
-}
-
-// Linha da worklist (EMB25): chip · nº · comprador · data · sacas · armazem do
-// vendedor. So dado NAO-sensivel (a aba e visivel a todos os nao-PROSPECTOR).
-export function buildShipmentView(row, todayKey) {
-  return {
-    id: row.id,
-    contractNumber: row.contractNumber,
-    state: deriveShipmentState(row.status, row.invoiceDate, row.shippedAt, todayKey),
-    status: row.status,
-    buyerName: row.buyerSnapshot?.displayName ?? null,
-    sellerWarehouse: row.sellerWarehouseSnapshot?.displayName ?? null,
-    quantitySacks: row.quantitySacks,
-    invoiceDate: toIsoString(row.invoiceDate),
-    shippedAt: toIsoString(row.shippedAt),
-  };
-}
-
-// Filtros da worklist (EMB25). Default 'todos'.
-const SHIPMENT_FILTERS = Object.freeze([
-  'todos',
-  'a_embarcar',
-  'atrasado',
-  'embarcado',
+// O contrato deixou de ter fase e passou a ter compromisso. Este derivador responde
+// "o que vem a seguir?" a partir de dado que ja existe — as duas datas que o PDF
+// imprime (`invoiceDate`/`paymentDate`), o sinal de aprovacao e a existencia de
+// etiqueta. Custo de manutencao: zero. Ninguem marca nada pra isto ficar correto.
+//
+// Precedencia (a primeira que casar vence):
+//   cancelado > finalizado > aprovacao > pagamento_vencido > faturamento >
+//   pagamento > nenhum
+//
+// 🔴 So `pagamento_vencido` e atraso (RC-D64), porque `paymentDate` e a unica data
+// que uma acao — finalizar — resolve. O faturamento NAO vence: passou o dia, o aviso
+// simplesmente para de aparecer. Marcar de vermelho uma data que ninguem pode
+// resolver e o defeito que esta reforma existe pra apagar.
+//
+// Devolve `{ kind, dayKey }` e NAO um rotulo pronto: a frase precisa da data
+// formatada em pt-BR e quem sabe formatar e o front. O label dos eventos do
+// calendario e a excecao (la o consumidor e um card generico que nada sabe de
+// contrato).
+export const CONTRACT_AGENDA_KINDS = Object.freeze([
   'cancelado',
+  'finalizado',
+  'aprovacao',
+  'pagamento_vencido',
+  'faturamento',
+  'pagamento',
+  'nenhum',
 ]);
 
-export function normalizeShipmentFilter(raw) {
-  return typeof raw === 'string' && SHIPMENT_FILTERS.includes(raw) ? raw : 'todos';
+function dayKeyOf(value) {
+  const iso = toIsoString(value);
+  return iso ? iso.slice(0, 10) : null;
 }
 
-// Cursor keyset opaco da worklist. {g, key, seq}: g = grupo (0 nao-embarcado /
-// 1 embarcado / 2 cancelado); key = 'YYYY-MM-DD'|null (invoiceDate em G0 / shippedAt
-// em G1; null em G2); seq = contractSeq (tiebreak unico). base64url.
-export function encodeShipmentCursor(cursor) {
-  return Buffer.from(JSON.stringify(cursor), 'utf8').toString('base64url');
+// Janela do lembrete de aprovacao — a MESMA do card de Avisos (AP31): avisa quando
+// falta `leadDays` ou menos para o faturamento planejado. Sem data planejada
+// ("A definir", D144) avisa SEMPRE, porque nao ha como saber se ja esta em cima.
+function approvalWindowOpen(invoiceDayKey, leadDays, todayKey) {
+  if (!invoiceDayKey) return true;
+  if (!todayKey) return true;
+  const limit = new Date(`${todayKey}T00:00:00.000Z`);
+  limit.setUTCDate(limit.getUTCDate() + (Number.isInteger(leadDays) ? leadDays : 0));
+  return invoiceDayKey <= limit.toISOString().slice(0, 10);
 }
 
-export function decodeShipmentCursor(raw) {
-  if (typeof raw !== 'string' || raw === '') return null;
-  try {
-    const p = JSON.parse(Buffer.from(raw, 'base64url').toString('utf8'));
-    const okKey =
-      p?.key === null || (typeof p?.key === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(p.key));
-    if (p && Number.isInteger(p.g) && p.g >= 0 && p.g <= 2 && Number.isInteger(p.seq) && okKey) {
-      return { g: p.g, key: p.key, seq: p.seq };
-    }
-  } catch {
-    // cursor malformado -> trata como 1a pagina
-  }
-  return null;
-}
+export function deriveContractAgenda(
+  {
+    status,
+    requiresApproval = false,
+    hasApprovalLabel = false,
+    approvalReminderLeadDays = null,
+    invoiceDate = null,
+    paymentDate = null,
+  },
+  todayKey
+) {
+  if (status === 'WASH_OUT') return { kind: 'cancelado', dayKey: null };
+  if (status === 'FINALIZADO') return { kind: 'finalizado', dayKey: null };
 
-// Fragmento Prisma "estritamente DEPOIS do cursor, DENTRO do grupo cursor.g".
-// G0 (nao-embarcado), ordem (invoiceDate asc nulls-last, contractSeq asc). G1
-// (embarcado), ordem (shippedAt desc, contractSeq desc). G2 (cancelado), seq desc.
-export function shipmentKeysetWhere(cursor) {
-  if (cursor.g === 0) {
-    const seqGt = { contractSeq: { gt: cursor.seq } };
-    if (cursor.key === null) {
-      return { AND: [{ invoiceDate: null }, seqGt] };
-    }
-    const d = new Date(`${cursor.key}T00:00:00.000Z`);
-    return {
-      OR: [{ invoiceDate: { gt: d } }, { invoiceDate: null }, { AND: [{ invoiceDate: d }, seqGt] }],
-    };
+  const invoiceDayKey = dayKeyOf(invoiceDate);
+  const paymentDayKey = dayKeyOf(paymentDate);
+
+  if (
+    requiresApproval &&
+    !hasApprovalLabel &&
+    approvalWindowOpen(invoiceDayKey, approvalReminderLeadDays, todayKey)
+  ) {
+    return { kind: 'aprovacao', dayKey: invoiceDayKey };
   }
-  if (cursor.g === 1) {
-    const d = new Date(`${cursor.key}T00:00:00.000Z`);
-    return {
-      OR: [
-        { shippedAt: { lt: d } },
-        { AND: [{ shippedAt: d }, { contractSeq: { lt: cursor.seq } }] },
-      ],
-    };
+  if (paymentDayKey && todayKey && paymentDayKey < todayKey) {
+    return { kind: 'pagamento_vencido', dayKey: paymentDayKey };
   }
-  return { contractSeq: { lt: cursor.seq } };
+  // Sem `todayKey` nao da pra saber o que ja passou — devolve a data mais proxima
+  // na ordem do documento (fatura antes de pagamento), que e o comportamento util.
+  if (invoiceDayKey && (!todayKey || invoiceDayKey >= todayKey)) {
+    return { kind: 'faturamento', dayKey: invoiceDayKey };
+  }
+  if (paymentDayKey) {
+    return { kind: 'pagamento', dayKey: paymentDayKey };
+  }
+  return { kind: 'nenhum', dayKey: null };
 }
 
 // ------------------------------------------------------------
@@ -603,9 +522,11 @@ export function shipmentKeysetWhere(cursor) {
 // ------------------------------------------------------------
 
 // Estado derivado (sem enum, AP14/Fase 5): cancelado (WASH_OUT) · enviada (>=1
-// etiqueta, nao washout) · a_enviar (EMITIDO + marcado + sem etiqueta). "Faturado sem
-// enviar" e IMPOSSIVEL (portao AP18) => marcado+FATURADO/PAGO sempre tem etiqueta =>
-// enviada. `labelCount` vem do approval_label_log (agregado na query da worklist).
+// etiqueta, nao washout) · a_enviar (marcado e sem etiqueta).
+// RC-D66: o portao AP18 MORREU — antes "marcado e nao enviado" era impossivel de
+// coexistir com o contrato tendo avancado, porque faturar exigia a etiqueta. Hoje da
+// pra FINALIZAR sem ter enviado: o estado passa a descrever, nao a garantir.
+// `labelCount` vem do approval_label_log (agregado na query da worklist).
 function deriveApprovalState(status, labelCount) {
   if (status === 'WASH_OUT') return 'cancelado';
   if (labelCount >= 1) return 'enviada';
@@ -663,14 +584,19 @@ export function decodeApprovalWlCursor(raw) {
   return null;
 }
 
-// Revisao do Pagamento (FN1): estado de pagamento derivado (sem enum) — a LENTE do
-// Financeiro. Chip: cancelado (WASH_OUT) · pago (PAGO) · vencido (nao pago +
-// paymentDate < hoje BRT) · a_vencer (nao pago, no prazo ou SEM data). `paymentDate`
-// = Date @db.Date (ou null); `todayKey` = 'YYYY-MM-DD' BRT (brtTodayKey). Sem data
-// nunca vira vencido. String-compare de 2 'YYYY-MM-DD' == compare cronologico.
+// Revisao do Pagamento (FN1): estado da corretagem a receber, derivado (sem enum) —
+// a LENTE do Financeiro. Chip: cancelado (WASH_OUT) · recebida · vencido (paymentDate
+// < hoje BRT) · a_vencer (no prazo ou SEM data).
+// RC-D67: "recebida" vem do contrato estar FINALIZADO — nao ha marca propria do
+// dinheiro. O /financeiro nao tem mais acao nenhuma: quem fecha e quem conduziu o
+// contrato, em /contratos. O custo assumido: "a operacao acabou" e "a corretagem
+// entrou" nem sempre sao o mesmo dia, e a fila mede o primeiro.
+// RC-D64: este e o UNICO atraso do app, porque `paymentDate` e a unica data que uma
+// acao (finalizar) resolve. Sem data nunca vira vencido. String-compare de 2
+// 'YYYY-MM-DD' == compare cronologico.
 function deriveReceivablePaymentState(status, paymentDate, todayKey) {
   if (status === 'WASH_OUT') return 'cancelado';
-  if (status === 'PAGO') return 'pago';
+  if (status === 'FINALIZADO') return 'recebida';
   const iso = toIsoString(paymentDate);
   const dayKey = iso ? iso.slice(0, 10) : null;
   if (dayKey && todayKey && dayKey < todayKey) return 'vencido';
@@ -727,8 +653,9 @@ export function assertEspelhoEligible(contract, side) {
 // entre eles (D136 removeu o rateio ÷N das D79/D129, uma divisao igual ficticia que
 // arriscava os registros; a divisao real, quando ha, e externa). `row` = projecao
 // RECEIVABLE_VIEW_SELECT; `brokerRows` = os SaleContractBroker (brokerId/nome).
-// Revisao do Pagamento (FN1/FN3): + buyerName (do buyerSnapshot), paidAt e
-// paymentState (derivado com o dia BRT injetado, fonte unica de "hoje").
+// Revisao do Pagamento (FN1/FN3): + buyerName (do buyerSnapshot) e paymentState
+// (derivado com o dia BRT injetado, fonte unica de "hoje"). RC-D67: sem `paidAt` —
+// nao ha data real de recebimento, o sinal e o contrato estar FINALIZADO.
 export function buildReceivableView(row, brokerRows, todayKey) {
   const sellerValue = decimalToNumber(row.sellerBrokerageValue) ?? 0;
   const buyerValue = decimalToNumber(row.buyerBrokerageValue) ?? 0;
@@ -740,7 +667,6 @@ export function buildReceivableView(row, brokerRows, todayKey) {
     contractNumber: row.contractNumber,
     contractDate: toIsoString(row.contractDate),
     paymentDate: toIsoString(row.paymentDate),
-    paidAt: toIsoString(row.paidAt),
     status: row.status,
     type: row.type,
     paymentState: deriveReceivablePaymentState(row.status, row.paymentDate, todayKey),
@@ -759,16 +685,18 @@ export function buildReceivableView(row, brokerRows, todayKey) {
 }
 
 // Revisao do Pagamento (FN4/FN5): filtro do Financeiro. Default 'todos'.
-const RECEIVABLE_FILTERS = Object.freeze(['todos', 'a_vencer', 'vencido', 'pago', 'cancelado']);
+// RC-D67: 'pago' virou 'recebida' — o chip fala da corretagem que entra, nao do
+// contrato que foi pago.
+const RECEIVABLE_FILTERS = Object.freeze(['todos', 'a_vencer', 'vencido', 'recebida', 'cancelado']);
 
 export function normalizeReceivableFilter(raw) {
   return typeof raw === 'string' && RECEIVABLE_FILTERS.includes(raw) ? raw : 'todos';
 }
 
 // Revisao do Pagamento (FN4): cursor keyset opaco do Financeiro. {g, pd, seq}:
-// g = grupo (0 nao-pago / 1 pago / 2 cancelado); pd = 'YYYY-MM-DD'|null (so importa
-// em G0, ordenado por paymentDate asc nulls-last); seq = contractSeq (tiebreak unico
-// e monotonico). base64url pra viajar como string opaca na querystring.
+// g = grupo (0 em aberto / 1 recebida / 2 cancelado); pd = 'YYYY-MM-DD'|null (so
+// importa em G0, ordenado por paymentDate asc nulls-last); seq = contractSeq (tiebreak
+// unico e monotonico). base64url pra viajar como string opaca na querystring.
 export function encodeReceivableCursor(cursor) {
   return Buffer.from(JSON.stringify(cursor), 'utf8').toString('base64url');
 }
@@ -931,30 +859,21 @@ export function brtTodayKey(now = new Date()) {
 }
 
 // F1 (E21-E27/D138): projeta 1 contrato num evento de pagamento do card de Eventos.
-// kind 'due' = agendado (no paymentDate); 'paid' = realizado (no paidAt). O dayKey
-// vem da data @db.Date via `.slice(0,10)` (sem conversao de fuso — casa com o
-// toDayKey/BRT do dashboard-calendar). `label` = recolhido "pagamento · nº · comprador"
-// (DSB-D10: prefixo do tipo). `state` = previsto/atrasado/realizado (cor do chip).
-// E29 (Revisao do Pagamento): um agendado cujo dia ja passou (dayKey < todayKey, dia
-// BRT) vira "atrasado" (dot vermelho) a partir do dia SEGUINTE ao vencimento (vence-
-// hoje ainda e 'due'); o realizado nunca fica atrasado. `todayKey` opcional: sem ele,
-// nao classifica atraso (mantem 'due') — retrocompat com chamadas antigas.
-export function buildPaymentEvent(row, kind, todayKey) {
-  const iso = toIsoString(kind === 'paid' ? row.paidAt : row.paymentDate);
+// O dayKey vem da data @db.Date via `.slice(0,10)` (sem conversao de fuso — casa com
+// o toDayKey/BRT do dashboard-calendar). `label` = recolhido "pagamento · nº ·
+// comprador" (DSB-D10: prefixo do tipo). `state` = previsto/atrasado (cor do chip).
+//
+// RC-D62/D64: o ramo 'paid' morreu junto com `paidAt` — o calendario e AGENDA, nao
+// historico, e so carrega contrato EMITIDO. Mas o ATRASO ficou: `paymentDate` e a
+// unica data que uma acao (finalizar) resolve, entao e o unico vermelho do app. Ele
+// acende a partir do dia SEGUINTE ao vencimento (vence-hoje ainda e 'previsto').
+export function buildPaymentEvent(row, todayKey) {
+  const iso = toIsoString(row.paymentDate);
   const dayKey = iso ? iso.slice(0, 10) : null;
   const buyerName = row.buyerSnapshot?.displayName ?? null;
-  let typeKey;
-  let state;
-  if (kind === 'paid') {
-    typeKey = 'contract_payment_paid';
-    state = 'realizado';
-  } else if (todayKey && dayKey && dayKey < todayKey) {
-    typeKey = 'contract_payment_overdue';
-    state = 'atrasado';
-  } else {
-    typeKey = 'contract_payment_due';
-    state = 'previsto';
-  }
+  const overdue = Boolean(todayKey && dayKey && dayKey < todayKey);
+  const typeKey = overdue ? 'contract_payment_overdue' : 'contract_payment_due';
+  const state = overdue ? 'atrasado' : 'previsto';
   return {
     dayKey,
     event: {
@@ -962,9 +881,9 @@ export function buildPaymentEvent(row, kind, todayKey) {
       contractId: row.id,
       typeKey,
       state,
-      // DSB-D10: prefixo com o nome do tipo — a cor do chip agora carrega só o
-      // estado (previsto/atrasado/realizado), então o tipo precisa estar no texto
-      // pra diferenciar os eventos (embarque/faturamento tambem levam o prefixo).
+      // DSB-D10: prefixo com o nome do tipo — a cor do chip carrega só o estado
+      // (previsto/atrasado), então o tipo precisa estar no texto pra diferenciar os
+      // eventos (o faturamento tambem leva o prefixo).
       label: buyerName
         ? `pagamento · ${row.contractNumber} · ${buyerName}`
         : `pagamento · ${row.contractNumber}`,
@@ -978,70 +897,59 @@ export function buildPaymentEvent(row, kind, todayKey) {
 // Agrupa os eventos de pagamento por dayKey ('YYYY-MM-DD') -> Record<dayKey,
 // evento[]> (o formato que a prop `events` do EventsCalendarCard consome). Linhas
 // sem data valida sao descartadas (defensivo — no filtro as datas sao NOT NULL).
-export function bucketPaymentEvents(dueRows, paidRows, todayKey) {
+export function bucketPaymentEvents(dueRows, todayKey) {
   const byDay = {};
-  const add = (rows, kind) => {
-    for (const row of rows) {
-      const { dayKey, event } = buildPaymentEvent(row, kind, todayKey);
-      if (!dayKey) continue;
-      // DSB-D18: o card mostra o mes inteiro (sab/dom incluidos) — o evento
-      // agrupa no dia REAL. (O roll de fim de semana do DSB-D7 saiu.)
-      if (byDay[dayKey]) byDay[dayKey].push(event);
-      else byDay[dayKey] = [event];
-    }
-  };
-  add(dueRows, 'due');
-  add(paidRows, 'paid');
+  for (const row of dueRows) {
+    const { dayKey, event } = buildPaymentEvent(row, todayKey);
+    if (!dayKey) continue;
+    // DSB-D18: o card mostra o mes inteiro (sab/dom incluidos) — o evento
+    // agrupa no dia REAL. (O roll de fim de semana do DSB-D7 saiu.)
+    if (byDay[dayKey]) byDay[dayKey].push(event);
+    else byDay[dayKey] = [event];
+  }
   return byDay;
 }
 
+// 🪦 RC-D65 (2026-07-28): o evento de EMBARQUE do calendario saiu inteiro
+// (`SHIPMENT_EVENT_SELECT`, `buildShipmentEvent`, `bucketShipmentEvents`). Sem
+// registro de embarque nao ha o que lembrar nem o que dar por feito.
+
 // ------------------------------------------------------------
-// Evento de Embarque no dashboard (EMB10/EMB17/EMB24) — companheiro
+// Evento de Faturamento no dashboard (DSB-D11)
 // ------------------------------------------------------------
 
-export const SHIPMENT_EVENT_SELECT = Object.freeze({
+export const INVOICE_EVENT_SELECT = Object.freeze({
   id: true,
   contractNumber: true,
   status: true,
   invoiceDate: true,
-  shippedAt: true,
   buyerSnapshot: true,
 });
 
-// Projeta 1 contrato num evento de embarque do calendario (1→1, molde do pagamento).
-// kind 'scheduled' -> dia previsto = invoiceDate; typeKey contract_shipment ou
-// contract_shipment_overdue se o dia ja passou (dayKey < todayKey, EMB24).
-// kind 'done' -> dia real = shippedAt; typeKey contract_shipment_done (EMB17).
-// DSB-D10: `state` (previsto/atrasado/realizado) dirige a COR do chip (azul/vermelho/
-// verde); o typeKey vira só rota+identificacao. label recolhido = "embarque · nº ·
-// comprador" (EMB11/EMB26). id NAMESPACED ('shipment:') pra nao colidir com pagamento/
-// faturamento do mesmo dia (card usa key=id).
-export function buildShipmentEvent(row, kind, todayKey) {
-  const iso = toIsoString(kind === 'done' ? row.shippedAt : row.invoiceDate);
+// Projeta 1 contrato num evento de faturamento do calendario (1→1, molde do
+// pagamento). Dia previsto = invoiceDate; label recolhido = "faturamento · nº ·
+// comprador"; id NAMESPACED ('invoice:') pra nao colidir com o pagamento do mesmo dia
+// (o card usa key=id).
+//
+// RC-D64: o faturamento e LEMBRETE PURO — nao tem 'done' (nao ha mais data real) e
+// tambem NAO tem 'atrasado'. Atraso so faz sentido onde existe acao que o resolva, e
+// nada resolve "faturar": passou o dia, o aviso simplesmente se recolhe. Antes, um
+// contrato antigo ficaria vermelho para sempre — que e exatamente o que esta reforma
+// existe pra evitar.
+export function buildInvoiceEvent(row) {
+  const iso = toIsoString(row.invoiceDate);
   const dayKey = iso ? iso.slice(0, 10) : null;
   const buyerName = row.buyerSnapshot?.displayName ?? null;
-  let typeKey;
-  let state;
-  if (kind === 'done') {
-    typeKey = 'contract_shipment_done';
-    state = 'realizado';
-  } else if (todayKey && dayKey && dayKey < todayKey) {
-    typeKey = 'contract_shipment_overdue';
-    state = 'atrasado';
-  } else {
-    typeKey = 'contract_shipment';
-    state = 'previsto';
-  }
   const label = buyerName
-    ? `embarque · ${row.contractNumber} · ${buyerName}`
-    : `embarque · ${row.contractNumber}`;
+    ? `faturamento · ${row.contractNumber} · ${buyerName}`
+    : `faturamento · ${row.contractNumber}`;
   return {
     dayKey,
     event: {
-      id: `shipment:${row.id}`,
+      id: `invoice:${row.id}`,
       contractId: row.id,
-      typeKey,
-      state,
+      typeKey: 'contract_invoice',
+      state: 'previsto',
       label,
       contractNumber: row.contractNumber,
       buyerName,
@@ -1051,90 +959,15 @@ export function buildShipmentEvent(row, kind, todayKey) {
 }
 
 // Agrupa por dayKey -> Record<dayKey, evento[]> (1→1, molde do bucketPaymentEvents).
-export function bucketShipmentEvents(scheduledRows, doneRows, todayKey) {
+export function bucketInvoiceEvents(scheduledRows) {
   const byDay = {};
-  const add = (rows, kind) => {
-    for (const row of rows) {
-      const { dayKey, event } = buildShipmentEvent(row, kind, todayKey);
-      if (!dayKey) continue;
-      // DSB-D18: agrupa no dia REAL (ver bucketPaymentEvents).
-      if (byDay[dayKey]) byDay[dayKey].push(event);
-      else byDay[dayKey] = [event];
-    }
-  };
-  add(scheduledRows, 'scheduled');
-  add(doneRows, 'done');
-  return byDay;
-}
-
-// ------------------------------------------------------------
-// Evento de Faturamento no dashboard (DSB-D11) — irmao do embarque
-// ------------------------------------------------------------
-
-export const INVOICE_EVENT_SELECT = Object.freeze({
-  id: true,
-  contractNumber: true,
-  status: true,
-  invoiceDate: true,
-  invoicedAt: true,
-  buyerSnapshot: true,
-});
-
-// Projeta 1 contrato num evento de faturamento do calendario (1→1, molde do embarque).
-// kind 'scheduled' -> dia previsto = invoiceDate (status EMITIDO, ainda NAO faturado);
-// typeKey contract_invoice ou contract_invoice_overdue se o dia ja passou (dayKey <
-// todayKey). kind 'done' -> dia REAL = invoicedAt (status FATURADO/PAGO); typeKey
-// contract_invoice_done. DSB-D10: `state` (previsto/atrasado/realizado) dirige a COR.
-// label recolhido = "faturamento · nº · comprador". id NAMESPACED ('invoice:') pra nao
-// colidir com pagamento/embarque do mesmo dia (o card usa key=id).
-export function buildInvoiceEvent(row, kind, todayKey) {
-  const iso = toIsoString(kind === 'done' ? row.invoicedAt : row.invoiceDate);
-  const dayKey = iso ? iso.slice(0, 10) : null;
-  const buyerName = row.buyerSnapshot?.displayName ?? null;
-  let typeKey;
-  let state;
-  if (kind === 'done') {
-    typeKey = 'contract_invoice_done';
-    state = 'realizado';
-  } else if (todayKey && dayKey && dayKey < todayKey) {
-    typeKey = 'contract_invoice_overdue';
-    state = 'atrasado';
-  } else {
-    typeKey = 'contract_invoice';
-    state = 'previsto';
+  for (const row of scheduledRows) {
+    const { dayKey, event } = buildInvoiceEvent(row);
+    if (!dayKey) continue;
+    // DSB-D18: agrupa no dia REAL (ver bucketPaymentEvents).
+    if (byDay[dayKey]) byDay[dayKey].push(event);
+    else byDay[dayKey] = [event];
   }
-  const label = buyerName
-    ? `faturamento · ${row.contractNumber} · ${buyerName}`
-    : `faturamento · ${row.contractNumber}`;
-  return {
-    dayKey,
-    event: {
-      id: `invoice:${row.id}`,
-      contractId: row.id,
-      typeKey,
-      state,
-      label,
-      contractNumber: row.contractNumber,
-      buyerName,
-      status: row.status,
-    },
-  };
-}
-
-// Agrupa por dayKey -> Record<dayKey, evento[]> (1→1, molde do bucketShipmentEvents).
-export function bucketInvoiceEvents(scheduledRows, doneRows, todayKey) {
-  const byDay = {};
-  const add = (rows, kind) => {
-    for (const row of rows) {
-      const { dayKey, event } = buildInvoiceEvent(row, kind, todayKey);
-      if (!dayKey) continue;
-      // DSB-D18: agrupa no dia REAL (ver bucketPaymentEvents).
-      if (byDay[dayKey]) byDay[dayKey].push(event);
-      else byDay[dayKey] = [event];
-    }
-  };
-  add(scheduledRows, 'scheduled');
-  add(doneRows, 'done');
   return byDay;
 }
 
@@ -1324,12 +1157,10 @@ export function normalizeApprovalReminderLeadDays(
   return value;
 }
 
-// Data REAL do marco (faturamento/pagamento/embarque) escolhida no dialogo.
-// Obrigatoria; mesmo formato YYYY-MM-DD das demais datas do contrato (@db.Date).
-// DSB-D7: recusa fim de semana (as 3 acoes — invoice/pay/ship — passam por aqui).
-export function normalizeActionDate(value, fieldName = 'date') {
-  return assertBusinessDate(requireDate(value, fieldName), fieldName);
-}
+// 🪦 RC-D62 (2026-07-28): `normalizeActionDate` NAO EXISTE MAIS. Ela normalizava a
+// data REAL escolhida no dialogo de faturar/pagar/embarcar — as tres acoes morreram, e
+// finalizar nao pergunta data nenhuma (RC-D63: no instante em que perguntamos
+// "finalizado quando?", voltamos a escrituracao que a reforma tirou).
 
 // Motivo da quebra manual (P17). Obrigatorio; espelha o limite do reasonText do
 // cancelamento da venda (normalizeRequiredText(..., 500)) ao qual ele e repassado.
@@ -1409,25 +1240,6 @@ function normalizeAgio(input, fieldName = 'agioDesagio') {
     });
   }
   return { agioDesagioType: type, agioDesagioValue: value };
-}
-
-// Embarque FASE 2 (EMB30): transporte na confirmacao. OBRIGATORIO (sem default) —
-// COMPANY ("Pela empresa") exige responsavel; THIRD_PARTY ("Por terceiros") nao.
-export function normalizeShipmentCarrier(value, fieldName = 'transporte') {
-  if (value === undefined || value === null || value === '') {
-    throw new HttpError(422, `${fieldName} is required`, {
-      code: 'VALIDATION_ERROR',
-      field: fieldName,
-    });
-  }
-  const carrier = String(value).trim().toUpperCase();
-  if (carrier !== 'COMPANY' && carrier !== 'THIRD_PARTY') {
-    throw new HttpError(422, `${fieldName} must be COMPANY or THIRD_PARTY`, {
-      code: 'VALIDATION_ERROR',
-      field: fieldName,
-    });
-  }
-  return carrier;
 }
 
 // Como normalizeAgio, mas EXIGE o par (tipo + valor > 0). Usado na aplicacao de
@@ -1687,10 +1499,9 @@ const APPROVAL_LOT_MAX_CHARS = 16;
 // declaredOriginLot e ilimitado; o cap aqui e so visual).
 const APPROVAL_LOT_DISPLAY_MAX = 8;
 
-// Status que aceitam ENVIO de aprovacao. Reforma "o portao" (AP21/E4): so
-// EMITIDO — a aprovacao e sempre pre-faturamento, e reenvio (proxy de recusa,
-// AP13) acontece antes de faturar. FATURADO/PAGO/WASH_OUT ficam FORA (antes da
-// reforma a lista era EMITIDO/FATURADO/PAGO — a AP21 apertou pra so EMITIDO).
+// Situacoes que aceitam ENVIO de aprovacao (AP21/E4): so EMITIDO. RC-D62: hoje isso
+// le como "so contrato em andamento" — enviar aprovacao de contrato ja finalizado ou
+// cancelado nao faz sentido. Quem quiser reenviar reabre antes (RC-D63).
 export const APPROVAL_ELIGIBLE_STATUSES = Object.freeze(['EMITIDO']);
 
 // Quebra do "Lote de origem" (Sample.declaredOriginLot) nos codigos discretos
@@ -1828,34 +1639,11 @@ export function buildContractTimeline({
     });
   }
 
-  // Marcos LEGADOS (anteriores a sale_contract_status_log — D123): o contrato
-  // tem a data mas nenhuma linha auditada correspondente -> entra uma linha
-  // so-com-data (sem autor).
+  // Marco LEGADO (anterior a sale_contract_status_log — D123): o contrato tem a
+  // data mas nenhuma linha auditada correspondente -> entra uma linha so-com-data
+  // (sem autor). RC-D62: sobrou so o washout — `invoicedAt`/`paidAt` deixaram de
+  // existir, e com eles as duas sinteses de faturado/pago.
   const hasStatusLog = (status) => statusLogs.some((row) => row.toStatus === status);
-  if (contract?.invoicedAt && !hasStatusLog('FATURADO')) {
-    items.push({
-      id: 'legacy-faturado',
-      kind: 'STATUS',
-      at: toIsoString(contract.invoicedAt),
-      actorUserId: null,
-      actorName: null,
-      toStatus: 'FATURADO',
-      reason: null,
-      legacy: true,
-    });
-  }
-  if (contract?.paidAt && !hasStatusLog('PAGO')) {
-    items.push({
-      id: 'legacy-pago',
-      kind: 'STATUS',
-      at: toIsoString(contract.paidAt),
-      actorUserId: null,
-      actorName: null,
-      toStatus: 'PAGO',
-      reason: null,
-      legacy: true,
-    });
-  }
   if (contract?.washoutAt && !hasStatusLog('WASH_OUT')) {
     items.push({
       id: 'legacy-washout',

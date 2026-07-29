@@ -100,22 +100,20 @@ enum SaleContractType {
   FUTURO
 }
 
+// RC-D62 (§6): o contrato deixou de ser maquina de status. EMITIDO = em andamento,
+// FINALIZADO = quem conduziu marcou que acabou (UM toque, reversivel — RC-D63) e
+// WASH_OUT = cancelado (cascata de cancelar a venda no lote). Faturar, pagar e
+// embarcar eram escrituracao pura e sumiram; o que "esta por vir" e DERIVADO das
+// datas que o documento ja imprime (deriveContractAgenda).
 enum SaleContractStatus {
   EMITIDO
-  FATURADO
-  PAGO
+  FINALIZADO
   WASH_OUT
 }
 
 enum AgioDesagioType {
   AGIO
   DESAGIO
-}
-
-// Embarque FASE 2 (EMB30): quem transporta o cafe na confirmacao do embarque.
-enum ShipmentCarrier {
-  COMPANY
-  THIRD_PARTY
 }
 
 enum SampleMovementType {
@@ -778,15 +776,12 @@ model ContractPaymentForm {
 }
 
 model ContractModality {
-  id               String       @id @db.Uuid
-  name             String       @unique(map: "uq_contract_modality_name")
-  sortOrder        Int          @default(0) @map("sort_order")
-  status           LookupStatus @default(ACTIVE)
-  // Embarque (EMB21): "esta modalidade embarca?" — semeado Retirar/Posto=true,
-  // Disponivel=false. O contrato herda por snapshot no emit (SaleContract.requiresShipment).
-  requiresShipment Boolean      @default(false) @map("requires_shipment")
-  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt        DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id        String       @id @db.Uuid
+  name      String       @unique(map: "uq_contract_modality_name")
+  sortOrder Int          @default(0) @map("sort_order")
+  status    LookupStatus @default(ACTIVE)
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@index([status, sortOrder], map: "idx_contract_modality_status_order")
   @@map("contract_modality")
@@ -858,37 +853,17 @@ model SaleContract {
   modalityText     String?   @map("modality_text")
   packagingId      String?   @map("packaging_id") @db.Uuid
   packagingText    String?   @map("packaging_text")
+  // RC-D64: as duas datas PLANEJADAS sao campos do DOCUMENTO (o PDF as imprime) e
+  // por isso nao custam nada a manter. Sao elas que viraram a agenda do contrato —
+  // nao ha mais par "data real" nenhum, porque nao ha mais marco a registrar.
   invoiceDate      DateTime? @map("invoice_date") @db.Date
   paymentDate      DateTime? @map("payment_date") @db.Date
 
-  // Datas reais dos marcos de status (faturamento/pagamento); podem diferir das
-  // planejadas acima. Preenchidas ao marcar FATURADO/PAGO (o Desfazer saiu no D122).
-  invoicedAt DateTime? @map("invoiced_at") @db.Date
-  paidAt     DateTime? @map("paid_at") @db.Date
-  // Embarque (EMB22/EMB27): data REAL do embarque (par de invoicedAt/paidAt); nulo
-  // = ainda nao embarcado. Preenchida na confirmacao (shippedAt <= hoje BRT).
-  shippedAt  DateTime? @map("shipped_at") @db.Date
-
   // Aprovacao (reforma AP1/AP6): sinaliza se o contrato precisa de aprovacao e,
-  // quando sim, quantos dias antes do invoiceDate lembrar de enviar. Lidos so na
-  // Fase 2 (lembrete no card de Eventos). Existentes = false via default.
+  // quando sim, quantos dias antes do invoiceDate lembrar de enviar. RC-D66: o
+  // lembrete NAO trava mais nada — ele se resolve sozinho quando a etiqueta sai.
   requiresApproval         Boolean @default(false) @map("requires_approval")
   approvalReminderLeadDays Int?    @map("approval_reminder_lead_days")
-
-  // Embarque (EMB21): herda "embarca?" da ContractModality por snapshot no emit.
-  // Existentes = false via default; imutavel apos emitido (nao segue a modalidade).
-  requiresShipment Boolean @default(false) @map("requires_shipment")
-
-  // Embarque FASE 2 (EMB30): transporte + responsavel, capturados na confirmacao.
-  // Nulos ate embarcar (molde shippedAt; legado nao ganha carrier fabricado). COMPANY
-  // ("Pela empresa") exige responsavel (snapshot do nome, molde brokerNameSnapshot; a
-  // FK RESTRICT p/ app_user vive so no SQL, padrao das sub-refs de contrato).
-  // THIRD_PARTY ("Por terceiros") nao tem responsavel. Sem CHECK — o 422 do servico
-  // (SHIPMENT_RESPONSIBLE_INVALID) e a trava; o carrier IS NULL do legado deixaria o
-  // CHECK mais fragil que util.
-  shipmentCarrier           ShipmentCarrier? @map("shipment_carrier")
-  shipmentResponsibleUserId String?          @map("shipment_responsible_user_id") @db.Uuid
-  shipmentResponsibleName   String?          @map("shipment_responsible_name")
 
   // Textos / meta
   observations String?
@@ -901,21 +876,15 @@ model SaleContract {
   @@index([sellerClientId, status], map: "idx_sale_contract_seller_status")
   @@index([buyerClientId, status], map: "idx_sale_contract_buyer_status")
   @@index([sampleId], map: "idx_sale_contract_sample")
-  // F1 (E24/D138): feed de pagamentos do card de Eventos — janela por payment_date
-  // (agendado) / paid_at (realizado), compostos com o status.
+  // RC-D64: agenda de pagamento — janela por payment_date composta com o status
+  // (so EMITIDO tem compromisso; FINALIZADO e WASH_OUT nao lembram nada).
   @@index([status, paymentDate], map: "idx_sale_contract_status_payment_date")
-  @@index([status, paidAt], map: "idx_sale_contract_status_paid_at")
-  // Faturamento (DSB-D11): feed de faturamento do card de Eventos — agendado por
-  // invoice_date (status EMITIDO); realizado por invoiced_at (FATURADO/PAGO).
+  // RC-D64: agenda de faturamento, mesma forma. Nao ha mais indice por data REAL —
+  // invoiced_at/paid_at deixaram de existir (RC-D62).
   @@index([status, invoiceDate], map: "idx_sale_contract_status_invoice_date")
-  @@index([status, invoicedAt], map: "idx_sale_contract_status_invoiced_at")
   // F2 (reforma AP6/AP14): feed do lembrete de aprovacao — pendentes = requiresApproval
   // + status EMITIDO, janela por invoice_date (o lembrete conta X dias antes).
   @@index([requiresApproval, status, invoiceDate], map: "idx_sale_contract_requires_approval_status_invoice")
-  // Embarque (EMB23/EMB24): worklist/feed — pendentes = requiresShipment + EMITIDO/
-  // FATURADO, janela por invoice_date (dia previsto); realizados por shipped_at.
-  @@index([requiresShipment, status, invoiceDate], map: "idx_sale_contract_requires_shipment_status_invoice")
-  @@index([requiresShipment, shippedAt], map: "idx_sale_contract_requires_shipment_shipped_at")
   @@map("sale_contract")
 }
 
@@ -942,24 +911,9 @@ model SaleContractExport {
   @@map("sale_contract_export")
 }
 
-// Fotos OPCIONAIS da confirmacao do embarque (EMB27): N por contrato (0..10),
-// molde ClientAttachment menos unit_id. O arquivo (JPEG/PNG/WebP) e gravado pelo
-// uploadService (magic bytes) em contracts/<id>/shipment/...; a linha guarda so
-// metadados. Leitura por rota-proxy autenticada. Sem @relation (FKs so no SQL).
-model SaleContractShipmentPhoto {
-  id               String   @id @db.Uuid
-  saleContractId   String   @map("sale_contract_id") @db.Uuid
-  storagePath      String   @map("storage_path")
-  fileName         String?  @map("file_name")
-  mimeType         String?  @map("mime_type")
-  sizeBytes        Int?     @map("size_bytes")
-  checksumSha256   String?  @map("checksum_sha256")
-  uploadedByUserId String?  @map("uploaded_by_user_id") @db.Uuid
-  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  @@index([saleContractId, createdAt], map: "idx_sale_contract_shipment_photo_contract_created")
-  @@map("sale_contract_shipment_photo")
-}
+// 🪦 RC-D65 (2026-07-28): `SaleContractShipmentPhoto` NAO EXISTE MAIS. O embarque
+// inteiro saiu do dominio — confirmacao, fotos, transporte e responsavel eram o
+// registro mais caro do app e nenhum deles era subproduto de trabalho que ja se faz.
 
 // Auditoria de aplicacao de agio/desagio pos-CONFIRMADO (D90). Uma linha por
 // aplicacao via os botoes do card; registra o valor aplicado, o que substituiu
@@ -980,11 +934,12 @@ model SaleContractAgioLog {
   @@map("sale_contract_agio_log")
 }
 
-// Auditoria dos MARCOS DE STATUS do contrato (Fase J, D123): 1 linha por
-// transicao Faturar/Pagar/Washout, com ator + quando (+ motivo no washout).
-// Marcos ANTERIORES a tabela aparecem no timeline so com a data gravada no
-// proprio contrato (invoicedAt/paidAt/washoutAt), sem autor. O Desfazer foi
-// REMOVIDO na mesma fase (D122) — nao existe transicao reversa a auditar.
+// Auditoria das transicoes de situacao (Fase J, D123): 1 linha por Finalizar,
+// Reabrir ou Washout, com ator + quando (+ motivo no washout).
+// RC-D63: esta tabela e a UNICA fonte do "quem finalizou e quando" — o contrato
+// nao ganhou coluna propria, porque finalizar e REVERSIVEL e reabrir grava a volta
+// para EMITIDO em vez de apagar a ida. Ou seja: o log virou historico de duas maos,
+// e a D122 ("ciclo so pra frente") caiu com ele.
 // Sem @relation (FKs so no SQL, padrao do dominio).
 model SaleContractStatusLog {
   id             String             @id @db.Uuid
