@@ -73,7 +73,10 @@ const DEFAULT_REGISTRATION_UPDATE_REASON_TEXT = 'Edicao manual no detalhe da amo
 // origem). <=10 palavras pra casar com o regex do schema registration-updated.
 const BLEND_PROPAGATION_REASON_TEXT = 'Liga recalculada por edicao de origem';
 const BUSINESS_TIMEZONE = 'America/Sao_Paulo';
-const REGISTRATION_UPDATE_ALLOWED_STATUSES = ['REGISTRATION_CONFIRMED', 'CLASSIFIED'];
+// Exportado pro prefill da etiqueta de aprovacao (RC-D100): o modal so libera a
+// edicao do lote de origem quando o updateRegistration aceitaria a escrita, e a
+// lista de status vive AQUI — quem pergunta importa, ninguem redigita.
+export const REGISTRATION_UPDATE_ALLOWED_STATUSES = ['REGISTRATION_CONFIRMED', 'CLASSIFIED'];
 const CLASSIFICATION_UPDATE_ALLOWED_STATUSES = ['REGISTRATION_CONFIRMED', 'CLASSIFIED'];
 const REGISTRATION_EDITABLE_FIELDS = ['owner', 'sacks', 'harvest', 'originLot', 'location'];
 // Q.cls.2.7: ficha unificada — campos do classificationData no payload

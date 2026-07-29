@@ -41,6 +41,7 @@ import {
   formatContractNumber,
   isFutureContract,
   normalizeApprovalReminderLeadDays,
+  optionalText,
   normalizeContractLookupInput,
   normalizeEtapa2Input,
   normalizeFutureSaleContractInput,
@@ -1329,6 +1330,64 @@ export class SaleContractService {
     const updated = await this.prisma.saleContract.updateMany({
       where: { id: contractId, version: expectedVersion, status: 'EMITIDO' },
       data: { requiresApproval: true, approvalReminderLeadDays, version: { increment: 1 } },
+    });
+    if (updated.count === 0) {
+      throw new HttpError(409, 'Sale contract was modified concurrently', {
+        code: 'SALE_CONTRACT_VERSION_CONFLICT',
+        field: 'expectedVersion',
+      });
+    }
+
+    return this.getSaleContract(contractId, actorContext);
+  }
+
+  // RC-D99: cascata do "Nº compra" da etiqueta de aprovacao. O numero da compra
+  // chega DEPOIS do contrato (o operador o descobre quando vai imprimir), e a
+  // etiqueta e onde ele aparece — logo e de la que ele deve entrar no sistema.
+  //
+  // 🔴 Nao passa pelo emitSaleContract ("Editar"), que RE-RESOLVE a etapa 2
+  // inteira: re-snapshota partes/banco/armazens com os valores ATUAIS dos
+  // cadastros, emite SALE_UPDATED no lote e grava um SaleContractExport — que a
+  // timeline mostra como "EDIÇÃO". Trocar um numero no papel nao pode
+  // re-congelar o contrato. Este e o molde do setSaleContractApprovalFlag:
+  // updateMany estreito + expectedVersion, sem re-snapshot e sem export.
+  async setSaleContractPurchaseNumber(contractId, input, actorContext) {
+    const actor = assertAuthenticatedActor(actorContext, 'set purchase number');
+    assertRoleAllowed(actor.role, SALE_CONTRACT_ACCESS_ROLES, 'set purchase number');
+    this._requireContractId(contractId);
+    const expectedVersion = this._requireExpectedVersion(input?.expectedVersion);
+    // Mesmo normalizador do emit: vazio vira null (a coluna e opcional).
+    const purchaseNumber = optionalText(input?.purchaseNumber, 'purchaseNumber', 120);
+
+    const contract = await this.prisma.saleContract.findUnique({
+      where: { id: contractId },
+      select: { id: true, status: true, version: true, purchaseNumber: true },
+    });
+    if (!contract) {
+      throw new HttpError(404, 'Sale contract not found', { code: 'SALE_CONTRACT_NOT_FOUND' });
+    }
+    // Congela junto com a etiqueta: ela so existe em EMITIDO
+    // (APPROVAL_ELIGIBLE_STATUSES), entao a cascata dela tambem.
+    if (contract.status !== 'EMITIDO') {
+      throw new HttpError(409, `Sale contract is ${contract.status}; purchase number is frozen`, {
+        code: 'PURCHASE_NUMBER_NOT_EDITABLE',
+      });
+    }
+    // Idempotente: valor igual nao gasta uma version (o modal manda o campo
+    // inteiro, nao um diff — e reimprimir sem mexer nele e o caso comum).
+    if ((contract.purchaseNumber ?? null) === purchaseNumber) {
+      return this.getSaleContract(contractId, actorContext);
+    }
+    if (contract.version !== expectedVersion) {
+      throw new HttpError(409, 'Sale contract was modified concurrently', {
+        code: 'SALE_CONTRACT_VERSION_CONFLICT',
+        field: 'expectedVersion',
+      });
+    }
+
+    const updated = await this.prisma.saleContract.updateMany({
+      where: { id: contractId, version: expectedVersion, status: 'EMITIDO' },
+      data: { purchaseNumber, version: { increment: 1 } },
     });
     if (updated.count === 0) {
       throw new HttpError(409, 'Sale contract was modified concurrently', {

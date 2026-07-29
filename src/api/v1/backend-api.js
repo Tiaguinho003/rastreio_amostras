@@ -12,7 +12,9 @@ import {
   APPROVAL_ELIGIBLE_STATUSES,
   assertEspelhoEligible,
   buildApprovalPrefill,
+  splitOriginLotForLabel,
 } from '../../sale-contracts/sale-contract-support.js';
+import { REGISTRATION_UPDATE_ALLOWED_STATUSES } from '../../samples/sample-command-service.js';
 import { formatHarvestLabel, normalizeReportedHarvest } from '../../reports/export-fields.js';
 
 const loginRateLimiter = createRateLimiter({
@@ -181,8 +183,9 @@ function readPageQuery(value) {
   return parsed;
 }
 
-// Espelha MAX_LOTS em components/ApprovalLabelModal.tsx (a etiqueta nao comporta
-// mais lotes sem encolher a fonte a ponto de cortar o numero).
+// Guarda de FORMA da linha de lotes. Desde a RC-D100 o recorte de exibicao (8)
+// e do splitOriginLotForLabel, entao esta linha nunca mais chega perto do teto —
+// ele sobrevive como defesa contra um chamador que monte a linha na mao.
 const MAX_CUSTOM_LOTS = 16;
 
 // Etiqueta de Aprovacao (modal aberto pela worklist de Aprovacoes). Valida/
@@ -204,15 +207,19 @@ function normalizeCustomLabelLines(rawLines) {
       throw new HttpError(422, `lines[${index}].label e obrigatorio`);
     }
     // Deteccao do LOTE: MESMA norma do normalizeFieldKey em print-agent/label.js
-    // (manter em sincronia). O LOTE carrega varios lotes juntados por virgula (a
-    // etiqueta os divide numa grade); validamos a CONTAGEM em vez de cortar 240
-    // chars cru, que partia o numero do ultimo lote no meio.
+    // (manter em sincronia).
+    //
+    // RC-D100: desde que o campo virou EDITAVEL, o modal manda o texto CRU do
+    // lote de origem (o mesmo que vai pro cadastro), nao a lista ja recortada.
+    // Quem recorta pro papel e o splitOriginLotForLabel — a MESMA funcao do
+    // prefill, agora tambem no envio: a regra dos 16 chars por codigo e do
+    // 7 + "+" acima de 8 passa a viver num lugar so. De quebra, o cap de
+    // MAX_CUSTOM_LOTS deixa de ser alcancavel por esta linha (o recorte para
+    // em 8), e o separador passa a ser o canonico [\s,;] — o mesmo do
+    // OriginLotChips e do deriveBlendOriginLot, que o antigo [,\n] contrariava.
     const isLots = label.replace(/[°º:]/g, '').replace(/\s+/g, ' ').trim().toUpperCase() === 'LOTE';
     if (isLots) {
-      const lots = value
-        .split(/[,\n]+/)
-        .map((lot) => lot.trim().slice(0, 40))
-        .filter(Boolean);
+      const lots = splitOriginLotForLabel(value);
       if (lots.length > MAX_CUSTOM_LOTS) {
         throw new HttpError(422, `lotes suporta no maximo ${MAX_CUSTOM_LOTS}`);
       }
@@ -1280,6 +1287,8 @@ export function createBackendApiV1({
             sellerWarehouseSnapshot: true,
             quantitySacks: true,
             sampleId: true,
+            // RC-D99: o expectedVersion da cascata do Nº compra.
+            version: true,
           },
         });
         if (!contract) {
@@ -1299,17 +1308,52 @@ export function createBackendApiV1({
           });
         }
         // Lotes: a vista le o "Lote de origem" da amostra vinculada; Futuro
-        // (sem amostra) e liga (declaredOriginLot intencionalmente nulo)
-        // resultam em lotes vazios (D116).
+        // (sem amostra) resulta em lotes vazios (D116). A LIGA tem origem sim —
+        // a somatoria das origens dos componentes (deriveBlendOriginLot) —, ao
+        // contrario do que este comentario afirmava antes da derivacao reativa.
+        //
+        // RC-D100: aqui tambem se decide se o campo e EDITAVEL no modal. Trava
+        // nos tres casos em que a escrita teria efeito alem do lote: liga (o
+        // updateRegistration fixaria a derivacao pra sempre), componente de liga
+        // (propagaria pras ancestrais, e o servico exige confirmacao explicita) e
+        // status fora da janela do updateRegistration.
         let originLotText = null;
+        let originLotLockReason = 'NO_SAMPLE';
+        let sampleVersion = null;
         if (contract.sampleId) {
           const sample = await queryService.prisma.sample.findUnique({
             where: { id: contract.sampleId },
-            select: { declaredOriginLot: true },
+            select: { declaredOriginLot: true, isBlend: true, status: true, version: true },
           });
           originLotText = sample?.declaredOriginLot ?? null;
+          sampleVersion = sample?.version ?? null;
+          if (!sample) {
+            originLotLockReason = 'NO_SAMPLE';
+          } else if (sample.isBlend) {
+            originLotLockReason = 'BLEND';
+          } else if (!REGISTRATION_UPDATE_ALLOWED_STATUSES.includes(sample.status)) {
+            originLotLockReason = 'SAMPLE_STATUS';
+          } else {
+            // Uma linha basta: se o lote e origem de QUALQUER liga, editar
+            // propaga. O indice idx_blend_component_origin cobre a busca.
+            const component = await queryService.prisma.sampleBlendComponent.findFirst({
+              where: { originSampleId: contract.sampleId },
+              select: { id: true },
+            });
+            originLotLockReason = component ? 'BLEND_COMPONENT' : null;
+          }
         }
-        return { status: 200, body: buildApprovalPrefill({ ...contract, originLotText }) };
+        return {
+          status: 200,
+          body: buildApprovalPrefill({
+            ...contract,
+            originLotText,
+            contractVersion: contract.version,
+            originLotLockReason,
+            sampleId: contract.sampleId,
+            sampleVersion,
+          }),
+        };
       }),
 
     sendApprovalLabel: (input) =>
@@ -3024,6 +3068,27 @@ export function createBackendApiV1({
         }
         const body = readRequestBody(input);
         const result = await saleContractService.setSaleContractApprovalFlag(
+          contractId,
+          body,
+          actor
+        );
+        return { status: 200, body: result };
+      }),
+
+    // RC-D99: cascata do "Nº compra" da etiqueta de aprovacao. Escrita ESTREITA
+    // (uma coluna + version), fora do "Editar" — ver o porque no service.
+    setSaleContractPurchaseNumber: (input) =>
+      executeApiForInput(input, async () => {
+        if (!saleContractService) {
+          throw new HttpError(501, 'Sale contract service is not configured');
+        }
+        const actor = await resolveActorContext(input, authService);
+        const contractId = input?.params?.contractId;
+        if (typeof contractId !== 'string' || contractId.length === 0) {
+          throw new HttpError(422, 'contractId path param is required');
+        }
+        const body = readRequestBody(input);
+        const result = await saleContractService.setSaleContractPurchaseNumber(
           contractId,
           body,
           actor

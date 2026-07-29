@@ -1289,7 +1289,10 @@ export function normalizeWashoutBillable(value, fieldName = 'washoutBillable') {
   return value;
 }
 
-function optionalText(value, fieldName, maxLength) {
+// Exportado desde a RC-D99: a cascata do Nº compra normaliza pelo MESMO
+// validador do emit (normalizeEtapa2Input), senao os dois caminhos de escrita da
+// coluna divergiriam no primeiro ajuste de limite.
+export function optionalText(value, fieldName, maxLength) {
   if (value === undefined || value === null) {
     return null;
   }
@@ -1630,11 +1633,31 @@ export function splitOriginLotForLabel(text) {
   return pieces;
 }
 
-// Prefill da etiqueta a partir do contrato (D115): 5 campos + lotes, todos
-// EDITAVEIS no modal, cortados nos limites fisicos. Armazem = SEMPRE o do
-// VENDEDOR (decisao S76); snapshot ausente -> campo vazio. originLotText =
-// o texto original do lote de origem, exibido como referencia read-only da
-// quebra (null quando nao ha — Futuro sem amostra, liga, campo vazio).
+// Motivos de TRAVA do campo "Lotes de origem" no modal da etiqueta (RC-D100),
+// do mais especifico para o mais geral. Os dois do meio existem porque editar
+// a origem de uma liga FIXA a derivacao dela pra sempre (blendOriginLotPinned)
+// e editar a de um componente PROPAGA pras ligas ancestrais — dois efeitos
+// permanentes demais pra sairem de uma tela de impressao. Quem precisa deles
+// edita pelo detalhe do lote, que tem o fluxo de confirmacao.
+export const APPROVAL_ORIGIN_LOT_LOCK_REASONS = Object.freeze([
+  'NO_SAMPLE',
+  'BLEND',
+  'BLEND_COMPONENT',
+  'SAMPLE_STATUS',
+]);
+
+// Prefill da etiqueta a partir do contrato (D115): 5 campos + lotes, cortados
+// nos limites fisicos. Armazem = SEMPRE o do VENDEDOR (decisao S76); snapshot
+// ausente -> campo vazio.
+//
+// RC-D98: so `compra` e o lote de origem sao EDITAVEIS no modal — os outros 4
+// viram leitura. RC-D99/D100: os dois editaveis gravam de volta (contrato e
+// cadastro do lote), por isso o prefill precisa carregar o que a escrita exige:
+// `contractVersion` e o bloco `originLot`.
+//
+// 🔴 `originLotText` e o texto CRU e INTEIRO; `lots` e o recorte do PAPEL (16
+// chars por codigo, 7 + "+" acima de 8). O modal edita sobre o texto — editar
+// sobre `lots` e salvar apagaria em silencio os lotes que o "+" representa.
 export function buildApprovalPrefill({
   purchaseNumber,
   contractNumber,
@@ -1642,11 +1665,18 @@ export function buildApprovalPrefill({
   sellerWarehouseSnapshot,
   quantitySacks,
   originLotText,
+  contractVersion,
+  originLotLockReason = 'NO_SAMPLE',
+  sampleId = null,
+  sampleVersion = null,
 }) {
   const originText =
     typeof originLotText === 'string' && originLotText.trim().length > 0
       ? originLotText.trim()
       : null;
+  const lockReason = APPROVAL_ORIGIN_LOT_LOCK_REASONS.includes(originLotLockReason)
+    ? originLotLockReason
+    : null;
   return {
     fields: {
       compra: String(purchaseNumber ?? '').slice(0, APPROVAL_COMPRA_MAX_CHARS),
@@ -1657,6 +1687,14 @@ export function buildApprovalPrefill({
     },
     lots: splitOriginLotForLabel(originText),
     originLotText: originText,
+    contractVersion: Number.isInteger(contractVersion) ? contractVersion : 0,
+    originLot: {
+      editable: lockReason === null,
+      lockReason,
+      // Alvo da cascata: nulos quando travado (o modal nao tem o que escrever).
+      sampleId: lockReason === null ? (sampleId ?? null) : null,
+      sampleVersion: lockReason === null && Number.isInteger(sampleVersion) ? sampleVersion : null,
+    },
   };
 }
 
