@@ -1109,6 +1109,11 @@ export function createBackendApiV1({
         }
         const body = readRequestBody(input);
 
+        // RC-D87: esta rota NAO passa `washoutBillable` de proposito. Cancelar um
+        // movimento com contrato quebra o contrato (-> WASH_OUT), e isso so pode
+        // acontecer pelo washout, que pergunta a corretagem (RC-D89). O guard vive
+        // no commandService (mesmo lugar do SAMPLE_HAS_CONTRACT do invalidateSample)
+        // e recusa com 409 MOVEMENT_HAS_CONTRACT quem chega sem a resposta.
         const result = await commandService.cancelSampleMovement(
           {
             sampleId,

@@ -46,6 +46,7 @@ import {
   normalizeFutureSaleContractInput,
   normalizeRequiredAgio,
   normalizeRequiredBoolean,
+  normalizeWashoutBillable,
   normalizeWashoutReason,
   PAYMENT_EVENT_SELECT,
   INVOICE_EVENT_SELECT,
@@ -318,9 +319,10 @@ export class SaleContractService {
     const G0_ORDER = [{ paymentDate: { sort: 'asc', nulls: 'last' } }, { contractSeq: 'asc' }];
     const ARCHIVE_ORDER = [{ contractSeq: 'desc' }];
     const UNPAID = { status: { in: ['EMITIDO'] } };
-    // D145 (revisa D105): washout so paga corretagem no FUTURO. O fisico (a vista)
-    // cancelado por washout nao gera cobranca — sai do Financeiro (lista + total).
-    const WASHOUT_BILLABLE = { status: 'WASH_OUT', type: 'FUTURO' };
+    // RC-D89 (revoga a D145): o washout cobra ou nao conforme a RESPOSTA dada no
+    // cancelamento, nao mais conforme o `type`. Quem respondeu "nao cobrar" — e quem
+    // foi cancelado antes desta coluna existir — fica fora da lista E do total.
+    const WASHOUT_BILLABLE = { status: 'WASH_OUT', washoutBillable: true };
     let groups;
     if (filter === 'vencido') {
       groups = [
@@ -467,8 +469,9 @@ export class SaleContractService {
   // AGREGADO (contagem no approval_label_log), entao — ao contrario do embarque (typed
   // findMany) — usa $queryRaw: G0 a_enviar (marcado+EMITIDO+SEM etiqueta, anti-join
   // NOT EXISTS) por invoiceDate ASC (fila, AP28); G1 enviada (>=1 etiqueta, nao washout)
-  // por ultimo envio DESC, com count => "·N×" (AP24); G2 cancelado (WASH_OUT + FUTURO,
-  // AP33 — alinha ao Financeiro/D145: a vista washout sai) por contractSeq DESC. Cursor
+  // por ultimo envio DESC, com count => "·N×" (AP24); G2 cancelado (WASH_OUT que
+  // RESPONDEU "cobrar", AP33 alinhado ao Financeiro — o predicado era `type='FUTURO'`
+  // ate a RC-D89 revogar a D145) por contractSeq DESC. Cursor
   // {g,key,seq} (o key do G1 leva HORA). So requiresApproval.
   async listApprovalContracts(input, actorContext) {
     assertAuthenticatedActor(actorContext, 'list approval contracts');
@@ -580,7 +583,7 @@ export class SaleContractService {
         FROM sale_contract sc
         WHERE sc.requires_approval = true
           AND sc.status = 'WASH_OUT'
-          AND sc.type = 'FUTURO'
+          AND sc.washout_billable IS TRUE
           ${searchFrag}
           ${cursorFragFor(2)}
         ORDER BY sc.contract_seq DESC
@@ -1453,6 +1456,9 @@ export class SaleContractService {
     this._requireContractId(contractId);
     const expectedVersion = this._requireExpectedVersion(input?.expectedVersion);
     const reason = normalizeWashoutReason(input?.reason);
+    // RC-D89: a resposta de corretagem e obrigatoria, como o motivo. Ela decide se
+    // o contrato cancelado continua no Financeiro e se o Espelho sai (RC-D91).
+    const washoutBillable = normalizeWashoutBillable(input?.washoutBillable);
 
     const contract = await this.prisma.saleContract.findUnique({
       where: { id: contractId },
@@ -1493,6 +1499,7 @@ export class SaleContractService {
             status: 'WASH_OUT',
             washoutReason: reason,
             washoutAt: new Date(),
+            washoutBillable,
             version: { increment: 1 },
           },
         });
@@ -1529,6 +1536,9 @@ export class SaleContractService {
         movementId: contract.movementId,
         reasonText: reason,
         expectedVersion: sample.version,
+        // RC-D89: opcao de servico — atravessa o cancelamento ate o
+        // washoutSaleContractByMovement sem passar pelo payload do evento.
+        washoutBillable,
       },
       actorContext
     );

@@ -369,7 +369,7 @@ if (!databaseUrl || !databaseReachable) {
     const washed = await setupEmittableContract({ lotNumber: '25061' });
     await saleContractService.washoutSaleContract(
       washed.contractId,
-      { expectedVersion: washed.version, reason: 'Caiu' },
+      { expectedVersion: washed.version, reason: 'Caiu', washoutBillable: true },
       adminActor
     );
 
@@ -455,7 +455,11 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(contracts.length, 0);
   });
 
-  test('cancelar a venda (movimento) faz WASHOUT do contrato', async () => {
+  // RC-D87 (revoga a D104 nesta parte): até aqui, cancelar o movimento pelo lote
+  // quebrava o contrato ligado a ele. Cancelar deixou de ser porta do washout: sem a
+  // resposta de corretagem (RC-D89) o serviço recusa, e nada é gravado pela metade —
+  // nem o cancelamento do movimento, nem o WASH_OUT.
+  test('lote: cancelar a venda de um contrato -> 409 MOVEMENT_HAS_CONTRACT (RC-D87)', async () => {
     const sampleId = randomUUID();
     const buyerId = randomUUID();
     await createClassifiedSample({ id: sampleId, lotNumber: '20005', declaredSacks: 10 });
@@ -467,23 +471,63 @@ if (!databaseUrl || !databaseReachable) {
 
     const movement = await prisma.sampleMovement.findFirst({ where: { sampleId } });
     const afterSale = await queryService.requireSample(sampleId);
-    await commandService.cancelSampleMovement(
+    await assert.rejects(
+      () =>
+        commandService.cancelSampleMovement(
+          {
+            sampleId,
+            movementId: movement.id,
+            reasonText: 'Venda cancelada no teste',
+            expectedVersion: afterSale.version,
+          },
+          commercialActor
+        ),
+      (err) => err.status === 409 && err.details?.code === 'MOVEMENT_HAS_CONTRACT'
+    );
+
+    // Recusa completa: contrato intacto e movimento ainda ATIVO.
+    const contracts = await prisma.saleContract.findMany();
+    assert.equal(contracts.length, 1);
+    assert.equal(contracts[0].status, 'EMITIDO');
+    assert.equal(contracts[0].washoutBillable, null);
+    const afterAttempt = await prisma.sampleMovement.findUnique({ where: { id: movement.id } });
+    assert.equal(afterAttempt.status, 'ACTIVE');
+  });
+
+  // A perda não tem contrato, então segue cancelável pelo lote — o guard olha só a
+  // venda. (A ação saiu da UI na RC-D87; o serviço continua de pé.)
+  test('lote: cancelar uma PERDA não esbarra no guard de contrato (RC-D87)', async () => {
+    const sampleId = randomUUID();
+    await createClassifiedSample({ id: sampleId, lotNumber: '20055', declaredSacks: 10 });
+    const sample = await queryService.requireSample(sampleId);
+    await commandService.createSampleMovement(
       {
         sampleId,
-        movementId: movement.id,
-        reasonText: 'Venda cancelada no teste',
-        expectedVersion: afterSale.version,
+        movementType: 'LOSS',
+        quantitySacks: 3,
+        movementDate: '2026-07-01',
+        lossReasonText: 'Perda no teste',
+        expectedVersion: sample.version,
       },
       commercialActor
     );
 
-    // D97: cancelar a venda NAO apaga o contrato — ele vira WASH_OUT (registro
-    // mantido, com motivo); os corretores tambem sao preservados.
-    const contracts = await prisma.saleContract.findMany();
-    assert.equal(contracts.length, 1);
-    assert.equal(contracts[0].status, 'WASH_OUT');
-    assert.equal(contracts[0].washoutReason, 'Venda cancelada no teste');
-    assert.equal((await prisma.saleContractBroker.findMany()).length, 1);
+    const movement = await prisma.sampleMovement.findFirst({
+      where: { sampleId, movementType: 'LOSS' },
+    });
+    const afterLoss = await queryService.requireSample(sampleId);
+    await commandService.cancelSampleMovement(
+      {
+        sampleId,
+        movementId: movement.id,
+        reasonText: 'Perda registrada por engano',
+        expectedVersion: afterLoss.version,
+      },
+      commercialActor
+    );
+
+    const cancelled = await prisma.sampleMovement.findUnique({ where: { id: movement.id } });
+    assert.equal(cancelled.status, 'CANCELLED');
   });
 
   test('gestao de contratos: COMMERCIAL vê tudo (escopo aberto); PROSPECTOR 403; REGISTRATION/ADMIN veem tudo', async () => {
@@ -1408,34 +1452,45 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(await prisma.saleContract.count({ where: { sampleId } }), 0);
   });
 
-  // A contraparte: trocar o dono NO LOTE e o caminho que muda o vendedor — e ele
-  // vale na proxima emissao, sem ninguem tocar no contrato.
-  test('RC-D37: trocar o dono do lote muda o vendedor do contrato na re-emissao', async () => {
-    const { contractId, sampleId } = await setupEmittableContract({ lotNumber: '21009' });
+  // 🪦 RC-D88 (2026-07-29) fecha a contraparte da RC-D37. Este teste afirmava que
+  // trocar o dono NO LOTE mudava o vendedor do contrato na próxima emissão — era
+  // verdade, e era justamente o problema: a troca chegava ao contrato em silêncio,
+  // sem ninguém tocar nele. Agora o lote com contrato tem o dono congelado, então o
+  // que se testa é o congelamento — a re-emissão não tem mais como mudar de nome.
+  // O vendedor continua DERIVADO do dono (RC-D37 segue de pé); o que acabou foi a
+  // possibilidade de mexer no dono depois que existe contrato.
+  test('RC-D37/RC-D88: com contrato emitido, o dono do lote não troca mais', async () => {
+    const { contractId, sampleId, sellerId, bankAccountId } = await setupEmittableContract({
+      lotNumber: '21009',
+    });
     const lookups = await fetchLookups();
     const newOwnerId = randomUUID();
     await createSellerClient(newOwnerId);
-    const newBankAccountId = await createSellerBankAccount(newOwnerId);
 
     const sampleBefore = await prisma.sample.findUnique({ where: { id: sampleId } });
-    await commandService.updateRegistration(
-      {
-        sampleId,
-        expectedVersion: sampleBefore.version,
-        after: { ownerClientId: newOwnerId },
-        reasonCode: 'DATA_FIX',
-        reasonText: 'Troca de dono no lote',
-      },
-      adminActor
+    await assert.rejects(
+      () =>
+        commandService.updateRegistration(
+          {
+            sampleId,
+            expectedVersion: sampleBefore.version,
+            after: { ownerClientId: newOwnerId },
+            reasonCode: 'DATA_FIX',
+            reasonText: 'Troca de dono no lote',
+          },
+          adminActor
+        ),
+      (err) => err.status === 409 && err.details?.code === 'SAMPLE_OWNER_LOCKED_BY_CONTRACT'
     );
 
+    // Re-emitir depois da tentativa: o vendedor segue sendo o dono original — e a
+    // conta bancária dele continua servindo, prova de que nada mudou de lado.
     const updated = await saleContractService.emitSaleContract(
       contractId,
-      etapa2Payload({ bankAccountId: newBankAccountId, lookups }),
+      etapa2Payload({ bankAccountId, lookups }),
       adminActor
     );
-
-    assert.equal(updated.contract.sellerClientId, newOwnerId);
+    assert.equal(updated.contract.sellerClientId, sellerId);
   });
 
   test('RC-D37: editar contrato à vista cujo lote é origem de liga não estoura 409 nem toca lote e liga', async () => {
@@ -1505,21 +1560,20 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(updated.contract.sellerClientId, sellerAId);
   });
 
-  test('WASH_OUT: cancelar a venda de contrato EMITIDO vira WASH_OUT', async () => {
+  // RC-D89, ramo à vista: o washout do contrato cancela a venda por baixo (motor
+  // intacto) e a resposta de corretagem atravessa até o contrato como OPÇÃO DE
+  // SERVIÇO — sem passar pelo payload do SALE_CANCELLED, que é append-only e não é
+  // dono dessa informação.
+  test('WASH_OUT à vista: o washout cancela a venda e grava a resposta (RC-D89)', async () => {
     // O contrato ja nasce EMITIDO (D97) — nao precisa de emit separado.
-    const { contractId, sampleId } = await setupEmittableContract({
+    const { contractId, sampleId, version } = await setupEmittableContract({
       lotNumber: '21009',
     });
 
     const movement = await prisma.sampleMovement.findFirst({ where: { sampleId } });
-    const sample = await queryService.requireSample(sampleId);
-    await commandService.cancelSampleMovement(
-      {
-        sampleId,
-        movementId: movement.id,
-        reasonText: 'Venda cancelada',
-        expectedVersion: sample.version,
-      },
+    await saleContractService.washoutSaleContract(
+      contractId,
+      { expectedVersion: version, reason: 'Venda cancelada', washoutBillable: true },
       commercialActor
     );
 
@@ -1527,6 +1581,44 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(contract.status, 'WASH_OUT');
     assert.equal(contract.washoutReason, 'Venda cancelada');
     assert.ok(contract.washoutAt);
+    assert.equal(contract.washoutBillable, true);
+    // A venda por baixo foi mesmo cancelada (o motor continua sendo o cancel).
+    const cancelled = await prisma.sampleMovement.findUnique({ where: { id: movement.id } });
+    assert.equal(cancelled.status, 'CANCELLED');
+    // A resposta NÃO vaza pro evento: ela é dado do contrato, não do movimento.
+    const cancelEvent = await prisma.sampleEvent.findFirst({
+      where: { sampleId, eventType: 'SALE_CANCELLED' },
+    });
+    assert.ok(cancelEvent);
+    assert.equal(Object.hasOwn(cancelEvent.payload, 'washoutBillable'), false);
+  });
+
+  test('WASH_OUT à vista: "não cobrar" também é gravado (RC-D89)', async () => {
+    const { contractId, version } = await setupEmittableContract({ lotNumber: '21109' });
+    await saleContractService.washoutSaleContract(
+      contractId,
+      { expectedVersion: version, reason: 'Acordo entre as partes', washoutBillable: false },
+      commercialActor
+    );
+    const contract = await prisma.saleContract.findUnique({ where: { id: contractId } });
+    assert.equal(contract.washoutBillable, false);
+  });
+
+  // RC-D89: a resposta é obrigatória como o motivo, e NÃO tem padrão. Um default
+  // aqui seria o sistema decidindo dinheiro no lugar de quem cancela.
+  test('WASH_OUT: sem a resposta de corretagem -> 422 (RC-D89)', async () => {
+    const { contractId, version } = await setupEmittableContract({ lotNumber: '21209' });
+    await assert.rejects(
+      () =>
+        saleContractService.washoutSaleContract(
+          contractId,
+          { expectedVersion: version, reason: 'Sem responder' },
+          commercialActor
+        ),
+      (err) => err.status === 422 && err.details?.code === 'SALE_CONTRACT_WASHOUT_BILLABLE_REQUIRED'
+    );
+    const contract = await prisma.saleContract.findUnique({ where: { id: contractId } });
+    assert.equal(contract.status, 'EMITIDO');
   });
 
   test('getNextContractNumber: preview NNNN/AA (max+1); ADMIN + COMMERCIAL (D110)', async () => {
@@ -1937,15 +2029,19 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(item.brokers.length, 1); // o corretor aparece; sem valor por corretor (D136)
   });
 
-  test('Financeiro (D145): washout paga corretagem só no FUTURO — físico some, futuro fica', async () => {
-    // Físico (à vista) em washout → NÃO gera cobrança → some do Financeiro (D145).
+  // RC-D89 revoga a D145 e INVERTE este teste: o par continua sendo um à vista e um
+  // Futuro, mas agora quem fica no Financeiro é o à vista (respondeu "cobrar") e
+  // quem some é o Futuro (respondeu "não cobrar") — exatamente o oposto do que o
+  // tipo decidia. Se a regra de tipo voltar por engano, este teste cai primeiro.
+  test('Financeiro (RC-D89): quem fica é quem respondeu "cobrar", não quem é FUTURO', async () => {
+    // À vista em washout que RESPONDEU "cobrar" → fica (sob a D145 sumiria).
     const spot = await setupEmittableContract({ lotNumber: '23050' });
     await saleContractService.washoutSaleContract(
       spot.contractId,
-      { expectedVersion: spot.version, reason: 'Físico caiu' },
+      { expectedVersion: spot.version, reason: 'Físico caiu', washoutBillable: true },
       adminActor
     );
-    // FUTURO em washout → segue cobrável (D105 preservada só para o FUTURO).
+    // FUTURO em washout que respondeu "não cobrar" → some (sob a D145 ficaria).
     const buyerId = randomUUID();
     await createBuyerClient(buyerId);
     const fut = await saleContractService.createFutureSaleContract(
@@ -1954,30 +2050,47 @@ if (!databaseUrl || !databaseReachable) {
     );
     await saleContractService.washoutSaleContract(
       fut.contract.id,
-      { expectedVersion: fut.contract.version, reason: 'Futuro caiu' },
+      { expectedVersion: fut.contract.version, reason: 'Futuro caiu', washoutBillable: false },
       adminActor
     );
 
     const res = await saleContractService.listBrokerReceivables({}, adminActor);
     assert.equal(
-      res.items.find((i) => i.id === spot.contractId),
+      res.items.find((i) => i.id === fut.contract.id),
       undefined,
-      'físico em WASH_OUT NÃO deve aparecer no Financeiro (D145)'
+      'FUTURO que respondeu "não cobrar" NÃO aparece no Financeiro (RC-D89)'
     );
-    const futItem = res.items.find((i) => i.id === fut.contract.id);
-    assert.ok(futItem, 'FUTURO em WASH_OUT deve aparecer no Financeiro');
-    assert.equal(futItem.paymentState, 'cancelado');
-    assert.equal(futItem.commissionTotal, 150); // 3% de 5000 (50 sacas × R$100)
-    // "Corretagem total" conta só o FUTURO washout (o físico ficou de fora).
-    assert.equal(res.totalCommission, 150);
-    // O filtro "Cancelado" também lista só o FUTURO.
+    const spotItem = res.items.find((i) => i.id === spot.contractId);
+    assert.ok(spotItem, 'à vista que respondeu "cobrar" DEVE aparecer no Financeiro');
+    assert.equal(spotItem.paymentState, 'cancelado');
+    // O total do cabeçalho conta o mesmo conjunto da lista.
+    assert.equal(res.totalCommission, spotItem.commissionTotal);
+    // O filtro "Cancelado" lista o mesmo conjunto.
     const canc = await saleContractService.listBrokerReceivables(
       { filter: 'cancelado' },
       adminActor
     );
     assert.deepEqual(
       canc.items.map((i) => i.id),
-      [fut.contract.id]
+      [spot.contractId]
+    );
+  });
+
+  // RC-D89: o washout de antes desta coluna (backfillado) e qualquer washout sem
+  // resposta gravada não cobram. `!== true`, não `=== false`: o sistema não inventa
+  // cobrança onde ninguém respondeu.
+  test('Financeiro (RC-D89): washout sem resposta gravada não cobra', async () => {
+    const semResposta = await setupConfirmedContract({ lotNumber: '23051' });
+    await prisma.saleContract.update({
+      where: { id: semResposta.contractId },
+      data: { status: 'WASH_OUT', washoutBillable: null },
+    });
+
+    const res = await saleContractService.listBrokerReceivables({}, adminActor);
+    assert.equal(
+      res.items.find((i) => i.id === semResposta.contractId),
+      undefined,
+      'WASH_OUT com washoutBillable nulo fica fora do Financeiro'
     );
   });
 
@@ -2063,8 +2176,9 @@ if (!databaseUrl || !databaseReachable) {
     // RC-D67: 'recebida' vem do CONTRATO estar FINALIZADO — o /financeiro não tem
     // ação própria, então a corretagem sai da fila em /contratos.
     const recebida = await setupConfirmedContract({ lotNumber: '26012' });
-    // D145: o cancelado precisa ser FUTURO para aparecer no Financeiro (o físico em
-    // washout some). Wrapper mantém a forma { contractId } dos demais setups.
+    // RC-D89 (era D145): o cancelado precisa ter RESPONDIDO "cobrar" pra aparecer
+    // no Financeiro — o tipo não decide mais. Segue Futuro aqui só porque o
+    // wrapper mantém a forma { contractId } dos demais setups.
     const cancBuyerId = randomUUID();
     await createBuyerClient(cancBuyerId);
     const cancFut = await saleContractService.createFutureSaleContract(
@@ -2087,7 +2201,7 @@ if (!databaseUrl || !databaseReachable) {
     });
     await prisma.saleContract.update({
       where: { id: canc.contractId },
-      data: { status: 'WASH_OUT' },
+      data: { status: 'WASH_OUT', washoutBillable: true },
     });
 
     const res = await saleContractService.listBrokerReceivables({}, adminActor);
@@ -2272,7 +2386,7 @@ if (!databaseUrl || !databaseReachable) {
     const washed = await setupEmittableContract({ lotNumber: '25011' });
     await saleContractService.washoutSaleContract(
       washed.contractId,
-      { expectedVersion: washed.version, reason: 'Caiu' },
+      { expectedVersion: washed.version, reason: 'Caiu', washoutBillable: true },
       adminActor
     );
 
@@ -2438,7 +2552,7 @@ if (!databaseUrl || !databaseReachable) {
     const { contractId, version } = await setupConfirmedContract({ lotNumber: '24102' });
     await saleContractService.washoutSaleContract(
       contractId,
-      { expectedVersion: version, reason: 'Quebra fase J' },
+      { expectedVersion: version, reason: 'Quebra fase J', washoutBillable: true },
       adminActor
     );
 
@@ -2459,7 +2573,11 @@ if (!databaseUrl || !databaseReachable) {
     );
     await saleContractService.washoutSaleContract(
       created.contract.id,
-      { expectedVersion: created.contract.version, reason: 'Quebra futuro fase J' },
+      {
+        expectedVersion: created.contract.version,
+        reason: 'Quebra futuro fase J',
+        washoutBillable: true,
+      },
       adminActor
     );
 
@@ -2469,6 +2587,10 @@ if (!databaseUrl || !databaseReachable) {
     assert.ok(log);
     assert.equal(log.reason, 'Quebra futuro fase J');
     assert.equal(log.actorUserId, adminActor.actorUserId);
+    // RC-D89: o ramo do Futuro grava a resposta direto no contrato (não passa pelo
+    // cancel de movimento — Futuro não tem lote). Os dois ramos gravam o mesmo dado.
+    const contract = await prisma.saleContract.findUnique({ where: { id: created.contract.id } });
+    assert.equal(contract.washoutBillable, true);
   });
 
   test('Fase J: logEspelhoGenerated grava EspelhoLog com lado e ator', async () => {
@@ -2554,7 +2676,7 @@ if (!databaseUrl || !databaseReachable) {
 
     const r = await saleContractService.washoutSaleContract(
       contractId,
-      { expectedVersion: version, reason: 'Comprador desistiu' },
+      { expectedVersion: version, reason: 'Comprador desistiu', washoutBillable: true },
       adminActor
     );
     assert.equal(r.contract.status, 'WASH_OUT');
@@ -2579,7 +2701,11 @@ if (!databaseUrl || !databaseReachable) {
     );
     const r = await saleContractService.washoutSaleContract(
       contractId,
-      { expectedVersion: fin.contract.version, reason: 'Quebra apos finalizar' },
+      {
+        expectedVersion: fin.contract.version,
+        reason: 'Quebra apos finalizar',
+        washoutBillable: true,
+      },
       adminActor
     );
     assert.equal(r.contract.status, 'WASH_OUT');
@@ -2589,14 +2715,14 @@ if (!databaseUrl || !databaseReachable) {
     const { contractId, version } = await setupConfirmedContract({ lotNumber: '23006' });
     const r = await saleContractService.washoutSaleContract(
       contractId,
-      { expectedVersion: version, reason: 'Primeira quebra' },
+      { expectedVersion: version, reason: 'Primeira quebra', washoutBillable: true },
       adminActor
     );
     await assert.rejects(
       () =>
         saleContractService.washoutSaleContract(
           contractId,
-          { expectedVersion: r.contract.version, reason: 'De novo' },
+          { expectedVersion: r.contract.version, reason: 'De novo', washoutBillable: true },
           adminActor
         ),
       (err) => err.status === 409
@@ -2609,7 +2735,7 @@ if (!databaseUrl || !databaseReachable) {
       () =>
         saleContractService.washoutSaleContract(
           contractId,
-          { expectedVersion: version, reason: '   ' },
+          { expectedVersion: version, reason: '   ', washoutBillable: true },
           adminActor
         ),
       (err) => err.status === 422
@@ -2622,7 +2748,7 @@ if (!databaseUrl || !databaseReachable) {
       () =>
         saleContractService.washoutSaleContract(
           contractId,
-          { expectedVersion: 99, reason: 'qualquer' },
+          { expectedVersion: 99, reason: 'qualquer', washoutBillable: true },
           adminActor
         ),
       (err) => err.status === 409
@@ -2633,33 +2759,120 @@ if (!databaseUrl || !databaseReachable) {
     const { contractId, version } = await setupConfirmedContract({ lotNumber: '23009' });
     const r = await saleContractService.washoutSaleContract(
       contractId,
-      { expectedVersion: version, reason: 'qualquer' },
+      { expectedVersion: version, reason: 'qualquer', washoutBillable: true },
       commercialActor
     );
     assert.equal(r.contract.status, 'WASH_OUT');
   });
 
-  test('lote: cancelar a venda de contrato FINALIZADO -> WASH_OUT (extensao)', async () => {
+  // RC-D87: o FINALIZADO tinha a mesma porta pelo lote, e ela fechou junto. O
+  // caminho que sobra é o washout do contrato, que também alcança o FINALIZADO.
+  test('lote: nem o contrato FINALIZADO se desfaz pelo lote (RC-D87)', async () => {
     const { contractId, sampleId, version } = await setupConfirmedContract({ lotNumber: '23010' });
-    await saleContractService.finalizeSaleContract(
+    const fin = await saleContractService.finalizeSaleContract(
       contractId,
       { expectedVersion: version },
       adminActor
     );
     const movement = await prisma.sampleMovement.findFirst({ where: { sampleId } });
     const sample = await queryService.requireSample(sampleId);
-    await commandService.cancelSampleMovement(
+    await assert.rejects(
+      () =>
+        commandService.cancelSampleMovement(
+          {
+            sampleId,
+            movementId: movement.id,
+            reasonText: 'Cancelada pelo lote',
+            expectedVersion: sample.version,
+          },
+          commercialActor
+        ),
+      (err) => err.status === 409 && err.details?.code === 'MOVEMENT_HAS_CONTRACT'
+    );
+    assert.equal(
+      (await prisma.saleContract.findUnique({ where: { id: contractId } })).status,
+      'FINALIZADO'
+    );
+
+    // Pelo contrato, funciona — e leva a resposta junto.
+    await saleContractService.washoutSaleContract(
+      contractId,
       {
-        sampleId,
-        movementId: movement.id,
-        reasonText: 'Cancelada pelo lote',
-        expectedVersion: sample.version,
+        expectedVersion: fin.contract.version,
+        reason: 'Cancelada pelo contrato',
+        washoutBillable: false,
       },
       commercialActor
     );
     const contract = await prisma.saleContract.findUnique({ where: { id: contractId } });
     assert.equal(contract.status, 'WASH_OUT');
-    assert.equal(contract.washoutReason, 'Cancelada pelo lote');
+    assert.equal(contract.washoutReason, 'Cancelada pelo contrato');
+    assert.equal(contract.washoutBillable, false);
+  });
+
+  // RC-D88: o vendedor do contrato É o dono do lote (RC-D37) e o snapshot do
+  // vendedor é reescrito a cada save do contrato — trocar o dono pelo lote muda, em
+  // silêncio, quem assina um contrato já emitido. Congela.
+  test('lote com contrato: trocar o dono -> 409 SAMPLE_OWNER_LOCKED_BY_CONTRACT (RC-D88)', async () => {
+    const { sampleId } = await setupConfirmedContract({ lotNumber: '23020' });
+    const outroDono = randomUUID();
+    await createSellerClient(outroDono);
+    const sample = await queryService.requireSample(sampleId);
+
+    await assert.rejects(
+      () =>
+        commandService.updateRegistration(
+          {
+            sampleId,
+            expectedVersion: sample.version,
+            after: { ownerClientId: outroDono },
+            reasonCode: 'OTHER',
+            reasonText: 'Troca de dono',
+          },
+          adminActor
+        ),
+      (err) => err.status === 409 && err.details?.code === 'SAMPLE_OWNER_LOCKED_BY_CONTRACT'
+    );
+
+    const unchanged = await queryService.requireSample(sampleId);
+    assert.equal(unchanged.ownerClientId, sample.ownerClientId);
+  });
+
+  // O congelamento é do DONO, não da edição: o resto do cadastro segue editável num
+  // lote com contrato (o operador ainda corrige safra, local, lote de origem).
+  test('lote com contrato: os outros campos do cadastro seguem editáveis (RC-D88)', async () => {
+    const { sampleId } = await setupConfirmedContract({ lotNumber: '23021' });
+    const sample = await queryService.requireSample(sampleId);
+
+    await commandService.updateRegistration(
+      {
+        sampleId,
+        expectedVersion: sample.version,
+        after: { declared: { location: 'ARMAZEM 3' } },
+        reasonCode: 'OTHER',
+        reasonText: 'Corrige local',
+      },
+      adminActor
+    );
+
+    const updated = await prisma.sample.findUnique({ where: { id: sampleId } });
+    assert.equal(updated.declaredLocation, 'ARMAZEM 3');
+  });
+
+  // RC-D88: a UI precisa saber que o lote tem contrato pra travar o campo. Não dá
+  // pra deduzir de `soldSacks > 0` — venda por caminho baixo não emite contrato.
+  test('detalhe do lote: traz o contrato ligado, pra UI travar o dono (RC-D88)', async () => {
+    const { sampleId, contractId } = await setupConfirmedContract({ lotNumber: '23022' });
+    const detail = await queryService.getSampleDetail(sampleId);
+    assert.ok(detail.saleContract);
+    assert.equal(detail.saleContract.id, contractId);
+    assert.equal(detail.saleContract.status, 'EMITIDO');
+    assert.ok(detail.saleContract.contractNumber);
+
+    // Lote sem contrato → null (e não `undefined`: a UI testa a presença).
+    const semContrato = randomUUID();
+    await createClassifiedSample({ id: semContrato, lotNumber: '23023', declaredSacks: 10 });
+    assert.equal((await queryService.getSampleDetail(semContrato)).saleContract, null);
   });
 
   // ---- Contrato FUTURO (sem lote) ----
@@ -2943,6 +3156,7 @@ if (!databaseUrl || !databaseReachable) {
     invoiceDate = null,
     buyerName = 'Comprador Worklist',
     sacks = 100,
+    washoutBillable = null,
   } = {}) {
     aprSeq += 1;
     const id = randomUUID();
@@ -2964,6 +3178,7 @@ if (!databaseUrl || !databaseReachable) {
         quantitySacks: sacks,
         unitPrice: '2500.00',
         totalValue: '250000.00',
+        washoutBillable,
       },
     });
     return id;
@@ -2991,7 +3206,9 @@ if (!databaseUrl || !databaseReachable) {
     const c3 = await mkApprovalContract({ invoiceDate: '2026-07-08' }); // enviada ·2×
     await mkApprovalLabel(c3, '2026-07-02T10:00:00.000Z');
     await mkApprovalLabel(c3, '2026-07-03T10:00:00.000Z');
-    const c4 = await mkApprovalContract({ status: 'WASH_OUT' }); // cancelado
+    // RC-D89: entra no "cancelado" quem RESPONDEU "cobrar" no washout — a resposta
+    // faz parte do fixture desde que ela passou a decidir isso.
+    const c4 = await mkApprovalContract({ status: 'WASH_OUT', washoutBillable: true });
     await mkApprovalContract({ requiresApproval: false }); // nao-marcado -> fora da lista
 
     // Default 'a_enviar': so os pendentes, fila por invoiceDate ASC (c2 antes de c1).
@@ -3204,11 +3421,16 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(finalized.contract.status, 'FINALIZADO');
   });
 
-  test('listApprovalContracts: à vista washout NÃO entra no cancelado; futuro washout entra (AP33)', async () => {
-    // Futuro washout marcado → aparece no G2 (cancelado).
-    const futuroWashed = await mkApprovalContract({ status: 'WASH_OUT' });
+  // AP33 alinhava a worklist ao Financeiro pelo `type`; a RC-D89 trocou o predicado
+  // dos dois pela RESPOSTA do washout. O princípio do AP33 é o que importa e segue
+  // de pé: "cancelado" tem que significar a MESMA coisa nas duas abas.
+  test('listApprovalContracts: no cancelado entra quem respondeu "cobrar" (AP33/RC-D89)', async () => {
+    // Respondeu "não cobrar" → fora, mesmo sendo Futuro (sob a D145 entraria).
+    const naoCobra = await mkApprovalContract({ status: 'WASH_OUT', washoutBillable: false });
+    // Washout antigo, sem resposta gravada → fora (fail-closed).
+    const semResposta = await mkApprovalContract({ status: 'WASH_OUT' });
 
-    // À vista washout marcado → NÃO aparece (alinha ao Financeiro/D145).
+    // À vista que respondeu "cobrar" → entra (sob a D145 ficaria de fora).
     const { contractId, version } = await setupEmittableContract({ lotNumber: '25633' });
     await prisma.saleContract.update({
       where: { id: contractId },
@@ -3216,7 +3438,7 @@ if (!databaseUrl || !databaseReachable) {
     });
     await saleContractService.washoutSaleContract(
       contractId,
-      { expectedVersion: version, reason: 'Caiu' },
+      { expectedVersion: version, reason: 'Caiu', washoutBillable: true },
       adminActor
     );
 
@@ -3225,8 +3447,19 @@ if (!databaseUrl || !databaseReachable) {
       adminActor
     );
     const ids = canceladas.items.map((item) => item.id);
-    assert.ok(ids.includes(futuroWashed), 'futuro washout deve aparecer no cancelado');
-    assert.ok(!ids.includes(contractId), 'à vista washout NÃO deve aparecer (AP33/D145)');
+    assert.ok(ids.includes(contractId), 'quem respondeu "cobrar" aparece no cancelado');
+    assert.ok(!ids.includes(naoCobra), '"não cobrar" fica fora, mesmo sendo Futuro');
+    assert.ok(!ids.includes(semResposta), 'washout sem resposta fica fora');
+
+    // A worklist e o Financeiro têm que concordar sobre o que é "cancelado".
+    const financeiro = await saleContractService.listBrokerReceivables(
+      { filter: 'cancelado' },
+      adminActor
+    );
+    const finIds = financeiro.items.map((item) => item.id);
+    assert.ok(finIds.includes(contractId));
+    assert.ok(!finIds.includes(naoCobra));
+    assert.ok(!finIds.includes(semResposta));
   });
 
   // AP31/DSB-D19: card de "Avisos" — aprovacao a enviar. Aparece enquanto marcado +
@@ -3371,7 +3604,7 @@ if (!databaseUrl || !databaseReachable) {
     );
     const washed = await saleContractService.washoutSaleContract(
       created.contract.id,
-      { expectedVersion: created.contract.version, reason: 'Negocio caiu' },
+      { expectedVersion: created.contract.version, reason: 'Negocio caiu', washoutBillable: true },
       adminActor
     );
     assert.equal(washed.contract.status, 'WASH_OUT');

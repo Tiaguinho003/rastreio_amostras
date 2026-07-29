@@ -478,9 +478,14 @@ class PrismaEventStoreTx {
   // EMITIDO/FINALIZADO -> WASH_OUT + motivo/data. Ja WASH_OUT (ou sem contrato)
   // -> no-op. O contrato NUNCA e apagado (o "Excluir" saiu na S72); o corretor
   // mantem a comissao (aparece no Financeiro/Espelho).
+  // RC-D89: `billable` e a resposta de corretagem, dada no dialogo de washout e
+  // repassada como OPCAO DE SERVICO — nao entra no payload do SALE_CANCELLED. O
+  // event store e append-only com schema validado por evento, e a resposta e dado
+  // do contrato, nao do movimento. `null` = quem cancelou nao respondeu (so a
+  // rota de cancelar movimento, que a RC-D87 fechou) -> nao cobra.
   async washoutSaleContractByMovement(
     movementId,
-    { reason = null, at = null, actorUserId = null } = {}
+    { reason = null, at = null, actorUserId = null, billable = null } = {}
   ) {
     const existing = await this.tx.saleContract.findFirst({
       where: { movementId },
@@ -495,6 +500,7 @@ class PrismaEventStoreTx {
         status: 'WASH_OUT',
         washoutReason: reason,
         washoutAt: at ?? new Date(),
+        washoutBillable: billable,
         version: { increment: 1 },
       },
     });

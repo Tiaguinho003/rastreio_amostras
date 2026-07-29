@@ -27,7 +27,6 @@ import { SampleMovementsPanel } from '../samples/SampleMovementsPanel';
 import { SampleSendFlow } from '../samples/SampleSendFlow';
 import {
   ApiError,
-  cancelSampleMovement,
   getBlendFeasibility,
   getSampleDetail,
   invalidateSample,
@@ -662,18 +661,12 @@ export function SampleDetailView({
   const hasActiveMovements = Boolean(
     detail && ((detail.sample.soldSacks ?? 0) > 0 || (detail.sample.lostSacks ?? 0) > 0)
   );
-  // RC-D41: o vendedor do contrato à vista É o dono do lote (RC-D37), derivado
-  // no servidor. Trocar o dono aqui é permitido — mas num lote já vendido isso
-  // muda quem vai assinar como vendedor na próxima edição do contrato, e o
-  // operador não tem como adivinhar essa consequência olhando o cadastro. O PDF
-  // já emitido não muda (guarda o snapshot do vendedor da época).
-  const ownerChangeHitsContract = Boolean(
-    detail &&
-    (detail.sample.soldSacks ?? 0) > 0 &&
-    selectedOwnerClient &&
-    detail.sample.ownerClientId &&
-    selectedOwnerClient.id !== detail.sample.ownerClientId
-  );
+  // RC-D88 (endurece a RC-D41): o vendedor do contrato É o dono do lote (RC-D37) e
+  // o snapshot do vendedor é reescrito a cada save do contrato. Até aqui trocar o
+  // dono era permitido e a UI só AVISAVA da consequência — um aviso que dependia de
+  // ser lido. Agora o campo congela e o servidor recusa (409). O que vale é ter
+  // contrato, não ter venda: venda por caminho baixo (import) não emite contrato.
+  const lockedByContract = detail?.saleContract ?? null;
   // Liga B3.4: numa liga (isBlend), "Reverter liga" substitui o "Invalidar"
   // genérico — caminho terminal único, via revertBlend (emite BLEND_REVERTED).
   // Liga com venda/perda não pode ser revertida (F8.4): nenhum botão aparece.
@@ -1219,142 +1212,12 @@ export function SampleDetailView({
     }
   }
 
-  async function refetchActiveMovements() {
-    if (!session) {
-      return;
-    }
-
-    try {
-      const res = await listSampleMovements(session, sampleId, { status: 'ACTIVE' });
-      setActiveMovements(res.movements ?? []);
-    } catch {
-      // ignore — usuario ja viu erro da operacao que falhou
-    }
-  }
-
-  async function handleCancelMovementsOnly() {
-    if (!session || !detail || !activeMovements || activeMovements.length === 0) {
-      return;
-    }
-
-    const trimmedReason = invalidateReasonText.trim();
-    if (trimmedReason.length === 0) {
-      setInvalidateModalNotice({
-        kind: 'error',
-        text: 'Informe o motivo para cancelar as movimentações.',
-      });
-      return;
-    }
-
-    setInvalidating(true);
-    setInvalidateModalNotice(null);
-
-    try {
-      let currentVersion = detail.sample.version;
-      for (const mv of activeMovements) {
-        await cancelSampleMovement(session, sampleId, mv.id, {
-          expectedVersion: currentVersion,
-          reasonText: trimmedReason,
-        });
-        const refreshed = await refreshDetail();
-        if (!refreshed) {
-          throw new Error('Falha ao recarregar o lote após cancelar a movimentação');
-        }
-        currentVersion = refreshed.sample.version;
-      }
-
-      setInvalidateModalOpen(false);
-      setInvalidateReasonCode('OTHER');
-      setInvalidateReasonText('');
-      // Efeito de X (sem mensagem verde), permanecendo na pagina.
-      showXEffect('Movimentações canceladas', false);
-      void syncDetailState();
-    } catch (cause) {
-      setInvalidateModalNotice({
-        kind: 'error',
-        text:
-          cause instanceof ApiError
-            ? cause.message
-            : cause instanceof Error
-              ? cause.message
-              : 'Falha ao cancelar movimentações',
-      });
-      await refetchActiveMovements();
-    } finally {
-      setInvalidating(false);
-    }
-  }
-
-  async function handleCancelMovementsAndInvalidate() {
-    if (!session || !detail || !activeMovements || activeMovements.length === 0) {
-      return;
-    }
-
-    const parsed = invalidateSampleSchema.safeParse({
-      reasonCode: invalidateReasonCode,
-      reasonText: invalidateReasonText,
-    });
-
-    if (!parsed.success) {
-      setInvalidateModalNotice({
-        kind: 'error',
-        text: parsed.error.issues[0]?.message ?? 'Dados de exclusão inválidos',
-      });
-      return;
-    }
-
-    setInvalidating(true);
-    setInvalidateModalNotice(null);
-
-    try {
-      let currentVersion = detail.sample.version;
-      for (const mv of activeMovements) {
-        await cancelSampleMovement(session, sampleId, mv.id, {
-          expectedVersion: currentVersion,
-          reasonText: parsed.data.reasonText,
-        });
-        const refreshed = await refreshDetail();
-        if (!refreshed) {
-          throw new Error('Falha ao recarregar o lote após cancelar a movimentação');
-        }
-        currentVersion = refreshed.sample.version;
-      }
-
-      await invalidateSample(session, sampleId, {
-        expectedVersion: currentVersion,
-        reasonCode: parsed.data.reasonCode,
-        reasonText: parsed.data.reasonText,
-      });
-
-      setInvalidateModalOpen(false);
-      setInvalidateReasonCode('OTHER');
-      setInvalidateReasonText('');
-      // Invalidou — efeito de X + volta pra lista de amostras.
-      showXEffect('Lote deletado', true);
-    } catch (cause) {
-      // Liga B3.5 (rede de segurança): 409 SAMPLE_HAS_ACTIVE_BLENDS → fecha
-      // o modal de invalidação e abre o modal de bloqueio com as ligas.
-      const blocked = extractActiveBlendsBlock(cause);
-      if (blocked) {
-        setInvalidateModalOpen(false);
-        setBlockedBlends(blocked);
-        setInvalidateBlockedOpen(true);
-      } else {
-        setInvalidateModalNotice({
-          kind: 'error',
-          text:
-            cause instanceof ApiError
-              ? cause.message
-              : cause instanceof Error
-                ? cause.message
-                : 'Falha ao cancelar movimentações e deletar lote',
-        });
-        await refetchActiveMovements();
-      }
-    } finally {
-      setInvalidating(false);
-    }
-  }
+  // 🪦 RC-D87 (2026-07-29): `handleCancelMovementsOnly` e
+  // `handleCancelMovementsAndInvalidate` NAO EXISTEM MAIS. As duas cancelavam TODAS
+  // as movimentacoes ativas em laco — e cancelar uma venda quebra o contrato ligado
+  // a ela (-> WASH_OUT) sem passar pela pergunta de corretagem da RC-D89. O lote nao
+  // desfaz movimentacao comercial: quem desfaz a venda e o Washout do contrato.
+  // `refetchActiveMovements` foi junto (so existia pros catches das duas).
 
   function startRegistrationEdit() {
     if (!detail || !canEditRegistrationStatus(detail.sample.status)) {
@@ -1412,7 +1275,9 @@ export function SampleDetailView({
       return;
     }
 
-    if (!selectedOwnerClient) {
+    // RC-D88: com o dono congelado não há o que selecionar — exigir a seleção aqui
+    // travaria a edição dos OUTROS campos num lote legado (dono só em texto).
+    if (!lockedByContract && !selectedOwnerClient) {
       setRegistrationFieldErrors({ owner: 'Selecione o proprietário' });
       return;
     }
@@ -1429,7 +1294,7 @@ export function SampleDetailView({
     } as const;
 
     const parsedForm = registrationFormSchema.safeParse({
-      owner: selectedOwnerClient.displayName ?? owner,
+      owner: selectedOwnerClient?.displayName ?? owner,
       sacks,
       harvest,
       originLot,
@@ -1481,7 +1346,11 @@ export function SampleDetailView({
           | { [key: string]: string | number | boolean | null };
       } = {
         declared: parsedForm.data,
-        ownerClientId: selectedOwnerClient.id,
+        // RC-D88 (`forms` §3): campo travado sai do payload. Mandá-lo seria pedir
+        // pro servidor ignorar — e ele não ignora, recusa (409).
+        ...(lockedByContract || !selectedOwnerClient
+          ? {}
+          : { ownerClientId: selectedOwnerClient.id }),
       };
 
       await updateRegistration(session, sampleId, {
@@ -2619,38 +2488,9 @@ export function SampleDetailView({
         dragDisabled={invalidating}
         className="fv-panel-sheet side-sheet sample-invalidate-sheet"
         footer={
-          hasActiveMovements ? (
-            <div className="fv-panel-footer-row">
-              <button
-                type="button"
-                className="app-modal-secondary"
-                onClick={() => {
-                  void handleCancelMovementsOnly();
-                }}
-                disabled={
-                  invalidating ||
-                  invalidateReasonText.trim().length === 0 ||
-                  activeMovements === null ||
-                  activeMovements.length === 0
-                }
-              >
-                {invalidating ? 'Cancelando...' : 'Cancelar movimentações'}
-              </button>
-              <button
-                type="submit"
-                form="sample-invalidate-form"
-                className="app-modal-submit is-danger sample-detail-invalidate-submit"
-                disabled={
-                  invalidating ||
-                  invalidateReasonText.trim().length === 0 ||
-                  activeMovements === null ||
-                  activeMovements.length === 0
-                }
-              >
-                {invalidating ? 'Deletando...' : 'Deletar'}
-              </button>
-            </div>
-          ) : (
+          // RC-D87: com movimentacao ativa nao ha o que submeter — deletar exige
+          // saldo intacto e o lote nao desfaz movimentacao. Painel so explica.
+          hasActiveMovements ? null : (
             <button
               type="submit"
               form="sample-invalidate-form"
@@ -2663,18 +2503,18 @@ export function SampleDetailView({
         }
       >
         <>
-          <p className="fv-panel-lead">Use apenas quando a operação realmente exigir.</p>
+          <p className="fv-panel-lead">
+            {hasActiveMovements
+              ? 'Este lote ainda tem movimentação ativa.'
+              : 'Use apenas quando a operação realmente exigir.'}
+          </p>
 
           <form
             id="sample-invalidate-form"
             className="sample-invalidate-form"
             onSubmit={(event) => {
               event.preventDefault();
-              if (hasActiveMovements) {
-                void handleCancelMovementsAndInvalidate();
-              } else {
-                void handleInvalidateSample();
-              }
+              void handleInvalidateSample();
             }}
           >
             {hasActiveMovements ? (
@@ -2685,6 +2525,9 @@ export function SampleDetailView({
                     <path d="M12 9v4" />
                     <path d="M12 17h.01" />
                   </svg>
+                  {/* RC-D87: o painel EXPLICA e nao age. Deletar exige o saldo
+                      intacto, e desfazer movimentacao nao e coisa do lote — a venda
+                      se desfaz pelo Washout do contrato. A perda nao se desfaz. */}
                   <div className="sdv-warn-text">
                     <strong>
                       Este lote possui{' '}
@@ -2692,8 +2535,8 @@ export function SampleDetailView({
                         ? `${activeMovements.length} ${activeMovements.length > 1 ? 'movimentações ativas' : 'movimentação ativa'}`
                         : 'movimentações ativas'}
                     </strong>
-                    Para deletar o lote, as perdas serão canceladas. Você também pode só cancelar as
-                    movimentações.
+                    Um lote só é deletável com o saldo intacto. Venda se desfaz pelo Washout do
+                    contrato, em Contratos. Perda registrada é definitiva.
                   </div>
                 </div>
 
@@ -2768,37 +2611,41 @@ export function SampleDetailView({
                   )}
                 </div>
               </>
-            ) : null}
+            ) : (
+              <>
+                {/* Motivo so aparece quando ha exclusao a fazer (RC-D87): pedir o
+                    motivo de uma acao indisponivel e pedir por pedir. */}
+                <label className="app-modal-field">
+                  <span className="app-modal-label">Motivo da exclusão</span>
+                  <select
+                    className="app-modal-input"
+                    value={invalidateReasonCode}
+                    disabled={invalidating}
+                    onChange={(event) =>
+                      setInvalidateReasonCode(event.target.value as InvalidateReasonCode)
+                    }
+                  >
+                    {INVALIDATE_REASON_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
 
-            <label className="app-modal-field">
-              <span className="app-modal-label">Motivo da exclusão</span>
-              <select
-                className="app-modal-input"
-                value={invalidateReasonCode}
-                disabled={invalidating}
-                onChange={(event) =>
-                  setInvalidateReasonCode(event.target.value as InvalidateReasonCode)
-                }
-              >
-                {INVALIDATE_REASON_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="app-modal-field">
-              <span className="app-modal-label">Detalhes</span>
-              <textarea
-                className="app-modal-input sample-detail-invalidate-textarea"
-                rows={4}
-                value={invalidateReasonText}
-                onChange={(event) => setInvalidateReasonText(event.target.value.toUpperCase())}
-                placeholder="Descreva o motivo"
-                disabled={invalidating}
-              />
-            </label>
+                <label className="app-modal-field">
+                  <span className="app-modal-label">Detalhes</span>
+                  <textarea
+                    className="app-modal-input sample-detail-invalidate-textarea"
+                    rows={4}
+                    value={invalidateReasonText}
+                    onChange={(event) => setInvalidateReasonText(event.target.value.toUpperCase())}
+                    placeholder="Descreva o motivo"
+                    disabled={invalidating}
+                  />
+                </label>
+              </>
+            )}
 
             <NoticeSlot notice={invalidateModalNotice} />
           </form>
@@ -2902,35 +2749,44 @@ export function SampleDetailView({
           >
             <div className="sample-detail-reg-edit-body">
               <div className="app-modal-field">
-                <ClientLookupField
-                  session={session}
-                  label="Proprietario"
-                  kind="owner"
-                  selectedClient={selectedOwnerClient}
-                  disabled={registrationUpdating}
-                  compact
-                  invalid={Boolean(registrationFieldErrors.owner)}
-                  invalidText={registrationFieldErrors.owner ?? ''}
-                  onSelectClient={(client) => {
-                    setSelectedOwnerClient(client);
-                    setOwner(client?.displayName ?? '');
-                    clearRegField('owner');
-                    setGeneralNotice(null);
-                  }}
-                  onRequestCreate={(searchTerm) => {
-                    setOwnerQuickCreateSeed(searchTerm);
-                    setOwnerQuickCreateOpen(true);
-                  }}
-                  createLabel="Cadastrar proprietario"
-                />
-                {ownerChangeHitsContract ? (
-                  <span className="sdv-edit-hint">
-                    Este lote tem venda registrada. O vendedor do contrato é o dono do lote — ao
-                    salvar, o contrato passa a sair no nome de{' '}
-                    {selectedOwnerClient?.displayName ?? 'o novo dono'} na próxima vez que for
-                    editado. O documento já emitido não muda.
-                  </span>
-                ) : null}
+                {lockedByContract ? (
+                  // RC-D88, molde do `forms` §3: valor + instrução, não input
+                  // desabilitado. Não há o que clicar, então não pode parecer
+                  // clicável — e o dono não volta a abrir, não é indisponível "por
+                  // enquanto".
+                  <>
+                    <span className="app-modal-label">Proprietario</span>
+                    <p className="sdv-locked-value">
+                      {detail?.sample.declared.owner ?? 'Sem proprietário'}
+                    </p>
+                    <span className="sdv-edit-hint">
+                      Este lote tem o contrato {lockedByContract.contractNumber}. O dono do lote é o
+                      vendedor do contrato e não pode ser trocado.
+                    </span>
+                  </>
+                ) : (
+                  <ClientLookupField
+                    session={session}
+                    label="Proprietario"
+                    kind="owner"
+                    selectedClient={selectedOwnerClient}
+                    disabled={registrationUpdating}
+                    compact
+                    invalid={Boolean(registrationFieldErrors.owner)}
+                    invalidText={registrationFieldErrors.owner ?? ''}
+                    onSelectClient={(client) => {
+                      setSelectedOwnerClient(client);
+                      setOwner(client?.displayName ?? '');
+                      clearRegField('owner');
+                      setGeneralNotice(null);
+                    }}
+                    onRequestCreate={(searchTerm) => {
+                      setOwnerQuickCreateSeed(searchTerm);
+                      setOwnerQuickCreateOpen(true);
+                    }}
+                    createLabel="Cadastrar proprietario"
+                  />
+                )}
               </div>
 
               <div className="sdv-edit-row">

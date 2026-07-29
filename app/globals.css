@@ -10157,6 +10157,20 @@ body:has(.app-modal-backdrop) .prospector-fab {
   margin: clamp(2px, 0.8vw, 4px) 0;
 }
 
+/* RC-D88: valor CONGELADO no editor do lote — o dono de um lote com contrato. Le
+   como valor (peso do texto do formulario), nao como input desabilitado: nao ha o
+   que clicar, e ele nao reabre depois (desabilitado leria como "por enquanto
+   nao"). Molde do `forms` §3; o porque vai no .sdv-edit-hint logo abaixo. Gemeo
+   do .ctr-locked-value, que e do kit de contratos e nao se emprestra pra ca. */
+.sdv-locked-value {
+  margin: 0;
+  padding: 0.1rem 0.15rem;
+  color: var(--ink);
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
 /* Nota abaixo de um campo read-only no modal de edicao (ex.: Safra de uma liga,
    que deriva dos lotes e nao e editavel). */
 .sdv-edit-hint {

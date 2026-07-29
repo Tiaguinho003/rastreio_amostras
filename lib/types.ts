@@ -400,6 +400,10 @@ export interface SaleContract {
   status: SaleContractStatus;
   washoutReason: string | null;
   washoutAt: string | null;
+  // RC-D89: haverá cobrança de corretagem neste contrato cancelado? Resposta humana
+  // do diálogo de washout — substitui a regra por `type` da D145 e decide se o
+  // contrato fica no Financeiro e se o Espelho libera. `null` = não está em washout.
+  washoutBillable: boolean | null;
   contractDate: string | null;
   purchaseNumber: string | null;
   sampleId: string | null;
@@ -1073,6 +1077,10 @@ export interface SampleDetailResponse {
   //   ativa(s). Em sample.isBlend === true, vazio ou ausente.
   components?: BlendComponentDetail[];
   activeBlends?: ActiveBlendDetail[];
+  // RC-D88: o contrato ligado a este lote, se houver — o que congela o dono. Não
+  // dá pra deduzir de `soldSacks > 0`: venda por caminho baixo (import) não emite
+  // contrato, e a UI travaria um campo que o servidor deixa passar.
+  saleContract?: { id: string; contractNumber: string; status: SaleContractStatus } | null;
 }
 
 export interface SampleMovement {

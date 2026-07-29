@@ -16,8 +16,23 @@ import type { SessionData } from '../../lib/types';
 // entraram no lugar deles: são reversíveis e sem data, então viraram toque direto
 // (confirmar um toque reversível é ruído). O que sobrou aqui é o que continua
 // definitivo — e definitivo é exatamente o que merece um diálogo.
+//
+// RC-D89: o diálogo passou a PERGUNTAR se haverá cobrança de corretagem. Antes a
+// resposta era derivada do tipo (D145: à vista nunca cobrava, Futuro sempre) — uma
+// regra que acertava a maioria e não tinha saída para o resto. Nada vem pré-marcado
+// e o botão fica travado até responder: um padrão aqui seria o sistema decidindo
+// dinheiro no lugar de quem cancela. E a resposta é definitiva, como o motivo
+// (RC-D90) — por isso ela mora nesta superfície, junto do resto do que não se
+// desfaz. Ela decide se o contrato continua no Financeiro e se o Espelho sai.
 
 export type LifecycleAction = 'washout';
+
+// A pergunta da RC-D89. A dica diz a CONSEQUÊNCIA (onde o contrato vai parar), não
+// repete o rótulo — é o que a pessoa precisa para escolher.
+const WASHOUT_BILLABLE_OPTIONS: { value: boolean; label: string; hint: string }[] = [
+  { value: true, label: 'Sim, cobrar', hint: 'Continua no Financeiro e emite espelho.' },
+  { value: false, label: 'Não cobrar', hint: 'Sai do Financeiro, sem espelho.' },
+];
 
 type SaleContractLifecycleDialogProps = {
   session: SessionData;
@@ -41,16 +56,24 @@ export function SaleContractLifecycleDialog({
 }: SaleContractLifecycleDialogProps) {
   const focusTrapRef = useFocusTrap(true);
   const [reason, setReason] = useState('');
+  // `null` = ainda não respondida. Não é `false` por padrão: o que trava o botão é
+  // a ausência de resposta, e "não cobrar" é uma resposta.
+  const [billable, setBillable] = useState<boolean | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const canSubmit = !saving && reason.trim() !== '';
+  const canSubmit = !saving && reason.trim() !== '' && billable !== null;
 
   async function handleSubmit() {
+    if (billable === null) return;
     setSaving(true);
     setError(null);
     try {
-      await washoutSaleContract(session, contractId, { expectedVersion, reason: reason.trim() });
+      await washoutSaleContract(session, contractId, {
+        expectedVersion,
+        reason: reason.trim(),
+        washoutBillable: billable,
+      });
       onDone();
     } catch (cause) {
       if (cause instanceof ApiError && cause.status === 409) {
@@ -112,6 +135,35 @@ export function SaleContractLifecycleDialog({
               }}
             />
           </label>
+
+          {/* RC-D89: `div`, não `label` — um radiogroup não mora dentro de um
+              <label>, que rotula UM controle. O rótulo vira o aria-label do grupo. */}
+          <div className="app-modal-field">
+            <span className="app-modal-label">Haverá cobrança de corretagem?</span>
+            <div
+              className="fv-choice-group"
+              role="radiogroup"
+              aria-label="Haverá cobrança de corretagem?"
+            >
+              {WASHOUT_BILLABLE_OPTIONS.map((option) => (
+                <button
+                  key={option.label}
+                  type="button"
+                  role="radio"
+                  aria-checked={billable === option.value}
+                  className={`fv-choice${billable === option.value ? ' is-selected' : ''}`}
+                  disabled={saving}
+                  onClick={() => {
+                    setBillable(option.value);
+                    setError(null);
+                  }}
+                >
+                  <span className="fv-choice-label">{option.label}</span>
+                  <span className="fv-choice-hint">{option.hint}</span>
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
         <div className="app-modal-actions">

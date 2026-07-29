@@ -30,7 +30,7 @@ import {
   formatContractNumber,
   isFutureContract,
   isSpotContract,
-  isSpotWashout,
+  isWashoutNotBillable,
   normalizeBrokeragePct,
   normalizeBrokerIds,
   normalizeContractLookupInput,
@@ -972,16 +972,32 @@ test('buildBankSnapshot (D141): bankName plano, sem bankId/compeCode', () => {
   assert.equal(buildBankSnapshot(null), null);
 });
 
-// D145: washout só cobra corretagem no FUTURO — o físico (à vista) cancelado não.
-test('isSpotWashout: só o contrato à vista em WASH_OUT (D145)', () => {
-  assert.equal(isSpotWashout({ status: 'WASH_OUT', type: 'MERCADO_A_VISTA' }), true);
-  assert.equal(isSpotWashout({ status: 'WASH_OUT', type: 'FUTURO' }), false);
-  assert.equal(isSpotWashout({ status: 'FINALIZADO', type: 'MERCADO_A_VISTA' }), false);
-  assert.equal(isSpotWashout({ status: 'EMITIDO', type: 'FUTURO' }), false);
-  assert.equal(isSpotWashout(null), false);
+// RC-D89 (revoga a D145): quem decide se o cancelado cobra é a RESPOSTA dada no
+// washout, não mais o `type`. Os três casos que importam são true / false / null —
+// o `null` é o washout que aconteceu antes desta coluna existir (ou por um caminho
+// que não perguntou) e ele NÃO cobra: fail-closed, o sistema não inventa cobrança.
+test('isWashoutNotBillable: segue a resposta do washout, não o tipo (RC-D89)', () => {
+  assert.equal(isWashoutNotBillable({ status: 'WASH_OUT', washoutBillable: true }), false);
+  assert.equal(isWashoutNotBillable({ status: 'WASH_OUT', washoutBillable: false }), true);
+  assert.equal(isWashoutNotBillable({ status: 'WASH_OUT', washoutBillable: null }), true);
+  assert.equal(isWashoutNotBillable({ status: 'WASH_OUT' }), true);
+  // O `type` deixou de pesar: à vista que respondeu "cobrar" cobra, Futuro que
+  // respondeu "não cobrar" não cobra — o inverso exato do que a D145 fazia.
+  assert.equal(
+    isWashoutNotBillable({ status: 'WASH_OUT', type: 'MERCADO_A_VISTA', washoutBillable: true }),
+    false
+  );
+  assert.equal(
+    isWashoutNotBillable({ status: 'WASH_OUT', type: 'FUTURO', washoutBillable: false }),
+    true
+  );
+  // Fora do WASH_OUT a pergunta não existe — contrato vivo nunca é "não cobrável".
+  assert.equal(isWashoutNotBillable({ status: 'FINALIZADO', washoutBillable: null }), false);
+  assert.equal(isWashoutNotBillable({ status: 'EMITIDO', washoutBillable: false }), false);
+  assert.equal(isWashoutNotBillable(null), false);
 });
 
-test('assertEspelhoEligible: valida os 3 gates ESPELHO_* (D105/D145/S74)', () => {
+test('assertEspelhoEligible: valida os 3 gates ESPELHO_* (D105/RC-D91/S74)', () => {
   const base = { status: 'EMITIDO', type: 'FUTURO', sellerBrokeragePct: 2, buyerBrokeragePct: 0 };
   // Lado com corretagem → elegível (não lança).
   assert.doesNotThrow(() => assertEspelhoEligible(base, 'seller'));
@@ -990,14 +1006,28 @@ test('assertEspelhoEligible: valida os 3 gates ESPELHO_* (D105/D145/S74)', () =>
     () => assertEspelhoEligible(base, 'buyer'),
     (err) => err.status === 409 && err.details?.code === 'ESPELHO_NO_BROKERAGE'
   );
-  // À vista cancelado por washout → ESPELHO_WASHOUT_SPOT (D145)...
+  // RC-D91: o Espelho é o documento com que se cobra, então ele segue a resposta.
+  // Cancelado que respondeu "não cobrar" → ESPELHO_WASHOUT_NOT_BILLABLE...
   assert.throws(
-    () => assertEspelhoEligible({ ...base, status: 'WASH_OUT', type: 'MERCADO_A_VISTA' }, 'seller'),
-    (err) => err.status === 409 && err.details?.code === 'ESPELHO_WASHOUT_SPOT'
+    () =>
+      assertEspelhoEligible(
+        { ...base, status: 'WASH_OUT', type: 'MERCADO_A_VISTA', washoutBillable: false },
+        'seller'
+      ),
+    (err) => err.status === 409 && err.details?.code === 'ESPELHO_WASHOUT_NOT_BILLABLE'
   );
-  // ...mas o FUTURO em washout SEGUE elegível (só o à-vista bloqueia).
+  // ...e o washout sem resposta gravada também não emite (fail-closed).
+  assert.throws(
+    () => assertEspelhoEligible({ ...base, status: 'WASH_OUT', washoutBillable: null }, 'seller'),
+    (err) => err.status === 409 && err.details?.code === 'ESPELHO_WASHOUT_NOT_BILLABLE'
+  );
+  // ...mas o à vista que respondeu "cobrar" EMITE — negar o documento deixaria a
+  // cobrança sem papel. Sob a D145 este era justamente o caso bloqueado.
   assert.doesNotThrow(() =>
-    assertEspelhoEligible({ ...base, status: 'WASH_OUT', type: 'FUTURO' }, 'seller')
+    assertEspelhoEligible(
+      { ...base, status: 'WASH_OUT', type: 'MERCADO_A_VISTA', washoutBillable: true },
+      'seller'
+    )
   );
   // Status fora do conjunto congelado → ESPELHO_NOT_ELIGIBLE.
   assert.throws(

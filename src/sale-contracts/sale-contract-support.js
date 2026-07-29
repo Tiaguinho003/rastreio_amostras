@@ -279,9 +279,10 @@ export const RECEIVABLE_VIEW_SELECT = Object.freeze({
   contractDate: true,
   paymentDate: true,
   status: true,
-  // D147: carrega a modalidade pra qualquer consumidor do view re-derivar
-  // billabilidade (D145: washout a vista nao cobra) via isSpotWashout.
+  // D147: carrega a modalidade porque o view a exibe. A billabilidade do washout
+  // NAO sai mais dela (RC-D89 revogou a D145): quem responde e `washoutBillable`.
   type: true,
+  washoutBillable: true,
   buyerSnapshot: true,
   totalValue: true,
   sellerBrokeragePct: true,
@@ -309,6 +310,7 @@ export const SALE_CONTRACT_VIEW_SELECT = Object.freeze({
   status: true,
   washoutReason: true,
   washoutAt: true,
+  washoutBillable: true,
   contractDate: true,
   purchaseNumber: true,
   sampleId: true,
@@ -362,6 +364,7 @@ export function toSaleContractView(row) {
     status: row.status,
     washoutReason: row.washoutReason ?? null,
     washoutAt: toIsoString(row.washoutAt),
+    washoutBillable: row.washoutBillable ?? null,
     contractDate: toIsoString(row.contractDate),
     purchaseNumber: row.purchaseNumber ?? null,
     sampleId: row.sampleId ?? null,
@@ -704,11 +707,16 @@ export function isSpotContract(contract) {
   return contract?.type === 'MERCADO_A_VISTA';
 }
 
-// D145 (revisa D105): o contrato a vista (fisico) cancelado por washout nao gera
-// cobranca de corretagem — sai do Financeiro e bloqueia o Espelho. So o FUTURO em
-// washout segue cobravel. Predicado puro, usado no gate do Espelho (exportEspelhoPdf).
-export function isSpotWashout(contract) {
-  return contract?.status === 'WASH_OUT' && contract?.type === 'MERCADO_A_VISTA';
+// RC-D89/D91 (revoga a D145, que revisava a D105): o contrato cancelado que NAO
+// cobra corretagem sai do Financeiro e bloqueia o Espelho. Ate aqui isso era
+// derivado do TIPO (a vista nunca cobrava, Futuro sempre); agora e a RESPOSTA dada
+// no washout que decide — a regra acertava a maioria e nao tinha saida para o resto.
+//
+// 🔴 `!== true` e nao `=== false` de proposito: washout gravado antes desta coluna
+// existir (ou por caminho que nao respondeu) NAO cobra. Fail-closed — na duvida o
+// sistema nao emite cobranca.
+export function isWashoutNotBillable(contract) {
+  return contract?.status === 'WASH_OUT' && contract?.washoutBillable !== true;
 }
 
 // Elegibilidade do Espelho de Corretagem (D105/D145/S74): status congelado
@@ -721,12 +729,10 @@ export function assertEspelhoEligible(contract, side) {
       code: 'ESPELHO_NOT_ELIGIBLE',
     });
   }
-  if (isSpotWashout(contract)) {
-    throw new HttpError(
-      409,
-      'Contrato à vista cancelado (wash-out) não gera cobrança de corretagem',
-      { code: 'ESPELHO_WASHOUT_SPOT' }
-    );
+  if (isWashoutNotBillable(contract)) {
+    throw new HttpError(409, 'Contrato cancelado sem cobrança de corretagem', {
+      code: 'ESPELHO_WASHOUT_NOT_BILLABLE',
+    });
   }
   const sidePct = side === 'seller' ? contract.sellerBrokeragePct : contract.buyerBrokeragePct;
   if (!(Number(sidePct) > 0)) {
@@ -1268,6 +1274,19 @@ export function normalizeWashoutReason(value, fieldName = 'reason') {
     });
   }
   return trimmed;
+}
+
+// RC-D89: a resposta de corretagem do washout. OBRIGATORIA e sem padrao — quem
+// cancela responde, o servidor nao adivinha. Aceita so booleano de verdade: um
+// `undefined` que virasse `false` seria um "nao cobrar" que ninguem escolheu.
+export function normalizeWashoutBillable(value, fieldName = 'washoutBillable') {
+  if (typeof value !== 'boolean') {
+    throw new HttpError(422, `${fieldName} is required`, {
+      code: 'SALE_CONTRACT_WASHOUT_BILLABLE_REQUIRED',
+      field: fieldName,
+    });
+  }
+  return value;
 }
 
 function optionalText(value, fieldName, maxLength) {

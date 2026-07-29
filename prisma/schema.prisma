@@ -807,6 +807,12 @@ model SaleContract {
   status         SaleContractStatus @default(EMITIDO)
   washoutReason  String?            @map("washout_reason")
   washoutAt      DateTime?          @map("washout_at") @db.Timestamptz(6)
+  // RC-D89/D91: haverá cobrança de corretagem neste contrato cancelado? Resposta
+  // HUMANA, dada no diálogo do washout — substitui a regra automática por `type`
+  // da D145. É ela que decide se o contrato fica ou sai do Financeiro e se o
+  // Espelho libera. NULL = não está em washout (a coluna só faz sentido no
+  // terminal). Definitiva (RC-D90), como o motivo.
+  washoutBillable Boolean?          @map("washout_billable")
   contractDate   DateTime           @map("contract_date") @db.Date
   purchaseNumber String?            @map("purchase_number")
 

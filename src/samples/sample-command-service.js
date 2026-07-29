@@ -2456,6 +2456,29 @@ export class SampleCommandService {
       throw new HttpError(409, 'No registration changes detected');
     }
 
+    // RC-D88: lote com contrato tem o DONO congelado. O vendedor do contrato e o
+    // dono do lote (RC-D37) e o snapshot do vendedor e reescrito a cada save do
+    // contrato — trocar o dono aqui muda, em silencio, quem assina um contrato ja
+    // emitido. Ate a RC-D87 isso era so um aviso na UI ("o contrato passa a sair no
+    // nome de..."), que dependia de o operador ler. Guard por presenca da chave:
+    // buildRegistrationUpdatePayload ja fez o diff, entao a chave so sobrevive se
+    // o valor mudou de fato. O numero do lote nao precisa de guard: ele so e
+    // escrito pelo REGISTRATION_CONFIRMED (criacao) e nulado pelo delete, que o
+    // SAMPLE_HAS_CONTRACT ja recusa.
+    if (hasOwn(updatePayload.after, 'ownerClientId')) {
+      const linkedContract = await this.queryService.prisma.saleContract.findFirst({
+        where: { sampleId: sample.id },
+        select: { contractNumber: true },
+      });
+      if (linkedContract) {
+        throw new HttpError(
+          409,
+          `Este lote tem o contrato ${linkedContract.contractNumber}. O dono do lote e o vendedor do contrato e nao pode ser trocado.`,
+          { code: 'SAMPLE_OWNER_LOCKED_BY_CONTRACT', field: 'owner' }
+        );
+      }
+    }
+
     // Liga (campos derivados read-only): as sacas de uma liga sao a soma das
     // contribuicoes das origens (declaredSacks = Sigma contributedSacks, fixado
     // no createBlend) e o lote de origem e sempre null (a origem real vive em
@@ -3239,6 +3262,7 @@ export class SampleCommandService {
     rootMovement,
     reasonText,
     rootExpectedVersion,
+    washoutBillable = null,
     actor,
   }) {
     const normalizedReason = normalizeRequiredText(reasonText, 'reasonText', 500);
@@ -3336,6 +3360,8 @@ export class SampleCommandService {
               at: new Date(),
               // Fase J (D123): marco WASH_OUT auditado com o ator do cancel.
               actorUserId: actor?.actorUserId ?? null,
+              // RC-D89: a resposta de corretagem, vinda do washout do contrato.
+              billable: typeof washoutBillable === 'boolean' ? washoutBillable : null,
             });
           }
         : null;
@@ -3726,6 +3752,31 @@ export class SampleCommandService {
     // Liga B4 Fase 4: guard — movimento cascateado só via a liga raiz.
     await this._assertMovementNotCascaded(sample.id, movement.id);
 
+    // RC-D87: cancelar uma venda com contrato QUEBRA o contrato (-> WASH_OUT). Isso
+    // deixou de ser coisa do lote: a unica porta e o washout do contrato, que
+    // pergunta se havera cobranca de corretagem (RC-D89) e chega aqui com a
+    // resposta. A ausencia dela identifica o outro chamador — a rota HTTP, que nao
+    // le esse campo. Sem o guard, um POST direto quebraria o contrato deixando o
+    // `washoutBillable` nulo, ou seja, decidindo dinheiro por omissao.
+    // Molde do SAMPLE_HAS_CONTRACT do invalidateSample: guard no SERVICO, nao na
+    // rota — vale pra todo chamador, e nao so pra porta que a gente lembrou.
+    if (
+      movement.movementType === MOVEMENT_TYPES.SALE &&
+      typeof input.washoutBillable !== 'boolean'
+    ) {
+      const linkedContract = await this.queryService.prisma.saleContract.findFirst({
+        where: { movementId: movement.id },
+        select: { contractNumber: true },
+      });
+      if (linkedContract) {
+        throw new HttpError(
+          409,
+          `Esta venda tem o contrato ${linkedContract.contractNumber}. Desfaca pelo Washout do contrato, em Contratos.`,
+          { code: 'MOVEMENT_HAS_CONTRACT' }
+        );
+      }
+    }
+
     // Liga B4 Fase 3: cancelar a venda/perda de uma liga dispara a cascata
     // reversa em toda a árvore de descendentes. Caminho de Sample normal
     // (isBlend=false) permanece intocado abaixo.
@@ -3735,6 +3786,7 @@ export class SampleCommandService {
         rootMovement: movement,
         reasonText: input.reasonText,
         rootExpectedVersion: input.expectedVersion,
+        washoutBillable: input.washoutBillable,
         actor,
       });
     }
@@ -3786,6 +3838,9 @@ export class SampleCommandService {
             at: new Date(),
             // Fase J (D123): marco WASH_OUT auditado com o ator do cancel.
             actorUserId: actor?.actorUserId ?? null,
+            // RC-D89: a resposta de corretagem vem do washout do contrato, unico
+            // chamador desta rota desde a RC-D87. Sem resposta -> nao cobra.
+            billable: typeof input.washoutBillable === 'boolean' ? input.washoutBillable : null,
           });
         }
       );

@@ -958,10 +958,12 @@ export function reopenSaleContract(
 
 // Quebra manual (P17): cancela a venda subjacente e marca o contrato WASH_OUT.
 // Motivo obrigatório. Definitiva. Gestão = ADMIN+COMMERCIAL (D110).
+// `washoutBillable` (RC-D89) é a resposta de corretagem — obrigatória, sem padrão:
+// decide se o cancelado fica no Financeiro e se o Espelho sai.
 export function washoutSaleContract(
   session: SessionData,
   contractId: string,
-  data: { expectedVersion: number; reason: string }
+  data: { expectedVersion: number; reason: string; washoutBillable: boolean }
 ) {
   return request<SaleContractResponse>(`/sale-contracts/${contractId}/washout`, {
     method: 'POST',

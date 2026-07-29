@@ -1781,6 +1781,7 @@ export class SampleQueryService {
       components,
       activeBlends,
       cascadedMovementOrigins,
+      saleContract,
     ] = await Promise.all([
       this.listAttachments(sampleId),
       this.listSampleEvents(sampleId, { limit: options.eventLimit ?? 200 }),
@@ -1797,6 +1798,15 @@ export class SampleQueryService {
       // Liga B3.6: por movimento cascateado, a liga-pai {sampleId, lotNumber}.
       // A UI esconde editar/cancelar nesses e mostra o trace "via cascata".
       this.loadCascadedMovementOrigins(sampleId),
+      // RC-D88: o contrato ligado a este lote, se houver. O detalhe precisa dele
+      // pra travar o dono — o vendedor do contrato E o dono do lote (RC-D37) e e
+      // reescrito a cada save do contrato. `soldSacks > 0` nao serve como proxy:
+      // um SALE de caminho baixo (import/teste) nao emite contrato, e a UI
+      // travaria um campo que o servidor deixa passar.
+      this.prisma.saleContract.findFirst({
+        where: { sampleId },
+        select: { id: true, contractNumber: true, status: true },
+      }),
     ]);
 
     // Liga B3.6: cada movimento ganha `cascadedFrom` — a liga que o originou
@@ -1814,6 +1824,7 @@ export class SampleQueryService {
       latestPrintJob,
       components,
       activeBlends,
+      saleContract: saleContract ?? null,
     };
   }
 
