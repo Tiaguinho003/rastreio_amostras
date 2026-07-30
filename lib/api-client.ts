@@ -1824,38 +1824,6 @@ export function resolveSampleByQr(session: SessionData, qrContent: string) {
   });
 }
 
-export function uploadSamplePhoto(
-  session: SessionData,
-  sampleId: string,
-  file: File,
-  options: {
-    kind: 'CLASSIFICATION_PHOTO';
-    replaceExisting?: boolean;
-  }
-) {
-  const formData = new FormData();
-  formData.append('file', file);
-  formData.append('kind', options.kind);
-  formData.append('replaceExisting', String(options.replaceExisting ?? true));
-  return request<CommandResponse>(`/samples/${sampleId}/photos`, {
-    method: 'POST',
-    session,
-    formData,
-  });
-}
-
-export function uploadClassificationPhoto(
-  session: SessionData,
-  sampleId: string,
-  file: File,
-  replaceExisting = true
-) {
-  return uploadSamplePhoto(session, sampleId, file, {
-    kind: 'CLASSIFICATION_PHOTO',
-    replaceExisting,
-  });
-}
-
 // Worst case do backend da extracao: deteccao 5s + 2 tentativas de 25s na
 // OpenAI + backoff 1.5s ~= 57s. Sem prazo no client, um request pendurado
 // deixava o sheet da camera preso em "processando" com o dismiss bloqueado.

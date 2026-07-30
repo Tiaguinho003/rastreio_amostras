@@ -469,33 +469,14 @@ export function createBackendApiV1({
         return { status: result.statusCode, body: result };
       }),
 
-    addLabelPhoto: (input) =>
-      executeApiForInput(input, async () => {
-        const actor = await resolveActorContext(input, authService);
-        const sampleId = requireSampleId(input?.params);
-        const body = readRequestBody(input);
-
-        let fileBuffer = null;
-        if (Buffer.isBuffer(body.fileBuffer)) {
-          fileBuffer = body.fileBuffer;
-        } else if (typeof body.fileBase64 === 'string' && body.fileBase64.length > 0) {
-          fileBuffer = Buffer.from(body.fileBase64, 'base64');
-        }
-
-        const result = await commandService.addSamplePhoto(
-          {
-            sampleId,
-            kind: 'CLASSIFICATION_PHOTO',
-            fileBuffer,
-            mimeType: body.mimeType ?? null,
-            originalFileName: body.originalFileName ?? null,
-            replaceExisting: body.replaceExisting,
-          },
-          actor
-        );
-
-        return { status: result.statusCode, body: result };
-      }),
+    // 🪦 addLabelPhoto (POST /samples/:id/photos) — o upload de foto por HTTP.
+    // Apagado em 2026-07-30: a camera nao passava por aqui. Ela salva a foto em
+    // `_temp/temp-{token}.jpg` e o `confirmClassificationFromCamera` chama o
+    // `addSamplePhoto` DIRETO, sem rede. Endpoint de escrita que aceita upload e
+    // ninguem chama e superficie de ataque, nao so entulho.
+    // ⚠️ Segue vivo o que LE: `getSampleAttachmentDescriptor`, que serve a foto
+    // para o detalhe da amostra e para o laudo em PDF (que recusa exportar uma
+    // amostra CLASSIFIED sem CLASSIFICATION_PHOTO).
 
     // Q.print: requestQrPrint virou acao pura. Sem expectedVersion,
     // sem attemptNumber (backend calcula). requestQrReprint deletado —

@@ -1599,34 +1599,6 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(invalidPage.status, 422);
   });
 
-  test('POST /samples/:sampleId/photos saves classification photo when sample is in classification phase', async () => {
-    const sampleId = randomUUID();
-    await moveSampleToRegistrationConfirmed(sampleId);
-
-    const uploaded = await api.addLabelPhoto(
-      buildInput({
-        params: { sampleId },
-        body: {
-          kind: 'CLASSIFICATION_PHOTO',
-          fileBuffer: tinyPngBuffer,
-          mimeType: 'image/jpeg',
-          originalFileName: 'classificacao-api.jpg',
-          replaceExisting: true,
-        },
-      })
-    );
-
-    assert.equal(uploaded.status, 201);
-    assert.equal(uploaded.body.event.eventType, 'PHOTO_ADDED');
-    assert.equal(uploaded.body.event.payload.kind, 'CLASSIFICATION_PHOTO');
-
-    const detail = await queryService.getSampleDetail(sampleId, { eventLimit: 30 });
-    const classificationPhotos = detail.attachments.filter(
-      (attachment) => attachment.kind === 'CLASSIFICATION_PHOTO'
-    );
-    assert.equal(classificationPhotos.length, 1);
-  });
-
   test('POST /samples/:sampleId/export/pdf exporta o laudo unico (sem owner) e registra REPORT_EXPORTED', async () => {
     const sampleId = randomUUID();
     await moveSampleToClassified(sampleId);
