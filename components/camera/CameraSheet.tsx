@@ -1525,7 +1525,7 @@ export function CameraSheet({ session, open, sampleId, onClose, onExitContext }:
 
         {hasContext && contextSampleLoading && !contextSampleError ? (
           <p className="camera-hub-status-text" role="status">
-            Carregando amostra...
+            Carregando…
           </p>
         ) : null}
 

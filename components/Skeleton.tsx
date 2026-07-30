@@ -42,6 +42,21 @@ export function SkeletonCards({ count, className }: { count: number; className?:
 }
 
 /**
+ * Esqueleto no FORMATO DO DETALHE: linha de titulo + N blocos na altura do
+ * `.sdv-card`. Entra no 1o load do detalhe do lote e do cliente, onde antes
+ * havia o texto "Carregando lote…" / "Carregando cliente…" — area grande nao
+ * tem texto, tem esqueleto.
+ */
+export function SkeletonDetail({ cards = 3 }: { cards?: number }) {
+  return (
+    <div className="fv-skel-detail" aria-hidden="true">
+      <SkeletonLine className="fv-skel-detail-title" />
+      <SkeletonCards count={cards} className="fv-skel-detail-card" />
+    </div>
+  );
+}
+
+/**
  * N linhas de esqueleto para o `<tbody>` de uma `.fv-table`. `columns` tem que
  * bater com o numero de `<col>` do colgroup — celula a menos desalinha a tabela
  * inteira enquanto carrega (data-tables §5).

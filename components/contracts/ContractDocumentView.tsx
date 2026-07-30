@@ -135,7 +135,7 @@ type ContractDocumentViewProps = {
 export function ContractDocumentView({
   document: { pages, rendering, renderError },
   label,
-  loadingLabel = 'Montando o documento...',
+  loadingLabel = 'Montando o documento…',
   onFallbackDownload = null,
   fallbackLabel = 'Baixar o PDF',
 }: ContractDocumentViewProps) {

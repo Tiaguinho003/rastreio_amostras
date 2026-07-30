@@ -1271,7 +1271,7 @@ export function SaleContractEtapa2Modal({
           ) : null}
 
           {loading ? (
-            <p className="ctr-modal-loading">Carregando...</p>
+            <p className="ctr-modal-loading">Carregando…</p>
           ) : (
             <div className="fv-form-body ctr-etapa2-content">
               {/* ── RC-D58: a ordem é a do DOCUMENTO. As sete primeiras seções

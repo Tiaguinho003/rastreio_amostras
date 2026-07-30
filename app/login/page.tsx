@@ -203,7 +203,7 @@ export default function LoginPage() {
           priority
           className="login-header-logo"
         />
-        <h1 className="login-visually-hidden">Entrar no sistema</h1>
+        <h1 className="fv-visually-hidden">Entrar no sistema</h1>
       </section>
 
       <section className="login-form-section">
@@ -219,7 +219,7 @@ export default function LoginPage() {
         ) : null}
 
         <form className="login-form" onSubmit={handleSubmit}>
-          <span className="login-visually-hidden" aria-live="polite">
+          <span className="fv-visually-hidden" aria-live="polite">
             {error ?? ''}
           </span>
           <div className="login-form-fields">
@@ -240,7 +240,7 @@ export default function LoginPage() {
                 aria-invalid={Boolean(error && !username.trim())}
                 className="login-field-input"
               />
-              <span className="login-visually-hidden">Usuario</span>
+              <span className="fv-visually-hidden">Usuario</span>
             </label>
 
             <label className={`login-field ${error && username.trim() ? 'has-error' : ''}`}>
@@ -280,7 +280,7 @@ export default function LoginPage() {
                   </svg>
                 )}
               </button>
-              <span className="login-visually-hidden">Senha</span>
+              <span className="fv-visually-hidden">Senha</span>
             </label>
           </div>
 

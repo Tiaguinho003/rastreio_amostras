@@ -1932,7 +1932,10 @@ body:has(.bottom-sheet-backdrop.is-open) .mobile-edge-shell-auth::after {
   white-space: nowrap;
 }
 
-.login-visually-hidden {
+/* Unica utilitaria de "escondido visualmente, visivel pro leitor de tela" do
+   projeto. Nasceu no login (`.login-visually-hidden`) e a F4 a renomeou: ja era
+   usada em 3 arquivos fora do login, e o `LoadingLive` a tornou peca do kit. */
+.fv-visually-hidden {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -4777,6 +4780,21 @@ button:disabled {
   gap: 0.75rem;
   padding-bottom: 0.9rem;
   border-bottom: 1px solid var(--fv-line);
+}
+
+/* Esqueleto do CORPO do painel de usuario (F4): o cabecalho de identidade
+   (.usr-panel-id) ja vem pintado da linha da lista; o que carrega sao os blocos
+   de fatos. O `.bottom-sheet-body` e bloco puro, entao o gap mora aqui — o kit
+   `.fv-skel-card` da a superficie, a altura e desta pagina. */
+.usr-panel-skel {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(10px, 3vw, 12px);
+  padding: clamp(12px, 3.4vw, 16px) 0 0;
+}
+
+.usr-panel-skel .fv-skel-card {
+  height: clamp(76px, 20vw, 104px);
 }
 
 .usr-panel-avatar {
@@ -23594,6 +23612,31 @@ body.is-selection-mode .mobile-tabbar {
     animation: none;
     background: var(--fv-active-bg);
   }
+}
+
+/* Esqueleto no FORMATO DO DETALHE (F4): linha de titulo + blocos na altura do
+   `.sdv-card`. Substitui os textos "Carregando lote…"/"Carregando cliente…" no
+   1o load do detalhe do lote e do cliente — area grande nao tem texto, tem
+   esqueleto (design-system §3). As duas classes so dao MEDIDA; a superficie e a
+   animacao (e o reduced-motion acima) vem do `.fv-skel-card`/`.fv-skel-line`. */
+.fv-skel-detail {
+  display: flex;
+  flex-direction: column;
+  /* Mesmo gap e mesmo respiro lateral do `.sdv-content-inner`, pra o esqueleto
+     cair exatamente onde os cards vao nascer. */
+  gap: clamp(13px, 3.6vw, 16px);
+  padding: clamp(16px, 4vw, 20px) clamp(14px, 4vw, 20px);
+  overflow: hidden;
+}
+
+.fv-skel-detail-title {
+  width: min(55%, 12rem);
+  height: 1.05rem;
+  margin: 0 auto clamp(2px, 1vw, 6px);
+}
+
+.fv-skel-detail-card {
+  height: clamp(96px, 26vw, 132px);
 }
 
 /* ══════════════════════════════════════════════════════════════

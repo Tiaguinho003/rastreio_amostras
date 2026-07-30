@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObjec
 import { createPortal } from 'react-dom';
 
 import { BottomSheet } from '../BottomSheet';
+import { SkeletonDetail } from '../Skeleton';
 import { SuccessCheckOverlay, SUCCESS_CHECK_MS } from '../SuccessCheckOverlay';
 import {
   ClientInactivateWithCascadeModal,
@@ -1387,11 +1388,9 @@ export function ClientDetailView({
       {/* Rodada 5 FV: o editor virou painel lateral — o drawer nao se esconde
           mais (o is-editing/display:none da rodada 2 morreu). */}
       <section className="sdv-page">
-        {loadingPage && !client ? (
-          <div className="spv2-empty">
-            <p className="spv2-empty-text">Carregando cliente…</p>
-          </div>
-        ) : null}
+        {/* F4: esqueleto no FORMATO do detalhe no lugar do texto "Carregando
+            cliente…" — area grande nao tem texto (design-system §3). */}
+        {loadingPage && !client ? <SkeletonDetail /> : null}
         {!loadingPage && client ? (
           <>
             {/* Rodada 3 FV: HERO de perfil (referencia "Staff details") —

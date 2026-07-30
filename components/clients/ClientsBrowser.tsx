@@ -13,6 +13,7 @@ import {
 import { ClientQuickCreateModal } from './ClientQuickCreateModal';
 import type { ClientDetailInitialAction } from './ClientDetailView';
 import { BottomSheet } from '../BottomSheet';
+import { LoadingLive } from '../LoadingLive';
 import { SkeletonCards, SkeletonTableRows } from '../Skeleton';
 import {
   EMPTY_CLIENT_FILTERS,
@@ -964,13 +965,15 @@ export function ClientsBrowser({
             na .fv-toolbar-count. */}
         {isDesktop ? toolbar : null}
 
+        <LoadingLive active={clientsState.status === 'loading-more'} label="mais clientes" />
+
         {/* Card list */}
         {clientsState.status === 'loading-initial' ? (
+          /* F4: esqueleto no lugar do texto "Carregando..." — a lista das
+             paginas irmas ja abria assim (design-system §3). */
           <div className="spv2-list-scroll">
             {mobileListChrome}
-            <div className="spv2-empty">
-              <p className="spv2-empty-text">Carregando...</p>
-            </div>
+            <SkeletonCards count={3} />
           </div>
         ) : displayClients.length === 0 ? (
           <div className="spv2-list-scroll">

@@ -16,6 +16,7 @@ import {
 
 import { BottomSheet } from '../../../components/BottomSheet';
 import { DetailOverlay } from '../../../components/DetailOverlay';
+import { LoadingLive } from '../../../components/LoadingLive';
 import { NewSampleModal } from '../../../components/NewSampleModal';
 import { SkeletonCards, SkeletonTableRows } from '../../../components/Skeleton';
 import { SUCCESS_CHECK_MS } from '../../../components/SuccessCheckOverlay';
@@ -2626,10 +2627,9 @@ function SamplesPage() {
 
           {/* Live region (a11y, lacuna #6): anuncia o load-more pro leitor de
               tela — sem isso, na rolagem infinita o conteudo novo entra em
-              silencio. Sempre no DOM (so o texto muda) pra o aria-live disparar. */}
-          <div role="status" aria-live="polite" className="login-visually-hidden">
-            {isLoadingMore ? 'Carregando mais lotes' : ''}
-          </div>
+              silencio. A F4 tirou o markup daqui e o transformou em peca; a
+              regra de "sempre no DOM" mora no `LoadingLive.tsx`. */}
+          <LoadingLive active={isLoadingMore} label="mais lotes" />
 
           {/* Section 3: Card list */}
           {isLoadingInitial ? (

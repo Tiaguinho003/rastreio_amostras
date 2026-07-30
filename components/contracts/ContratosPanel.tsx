@@ -12,6 +12,7 @@ import {
 } from 'react';
 
 import { ANIMATION_MS, BottomSheet } from '../BottomSheet';
+import { LoadingLive } from '../LoadingLive';
 import { SkeletonCards } from '../Skeleton';
 import { ChipMultiSelectField } from '../ChipMultiSelectField';
 import { ClientLookupField } from '../clients/ClientLookupField';
@@ -963,6 +964,8 @@ export function ContratosPanel({ session }: { session: SessionData }) {
             {listState.error}
           </p>
         ) : null}
+
+        <LoadingLive active={listState.status === 'loading-more'} label="mais contratos" />
 
         {listState.status === 'loading-initial' ? (
           <div className="spv2-list-scroll ctr-list-scroll">

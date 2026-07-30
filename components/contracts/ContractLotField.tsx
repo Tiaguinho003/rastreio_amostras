@@ -183,7 +183,7 @@ export function ContractLotField({
 
   return (
     <div className="ctr-lotfield" ref={wrapRef}>
-      <label htmlFor={inputId} className="login-visually-hidden">
+      <label htmlFor={inputId} className="fv-visually-hidden">
         Lote
       </label>
       <div className={`ctr-lotfield-shell${selected ? ' has-selection' : ''}`}>

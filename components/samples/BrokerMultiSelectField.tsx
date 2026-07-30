@@ -183,7 +183,7 @@ export function BrokerMultiSelectField({
       </div>
       {open ? (
         <div className="bms-dropdown">
-          {loading ? <p className="bms-empty">Carregando corretores...</p> : null}
+          {loading ? <p className="bms-empty">Carregando…</p> : null}
           {error ? <p className="bms-empty">{error}</p> : null}
           {!loading && !error && filtered.length === 0 ? (
             <p className="bms-empty">

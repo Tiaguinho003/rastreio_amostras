@@ -7,6 +7,7 @@ import { useInformeCreateSheets } from './useInformeCreateSheets';
 import { VisitsTrendChart } from './VisitsTrendChart';
 import { WeeklyReportCard } from './WeeklyReportCard';
 import { VisitReportCard } from '../visits/VisitReportCard';
+import { LoadingLive } from '../LoadingLive';
 import { SkeletonCards } from '../Skeleton';
 import {
   ApiError,
@@ -563,6 +564,8 @@ export function RelatoriosViewer({ session, canCreate }: RelatoriosViewerProps) 
             {/* Chips de tipo — 1º filho fixo do feed (ambos breakpoints), acima
                 da lista, seguem visíveis em vazio/erro/carregando. */}
             {typeChips}
+
+            <LoadingLive active={loadingMore} label="mais relatórios" />
 
             {initialLoading ? (
               <div className="rsm-list">

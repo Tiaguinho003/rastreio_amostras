@@ -188,7 +188,7 @@ export function UserMultiSelect({
         {open && !disabled ? (
           <div className="user-multi-select__dropdown" role="listbox">
             {loading ? (
-              <div className="user-multi-select__empty">Carregando usuários...</div>
+              <div className="user-multi-select__empty">Carregando…</div>
             ) : filteredOptions.length === 0 ? (
               <div className="user-multi-select__empty">
                 {search.trim()

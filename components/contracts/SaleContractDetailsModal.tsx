@@ -617,7 +617,7 @@ export function SaleContractDetailsModal({
                     onSent={() => setReloadNonce((n) => n + 1)}
                   />
                 ) : (
-                  <p className="ctr-modal-loading">Carregando a etiqueta...</p>
+                  <p className="ctr-modal-loading">Carregando…</p>
                 )
               ) : canManageApproval ? (
                 // AP32: latch de mão única — a confirmação é obrigatória.
@@ -667,7 +667,7 @@ export function SaleContractDetailsModal({
           {mounted.historico ? (
             <div {...panelProps('historico')}>
               {timeline === null ? (
-                <p className="ctr-modal-loading">Carregando o histórico...</p>
+                <p className="ctr-modal-loading">Carregando…</p>
               ) : timeline.length === 0 ? (
                 <p className="ctr-details-empty">Sem eventos registrados.</p>
               ) : (

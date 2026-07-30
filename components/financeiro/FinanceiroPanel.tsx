@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 
 import { ApiError, listFinanceiro } from '../../lib/api-client';
+import { LoadingLive } from '../LoadingLive';
 import { SkeletonCards, SkeletonTableRows } from '../Skeleton';
 import { useRevalidate } from '../../lib/revalidation/use-revalidate';
 import {
@@ -548,6 +549,8 @@ export function FinanceiroPanel({ session }: { session: SessionData }) {
             {error}
           </p>
         ) : null}
+
+        <LoadingLive active={status === 'loading-more'} label="mais contratos" />
 
         {isInitialLoading ? (
           isDesktop ? (

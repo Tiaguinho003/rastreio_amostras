@@ -32,7 +32,7 @@ export function UserSelect({
         disabled={disabled || loading}
         onChange={(event) => onChange(event.target.value || null)}
       >
-        <option value="">{loading ? 'Carregando usuarios...' : placeholder}</option>
+        <option value="">{loading ? 'Carregando…' : placeholder}</option>
         {hasSelectedUnknown && value ? <option value={value}>Usuario indisponivel</option> : null}
         {users.map((user) => (
           <option key={user.id} value={user.id}>

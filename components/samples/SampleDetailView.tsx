@@ -8,6 +8,7 @@ import { QRCodeCanvas } from 'qrcode.react';
 import { BottomSheet } from '../BottomSheet';
 import { OriginLotChips } from '../OriginLotChips';
 import { PhotoZoomViewer } from '../PhotoZoomViewer';
+import { SkeletonDetail } from '../Skeleton';
 import { SuccessCheckOverlay, SUCCESS_CHECK_MS } from '../SuccessCheckOverlay';
 import {
   buildReadableValue,
@@ -1866,11 +1867,9 @@ export function SampleDetailView({
             — antes "carregando com detalhe em maos" e "sem detalhe e sem
             carregar" caiam no vazio e o painel abria em branco, sem nem
             mostrar o erro (o NoticeSlot do pageNotice mora la dentro). */}
-        {!detail && loadingDetail ? (
-          <div className="spv2-empty">
-            <p className="spv2-empty-text">Carregando lote…</p>
-          </div>
-        ) : null}
+        {/* F4: esqueleto no FORMATO do detalhe no lugar do texto "Carregando
+            lote…" — area grande nao tem texto (design-system §3). */}
+        {!detail && loadingDetail ? <SkeletonDetail /> : null}
         {!detail && !loadingDetail ? (
           <div className="spv2-empty">
             <p className="spv2-empty-text">
@@ -2732,9 +2731,7 @@ export function SampleDetailView({
 
                 <div className="sample-detail-invalidate-movements">
                   {activeMovements === null ? (
-                    <p className="sample-detail-invalidate-movements-hint">
-                      Carregando movimentações...
-                    </p>
+                    <p className="sample-detail-invalidate-movements-hint">Carregando…</p>
                   ) : activeMovementsError ? (
                     <p className="sdv-modal-error">{activeMovementsError}</p>
                   ) : activeMovements.length === 0 ? (
@@ -3498,7 +3495,7 @@ export function SampleDetailView({
                           {editing && classificationDetailPickerOpen ? (
                             <div className="cld-classifier-picker">
                               {classificationDetailLoadingUsers ? (
-                                <div className="cld-classifier-loading">Carregando...</div>
+                                <div className="cld-classifier-loading">Carregando…</div>
                               ) : classificationDetailUserError ? (
                                 <div className="cld-classifier-error">
                                   {classificationDetailUserError}

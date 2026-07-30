@@ -5,6 +5,7 @@ import { Suspense, useCallback, useEffect, useReducer, useRef, useState } from '
 import { createPortal } from 'react-dom';
 
 import { BottomSheet } from '../../../components/BottomSheet';
+import { LoadingLive } from '../../../components/LoadingLive';
 import { SkeletonCards, SkeletonTableRows } from '../../../components/Skeleton';
 import { SuccessCheckOverlay, SUCCESS_CHECK_MS } from '../../../components/SuccessCheckOverlay';
 import { InactivateUserModal } from '../../../components/users/InactivateUserModal';
@@ -1142,6 +1143,8 @@ function UsersPage() {
             </p>
           ) : null}
 
+          <LoadingLive active={listState.status === 'loading-more'} label="mais usuários" />
+
           {/* Card list */}
           {listState.status === 'loading-initial' ? (
             isDesktop ? (
@@ -1153,11 +1156,11 @@ function UsersPage() {
                 </table>
               </div>
             ) : (
+              /* F4: esqueleto no lugar do texto "Carregando..." — a lista das
+                 paginas irmas ja abria assim (design-system §3). */
               <div className="spv2-list-scroll">
                 {mobileListChrome}
-                <div className="spv2-empty">
-                  <p className="spv2-empty-text">Carregando...</p>
-                </div>
+                <SkeletonCards count={3} />
               </div>
             )
           ) : listState.items.length === 0 ? (
@@ -1625,7 +1628,13 @@ function UsersPage() {
               ) : null}
 
               {modal.loading ? (
-                <p className="fv-panel-lead">Carregando...</p>
+                /* F4: painel tambem nao diz "Carregando" — o cabecalho de
+                   identidade ja esta pintado acima (vem da linha da lista), e o
+                   que falta sao os blocos de fatos. Caso a mais que a varredura
+                   da fase nao tinha contado. */
+                <div className="usr-panel-skel">
+                  <SkeletonCards count={2} />
+                </div>
               ) : modal.error && !modal.user?.fullName ? (
                 <p className="fv-panel-lead">{modal.error}</p>
               ) : modal.user ? (

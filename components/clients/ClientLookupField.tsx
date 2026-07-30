@@ -292,7 +292,7 @@ export function ClientLookupField({
       className={`client-lookup-field${invalid ? ' is-invalid' : ''}${compact ? ' is-compact' : ''}`}
       ref={wrapRef}
     >
-      <label htmlFor={inputId} className={compact ? 'login-visually-hidden' : undefined}>
+      <label htmlFor={inputId} className={compact ? 'fv-visually-hidden' : undefined}>
         {label}
         {required ? <span className="nsv2-required-star"> *</span> : null}
       </label>

@@ -152,7 +152,7 @@ export function InlineSelectField({
       <input
         value={search}
         disabled={disabled}
-        placeholder={loading ? 'Carregando...' : placeholder}
+        placeholder={loading ? 'Carregando…' : placeholder}
         onChange={(event) => {
           setSearch(event.target.value);
           setOpen(true);
@@ -161,7 +161,7 @@ export function InlineSelectField({
       />
       {open && !disabled ? (
         <div className="bms-dropdown">
-          {loading ? <p className="bms-empty">Carregando...</p> : null}
+          {loading ? <p className="bms-empty">Carregando…</p> : null}
           {!loading && filtered.length === 0 && !creating ? (
             <p className="bms-empty">{emptyMessage}</p>
           ) : null}
