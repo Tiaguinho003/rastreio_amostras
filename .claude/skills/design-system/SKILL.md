@@ -378,17 +378,19 @@ Existem dois padroes em uso (ambos validos — usar conforme o contexto do card)
 - Formato identico ao card final (mesma altura, mesmo radius, mesma cor de fundo neutra)
 - Pode usar **shimmer suave** (`background-size: 200% 100%` + `linear-gradient` em movimento, `~1.4s ease-in-out infinite`) combinado com fade-in `cubic-bezier(0.22, 1, 0.36, 1)` na entrada
 - Exemplo em uso: skeleton dos cards de `/samples` (`.spv2-card` + `spv2-skeleton-shimmer`, ver `app/globals.css`)
-- Skeleton e para **cards/secoes especificas** dentro de uma pagina ja carregada. Para a **pagina inteira** ainda nao pronta, usar o loader da marca (abaixo), nunca um texto "Carregando..."
+- Skeleton e para **cards/secoes especificas** dentro de uma pagina ja carregada — e, desde a F3 do ciclo SN, e **o unico recurso de espera que existe**. Nunca um texto "Carregando...", e nunca mais um overlay de tela cheia.
 
-### Loader de pagina lenta (branded)
+### 🪦 Loader de pagina lenta (branded) — APAGADO na F3 (2026-07-30)
 
-> ⚠️ **Esta secao tem prazo de validade.** O ciclo SN vai apagar este loader na **F3** (`docs/Shell-e-Navegacao-Plano-de-Trabalho.md` §6). A F1 ja apagou o splash de **boot** em 2026-07-30. Nao construir nada novo em cima dele — para pagina inteira que ainda espera, o alvo e **shell + skeleton por area** (SN-D1), nao overlay.
+> **Nao existe mais.** `components/SplashVisual.tsx`, `components/LoadingProvider.tsx`, `lib/loading/loading-context.ts` (com o hook `useGlobalLoading`) e as ~365 linhas de CSS `.splash-*` foram removidos. Junto morreu o `SplashScreen` de boot (F1). **Nao ha mais nenhum loader de tela cheia no app.**
 
-- Quando **uma pagina inteira** demora (sessao/auth ou dados), aparece o visual da marca (logo + barra + bolinhas) em vez de texto verde.
-- Componente: `components/SplashVisual.tsx` (variante `pageLoader`). Desde a F1 do ciclo SN ele tem **um unico consumidor**, o loader de pagina — o `SplashScreen` de boot foi apagado e a variante sem `pageLoader` ficou sem chamador.
-- Arquitetura: `LoadingProvider` (`app/layout.tsx`) conta fontes de carregamento e so mostra o overlay apos ~480ms (loads rapidos nao piscam), portado ao `body`, z-index 99998.
-- Registrar uma fase async lenta: hook `useGlobalLoading(active)` (`lib/loading/loading-context.ts`). Ja vem ligado no `AuthProvider` (`lib/auth/AuthProvider.tsx`, layout do route group `(app)` — cobre a auth de toda pagina autenticada de uma vez desde a F2 do ciclo SN); paginas de detalhe ligam tambem o load dos dados (`useGlobalLoading(loadingDetail)`).
-- **Evitar o "shell vazio" no 1o load:** a pagina de detalhe deve dar `return null` enquanto os dados ainda nao chegaram (`if (loadingDetail && !detail) return null` / `if (loadingPage && !client) return null`), em vez de renderizar `AppShell`/`.sdv-page` sem conteudo — o loader da marca cobre a tela e a pagina aparece de uma vez. So no 1o load (dado ainda `null`); refetch mantem o dado e nao pisca. Aplicado em `/samples/[sampleId]` e `/clients/[clientId]`.
+**Por que pode morrer:** a SN-D8 fez a sessao vir do **cache local, lido antes da pintura** (`lib/auth/AuthProvider.tsx`). O loader tinha uma unica fonte — a espera da auth — e essa espera deixou de existir para quem ja entrou uma vez. Quem chega sem cache ve tela neutra por ~300ms e vai pro `/login`.
+
+**O que fazer no lugar, quando uma pagina inteira ainda espera** (SN-D1):
+
+- **Shell + skeleton por area.** O `AppShell` ja esta montado (F2, ele vive no layout do route group `(app)` e nunca desmonta), entao a pagina desenha o proprio esqueleto no formato do conteudo final.
+- Pagina de detalhe segue dando `return null` enquanto o dado nao chegou no **1o load** (`if (loadingDetail && !detail) return null`) em vez de desenhar `.sdv-page` vazia — mas agora quem cobre e o shell, nao um overlay. Refetch mantem o dado e nao pisca.
+- Revalidacao por baixo (barramento/foreground/poll) **nunca** mostra carregamento: e silenciosa por contrato (ver `lib/revalidation/use-revalidate.ts`).
 
 ### Variantes de card especificas
 

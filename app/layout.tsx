@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter, Poppins } from 'next/font/google';
 
-import { LoadingProvider } from '../components/LoadingProvider';
 import { PwaRegistration } from '../components/PwaRegistration';
 import { RouteHistoryTracker } from '../components/RouteHistoryTracker';
 import { ViewportDebugOverlay } from '../components/ViewportDebugOverlay';
@@ -72,13 +71,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ViewportDebugOverlay />
         <ToastProvider>
           <DirtyStateProvider>
-            <ScannerBridge>
-              {/* F2 do ciclo SN: o <PageTransition> saiu daqui. A transicao
-                  entre rotas agora e CSS puro na `.app-shell-page-content` do
-                  AppShell (SN-D5'), que so existe dentro do route group (app)
-                  — o layout raiz nao anima mais nada. */}
-              <LoadingProvider>{children}</LoadingProvider>
-            </ScannerBridge>
+            {/* F2 do ciclo SN: o <PageTransition> saiu daqui — a transicao
+                entre rotas virou CSS puro na `.app-shell-page-content` do
+                AppShell (SN-D5'), dentro do route group (app).
+                F3: o <LoadingProvider> saiu tambem, e com ele a "pagina de
+                carregamento verde" (camada 2), que era o objetivo n. 1 do
+                ciclo. Ela so podia morrer depois da SN-D8 — com a sessao vindo
+                do cache antes da pintura, nao ha mais espera pra cobrir.
+                O layout raiz nao renderiza mais nada por cima do conteudo. */}
+            <ScannerBridge>{children}</ScannerBridge>
           </DirtyStateProvider>
         </ToastProvider>
       </body>

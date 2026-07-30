@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { ForgotPasswordModal } from '../../components/ForgotPasswordModal';
 import { login, ApiError, getCurrentSession } from '../../lib/api-client';
 import { loginSchema } from '../../lib/form-schemas';
+import { writeCachedSession } from '../../lib/offline/session-cache';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -50,8 +51,13 @@ export default function LoginPage() {
     let active = true;
 
     getCurrentSession()
-      .then(() => {
+      .then((session) => {
         if (active) {
+          // F3 (SN-D8): grava o cache ANTES de sair daqui. Este e o caminho de
+          // quem tem cookie valido mas perdeu o cache local — sem isto, o
+          // /dashboard cairia de novo na espera de rede e mandaria de volta pra
+          // ca, um ping-pong invisivel.
+          writeCachedSession(session);
           router.replace('/dashboard');
         }
       })
@@ -134,7 +140,11 @@ export default function LoginPage() {
 
     setLoading(true);
     try {
-      await login(parsed.data.username, parsed.data.password);
+      // F3 (SN-D8): o cache da sessao nasce AQUI, no login, e nao no
+      // AuthProvider depois do proprio fetch. Sem isto, a primeira tela depois
+      // de TODO login caia no caminho lento — justo a tela que mais importa.
+      const session = await login(parsed.data.username, parsed.data.password);
+      writeCachedSession(session);
       router.replace('/dashboard');
     } catch (cause) {
       if (cause instanceof ApiError) {

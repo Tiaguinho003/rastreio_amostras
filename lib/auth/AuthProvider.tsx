@@ -6,20 +6,27 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useState,
   type ReactNode,
 } from 'react';
 
 import { ApiError, getCurrentSession, logout as logoutRequest } from '../api-client';
-import { useGlobalLoading } from '../loading/loading-context';
 import {
   clearCachedSession,
   readCachedSession,
   writeCachedSession,
 } from '../offline/session-cache';
+import { useRevalidate } from '../revalidation/use-revalidate';
 import { isRoleAllowed } from '../roles';
 import type { SessionData, UserRole } from '../types';
+
+// O cache so existe no cliente. Ler no SSR devolveria `null` e no cliente a
+// sessao — mismatch de hidratacao nas 8 rotas, que sao pre-renderizadas. O
+// layout effect roda DEPOIS da hidratacao e ANTES da pintura: sem mismatch e
+// sem flash. Molde de `components/BottomSheet.tsx`.
+const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
 // F2 do ciclo SN: a sessao passa a ser resolvida UMA VEZ, no layout do route
 // group (app), em vez de uma vez por pagina. Antes, cada page.tsx chamava
@@ -32,8 +39,11 @@ import type { SessionData, UserRole } from '../types';
 // (`session`/`loading`/`logout`/`setSession`), de proposito: a migracao das 8
 // paginas fica mecanica.
 //
-// F3 vai inicializar `session` sincronamente do cache (SN-D8) — hoje ainda
-// comeca em `null` com `loading: true`, e o page loader cobre a espera.
+// F3 do ciclo SN: a sessao passa a vir do CACHE LOCAL antes da pintura
+// (SN-D8), e com isso o page loader — a "pagina de carregamento verde" que
+// era o objetivo n. 1 deste ciclo — perdeu a unica fonte que tinha e foi
+// apagado junto (`LoadingProvider`, `loading-context`, `SplashVisual` e as
+// ~365 linhas de CSS do splash).
 
 interface AuthContextValue {
   session: SessionData | null;
@@ -52,11 +62,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     null
   );
 
-  // Loader global da marca enquanto a sessao carrega. Morre na F3, junto com o
-  // proprio LoadingProvider.
-  useGlobalLoading(loading);
+  // SN-D8: a sessao vem do CACHE LOCAL, lida antes da pintura. Com cache, o app
+  // desenha na hora e o `getCurrentSession()` roda por baixo
+  // (stale-while-revalidate da propria sessao) — e por isso que a "pagina de
+  // carregamento verde" pode morrer sem virar tela branca.
+  //
+  // Sem cache, `loading` fica `true` ate o servidor responder e a tela fica
+  // neutra ate o redirect pro /login. Decidido com o Flavio: e o que ja
+  // acontecia abaixo do limiar de 480ms do loader antigo, e quem chega aqui sem
+  // cache quase sempre esta mesmo deslogado. Quem tiver cookie valido e cache
+  // limpo o /login devolve pro /dashboard (app/login/page.tsx).
+  //
+  // Descartado resolver a sessao no servidor: o service worker cacheia
+  // documentos — e e isso que faz o app abrir offline —, entao o HTML levaria
+  // nome e papel pro cache, inclusive depois do logout.
+  useIsomorphicLayoutEffect(() => {
+    const cached = readCachedSession();
+    if (cached) {
+      setSessionState(cached);
+      setLoading(false);
+    }
+  }, []);
 
-  useEffect(() => {
+  const revalidateSession = useCallback(() => {
     let active = true;
 
     getCurrentSession()
@@ -82,6 +110,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               : null;
           setFailureReason(maybeCode === 'SESSION_EXPIRED' ? 'session-expired' : 'session-ended');
           // 401 real: sessao acabou de verdade — o snapshot offline morre junto.
+          // E o unico jeito de revogacao no servidor chegar aqui, ja que a
+          // primeira pintura passou a vir do cache.
           clearCachedSession();
           setSessionState(null);
           return;
@@ -110,6 +140,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       active = false;
     };
   }, []);
+
+  useEffect(() => revalidateSession(), [revalidateSession]);
+
+  // Sessao revogada no servidor so aparece numa revalidacao. Antes da F2 toda
+  // navegacao fazia uma; agora nao faz nenhuma, entao o retorno do app ao
+  // primeiro plano e o momento que sobrou pra pegar isso. Sem poll: `sessao`
+  // nao muda sozinha, e cada checagem e round-trip ao banco.
+  useRevalidate({
+    subjects: ['sessao'],
+    enabled: true,
+    onRevalidate: () => {
+      revalidateSession();
+    },
+    pollMs: null,
+  });
 
   const replaceSession = useCallback((nextSession: SessionData | null) => {
     setSessionState(nextSession);
