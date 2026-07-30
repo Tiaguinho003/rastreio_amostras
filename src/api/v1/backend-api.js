@@ -196,10 +196,12 @@ function espelhoFileName(contractNumber, side) {
   return `espelho-corretagem-${String(contractNumber ?? '').replace('/', '-')}-${sideTag}.pdf`;
 }
 
-// Etiqueta de Aprovacao (modal aberto pela worklist de Aprovacoes). Valida/
-// normaliza as linhas { label, value } enviadas pelo modal; o agente as
-// renderiza como rotulo:valor (sem QR). Generico de proposito: o modal decide os
-// rotulos, o backend so sanitiza tamanho/forma e valida a contagem de lotes.
+// Etiqueta de Aprovacao (o formulario da ABA Aprovacao do detalhe do contrato —
+// RC-D126/D127; antes era um modal aberto pela worklist, e as duas coisas
+// morreram). Valida/normaliza as linhas { label, value } que o formulario envia;
+// o agente as renderiza como rotulo:valor (sem QR). Generico de proposito: quem
+// decide os rotulos e o front, o backend so sanitiza tamanho/forma e valida a
+// contagem de lotes.
 function normalizeCustomLabelLines(rawLines) {
   if (!Array.isArray(rawLines) || rawLines.length === 0) {
     throw new HttpError(422, 'lines deve ser uma lista nao vazia');
@@ -1262,7 +1264,8 @@ export function createBackendApiV1({
     // ============================================================
     // Aprovacao do contrato (Fase I — D112-D119): a Etiqueta de Aprovacao
     // vira marco AUDITADO. Prefill + envio auditado (o seletor de contratos
-    // do /samples saiu com a AP29 — geracao concentrada na sub-aba).
+    // do /samples saiu com a AP29; a sub-aba que o sucedeu morreu com a
+    // /embarques, e desde a RC-D126 a geracao e a ABA Aprovacao do detalhe).
     // Gate = qualquer autenticado nao-PROSPECTOR (metodos fora da allowlist
     // do prospector); SEM posse por contrato — excecao deliberada da
     // D110/D113: COMMERCIAL etiqueta contrato de terceiros por aqui, e
@@ -1303,8 +1306,8 @@ export function createBackendApiV1({
           throw new HttpError(404, 'Contrato nao encontrado');
         }
         // Portao AP17: so se gera etiqueta de contrato MARCADO ("Sim"). Defesa no
-        // backend — as portas (sub-aba, portao do faturar) so alcancam marcados,
-        // mas o gate fecha o caminho (ex.: contrato desmarcado depois).
+        // backend — a UI so busca o prefill quando `requiresApproval` (RC-D126),
+        // mas o gate fecha o caminho de quem chamar a rota direto.
         if (!contract.requiresApproval) {
           throw new HttpError(409, 'Contrato nao esta marcado para aprovacao', {
             code: 'APPROVAL_CONTRACT_NOT_MARKED',
@@ -2937,6 +2940,8 @@ export function createBackendApiV1({
     // Aprovacao (AP25-AP28): worklist da sub-aba. Auth-only (todos os nao-PROSPECTOR,
     // AP10/AP30 — SEM escopo por corretor). Paginada por cursor keyset
     // (?search/?limit/?cursor/?filter). PROSPECTOR barrado pelo allowlist central.
+    // ⚠️ SEM CONSUMIDOR DE UI desde a RC-D2 (a sub-aba morreu com a /embarques): de
+    // pe e testada, esperando a RC-F3 decidir se o recorte volta ou se ela sai.
     listSaleContractApprovals: (input) =>
       executeApiForInput(input, async () => {
         if (!saleContractService) {

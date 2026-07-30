@@ -22,7 +22,8 @@ import type { DashboardCalendarEvent } from '../../lib/types';
 type CalendarEvent = DashboardCalendarEvent;
 
 interface EventsCalendarCardProps {
-  /** Mapa 'YYYY-MM-DD' → eventos do dia (pagamento + embarque; DSB-D11 soma faturamento). */
+  /** Mapa 'YYYY-MM-DD' → eventos do dia. Dois feeds: pagamento e faturamento (DSB-D11) —
+   *  o de embarque foi apagado com o embarque inteiro (RC-D65). */
   events?: Record<string, CalendarEvent[]>;
   /** Emite a GRADE do mês visível (from..to 'YYYY-MM-DD') pro pai buscar o feed (E24/DSB-D18). */
   onWindowChange?: (from: string, to: string) => void;
@@ -35,8 +36,9 @@ interface EventsCalendarCardProps {
 // RC-D23: o destino de TODOS eles é o mesmo, o próprio CONTRATO. Antes cada tipo
 // apontava pra sub-aba dona (pagamento → Financeiro, embarque → Embarque,
 // faturamento → Contratos), e a DSB-D11 apagava o link quando o papel não abria
-// aquela aba. Com as fases dentro do contrato, não há aba nem papel a checar:
-// pagar, faturar e confirmar embarque moram todos lá. Evento sem contractId
+// aquela aba. Não há mais aba nem papel a checar — e desde a RC-D62 não há mais
+// ação a executar tampouco: pagar, faturar e embarcar deixaram de existir, e o
+// chip virou lembrete puro do que o documento marcou. Evento sem contractId
 // (nenhum feed atual) segue como rótulo inerte.
 function eventHref(event: CalendarEvent): string | null {
   if (!event.contractId) return null;
@@ -189,7 +191,7 @@ export function EventsCalendarCard({
               {dayEvents.length > 0 ? (
                 <div className="dd-events-day-list">
                   {dayEvents.map((event) => {
-                    // Navegação PURA → a sub-aba dona (a ação mora lá). Tipo
+                    // Navegação PURA → o próprio contrato (RC-D23). Tipo
                     // desconhecido vira chip só-rótulo (sem link). A cor sai do
                     // `data-state` (DSB-D10); `data-type` fica pra QA/semântica.
                     const href = eventHref(event);

@@ -1125,8 +1125,9 @@ export function clientAttachmentDownloadUrl(clientId: string, attachmentId: stri
 }
 
 // Aprovação (AP25-AP28): worklist paginada. Default 'a_enviar' (o param só vai quando
-// difere do default). Auth-only (todos os não-PROSPECTOR). Como a de embarque acima,
-// ficou SEM CONSUMIDOR de UI na RC-D2 e espera a RC-F3.
+// difere do default). Auth-only (todos os não-PROSPECTOR). ⚠️ SEM CONSUMIDOR desde a
+// RC-D2 — a sub-aba que a chamava morreu com a /embarques, e a de embarque que ficava
+// ao lado desta foi apagada de vez na RC-D65. Esta sobreviveu esperando a RC-F3.
 export function listApprovals(
   session: SessionData,
   query: { search?: string; limit?: number; cursor?: string; filter?: ApprovalFilter } = {},

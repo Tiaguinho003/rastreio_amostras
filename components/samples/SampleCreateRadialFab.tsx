@@ -4,8 +4,9 @@
 //
 // Tap abre um LEQUE (speed-dial) de 2 opções circulares
 // em ARCO de quarto de círculo que parecem sair de DENTRO do FAB: Lote sobe
-// ACIMA do FAB e Liga vai no DIAGONAL (45°). (A opção Aprovação saiu na AP29 —
-// a geração da etiqueta mora só na sub-aba Aprovações.) Ao abrir, o FAB encolhe,
+// ACIMA do FAB e Liga vai no DIAGONAL (45°). (A opção Aprovação saiu na AP29 — a
+// geração da etiqueta mora no contrato, hoje na ABA Aprovação do detalhe.) Ao
+// abrir, o FAB encolhe,
 // vira circular e o "+" gira 45° virando "×"; a página escurece (scrim no tier
 // de modal) e fica não-clicável. A tabbar é portalada no body (fora da isolation
 // do shell), então o scrim — preso DENTRO do shell — não a alcança por z-index.

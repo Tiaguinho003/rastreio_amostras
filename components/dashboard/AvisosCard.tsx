@@ -11,8 +11,9 @@ import type { DashboardAviso } from '../../lib/types';
 // BINÁRIO: o aviso some quando a etiqueta é gerada (o feed já filtra por
 // NOT EXISTS(approval_label_log)), sem o fan-out impreciso do lembrete antigo (DSB-D9).
 // Linhas CLICÁVEIS → o próprio CONTRATO (RC-D23; era a worklist de Aprovações, extinta
-// com a /embarques). A ação continua morando na casa: "Gerar etiqueta" agora é a seção
-// Aprovação do detalhe (RC-D25). 4 estados (erro/skeleton/vazio/dados).
+// com a /embarques). A ação continua morando na casa: "Gerar etiqueta" é a ABA
+// Aprovação do detalhe (RC-D25 levou pro detalhe; RC-D126 fez dela uma aba, com os
+// campos já à vista). 4 estados (erro/skeleton/vazio/dados).
 interface AvisosCardProps {
   items: DashboardAviso[] | null;
   error?: string | null;
