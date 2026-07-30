@@ -218,11 +218,12 @@ O critério que sobrevive às duas: **um form onde tudo está travado pode dispe
 que mistura não pode misturar as formas.** A vizinhança da linha resolve o caso de um travado isolado
 entre controles; o form inteiro decide quando são vários.
 
-Quando o form não é do kit `.fv-form-*` (a etiqueta usa `.nsv2-field-*`), a caixa travada copia a
-geometria **daquele** input — `.alm-locked-input` — e **precisa do override no tier desktop**: o
-`.nsv2-field-input` cresce lá (padding 1rem, borda 2px, radius 14px) e um travado preso no clamp
-mobile desalinha a linha. Vale para todo campo composto do form: o `.olc-wrap` dos chips tinha o
-mesmo problema.
+⚠️ **A etiqueta ficou fora do kit por um tempo e isso custou uma regra por consumidor.** Ela nasceu
+em `.nsv2-field-*` (o form de "Nova amostra"), então a caixa travada teve de copiar a geometria
+_daquele_ input, com override próprio no tier desktop — e o `.olc-wrap` dos chips, o mesmo. Na
+**RC-D127** ela migrou para `.fv-form-*` e as duas cópias sumiram junto com a família `.alm-*`. A
+lição: **campo travado fora do kit não é um desenho novo, é um kit errado.** Sobrou só o escopo do
+componente composto (`.ctr-approval-lots`, abaixo), que existe por outro motivo.
 
 `.ctr-locked-value` tem o peso do texto do formulário (0.92rem/600, `--ink`). `.ctr-locked-field`
 copia a geometria de `.fv-form-field input` — um `<p>` não é alcançado por aquele seletor, então ela
@@ -259,18 +260,18 @@ Quatro armadilhas, nesta ordem:
 
 As duas da tabela acima assumem que o valor é um texto. Quando o campo tem um **editor próprio**
 (chips, multi-select), a versão travada é o **mesmo componente em `disabled`**, não um `<p>` — o
-`OriginLotChips` já traz chip sem o ×, sem input e um `—` no vazio (RC-D100, `ApprovalLabelModal`).
+`OriginLotChips` já traz chip sem o ×, sem input e um `—` no vazio (RC-D100, `ApprovalLabelForm`).
 Trocar chips por uma string separada por vírgula faria o operador ler outra coisa que não o dado.
 
 ⚠️ **Confira o que o `disabled` do componente compartilhado faz com a legibilidade.** O
 `.olc-wrap.is-disabled` desbota por `opacity: .75`, o que é certo onde `disabled` significa "aguarde o
 save" (o detalhe do lote) e errado onde significa **travado permanentemente** — ali o conteúdo é
 justamente o que a pessoa precisa conferir antes de imprimir. Na etiqueta a regra é **escopada**
-(`.alm-lots-group .olc-wrap.is-disabled`): fundo recuado, `opacity: 1`. Um estado com dois
+(`.ctr-approval-lots .olc-wrap.is-disabled`): fundo recuado, `opacity: 1`. Um estado com dois
 significados precisa de dois desenhos, escopados — não de um desbotamento no meio.
 
 **E travado por MOTIVO escreve o motivo.** Quando o mesmo campo às vezes edita e às vezes não, o
-`lockReason` vem do servidor e vira uma frase (`.alm-field-hint`):
+`lockReason` vem do servidor e vira uma frase (`.ctr-locked-hint`, o mesmo molde da tabela acima):
 
 | lockReason        | Frase                                                             |
 | ----------------- | ----------------------------------------------------------------- |
