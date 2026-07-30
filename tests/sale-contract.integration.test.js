@@ -613,7 +613,7 @@ if (!databaseUrl || !databaseReachable) {
   // 200 com query VAZIA e filtrava/buscava/contava em memoria.
   // =========================================================================
 
-  test('RC-F6 lista: status e tipo sao MULTI e filtram no servidor', async () => {
+  test('RC-D118 lista: situacao (os 4 ESTADOS) e tipo sao MULTI e filtram no servidor', async () => {
     const emitido = await setupConfirmedContract({ lotNumber: '20120' });
     const finalizado = await setupConfirmedContract({ lotNumber: '20121' });
     await saleContractService.finalizeSaleContract(
@@ -634,9 +634,17 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(all.items.length, 3);
     assert.equal(all.total, 3);
 
+    // RC-D118: as quatro contagens vem SEMPRE, e sao independentes do filtro — sao
+    // elas que alimentam os cartoes de KPI, que sao tambem o filtro. Os fixtures
+    // nascem com paymentDate 2026-07-20; o que importa aqui e que os 2 EMITIDO
+    // (o a vista e o futuro) caem nos grupos vivos e somam 2.
+    assert.equal(all.counts.atraso + all.counts.aberto, 2);
+    assert.equal(all.counts.finalizado, 1);
+    assert.equal(all.counts.cancelado, 0);
+
     // Um valor so.
     const soFinalizado = await saleContractService.listSaleContracts(
-      { status: 'FINALIZADO' },
+      { state: 'finalizado' },
       adminActor
     );
     assert.deepEqual(
@@ -644,15 +652,18 @@ if (!databaseUrl || !databaseReachable) {
       [finalizado.contractId]
     );
     assert.equal(soFinalizado.total, 1);
+    // 🔴 As contagens NAO se mexem com o filtro: clicar num cartao filtra a lista e
+    // nao pode mudar os outros tres numeros (era o que um `where` unico faria).
+    assert.deepEqual(soFinalizado.counts, all.counts);
 
     // Multi por csv (como viaja na querystring) e por lista.
-    const doisStatus = await saleContractService.listSaleContracts(
-      { status: 'EMITIDO,FINALIZADO' },
+    const doisEstados = await saleContractService.listSaleContracts(
+      { state: 'aberto,atraso,finalizado' },
       adminActor
     );
-    assert.equal(doisStatus.items.length, 3); // o FUTURO tambem esta EMITIDO
+    assert.equal(doisEstados.items.length, 3); // o FUTURO tambem esta EMITIDO
     const porLista = await saleContractService.listSaleContracts(
-      { status: ['EMITIDO', 'FINALIZADO'] },
+      { state: ['aberto', 'atraso', 'finalizado'] },
       adminActor
     );
     assert.equal(porLista.items.length, 3);
@@ -670,9 +681,9 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(soVista.items.length, 2);
     assert.ok(soVista.items.every((i) => i.id !== futuro.id));
 
-    // Combinar status + tipo intersecta (AND), nao soma.
+    // Combinar situacao + tipo intersecta (AND), nao soma.
     const combinado = await saleContractService.listSaleContracts(
-      { status: 'EMITIDO', type: 'MERCADO_A_VISTA' },
+      { state: 'aberto,atraso', type: 'MERCADO_A_VISTA' },
       adminActor
     );
     assert.deepEqual(
@@ -680,10 +691,15 @@ if (!databaseUrl || !databaseReachable) {
       [emitido.contractId]
     );
 
-    // Valor invalido e 422 — ignorar em silencio devolveria a lista inteira.
+    // Valor invalido e 422 — ignorar em silencio devolveria a lista inteira. E o
+    // `status` do banco NAO e mais aceito aqui: o eixo virou o estado (RC-D118).
     await assert.rejects(
-      () => saleContractService.listSaleContracts({ status: 'QUITADO' }, adminActor),
-      (err) => err.status === 422 && err.details?.field === 'status'
+      () => saleContractService.listSaleContracts({ state: 'quitado' }, adminActor),
+      (err) => err.status === 422 && err.details?.field === 'state'
+    );
+    await assert.rejects(
+      () => saleContractService.listSaleContracts({ state: 'EMITIDO' }, adminActor),
+      (err) => err.status === 422 && err.details?.field === 'state'
     );
   });
 
@@ -806,49 +822,96 @@ if (!databaseUrl || !databaseReachable) {
     );
   });
 
-  test('RC-F6 lista: keyset por contractSeq nao repete nem pula, e total e do FILTRO', async () => {
-    const criados = [];
-    for (const lotNumber of ['20150', '20151', '20152', '20153', '20154']) {
-      criados.push((await setupConfirmedContract({ lotNumber })).contractId);
-    }
+  // RC-D117: a ordem da lista deixou de ser cadastro (`contractSeq desc`) e passou a
+  // ser URGENCIA, em quatro grupos de estado. As datas destes fixtures sao
+  // deliberadamente absurdas (2020 e 2099) para o teste nao depender do dia em que
+  // roda — com as datas do fixture default (2026), o grupo de cada contrato mudaria
+  // conforme o calendario avanca.
+  async function contractInState(lotNumber, saleOverrides) {
+    return setupConfirmedContract({ lotNumber, saleOverrides });
+  }
 
-    // Pagina 1: ordem contractSeq desc (mais novo primeiro).
-    const p1 = await saleContractService.listSaleContracts({ limit: 2 }, adminActor);
-    assert.equal(p1.items.length, 2);
-    assert.ok(p1.nextCursor, 'pagina cheia deve trazer cursor');
-    // O total e do filtro inteiro, NAO da pagina — e o que a toolbar mostra.
-    assert.equal(p1.total, 5);
-
-    const p2 = await saleContractService.listSaleContracts(
-      { limit: 2, cursor: p1.nextCursor },
+  test('RC-D117 lista: ordena por URGENCIA e o cursor atravessa os 4 grupos', async () => {
+    // g0 (atraso): venceu — o mais antigo primeiro.
+    const atrasoVelho = await contractInState('20150', {
+      invoiceDate: '2020-01-06',
+      paymentDate: '2020-01-10',
+    });
+    const atrasoNovo = await contractInState('20151', {
+      invoiceDate: '2020-01-06',
+      paymentDate: '2020-01-20',
+    });
+    // g1 (aberto): vence no futuro — o que vence mais perto primeiro.
+    const abertoPerto = await contractInState('20152', {
+      invoiceDate: '2099-01-05',
+      paymentDate: '2099-03-02',
+    });
+    const abertoLonge = await contractInState('20153', {
+      invoiceDate: '2099-01-05',
+      paymentDate: '2099-06-01',
+    });
+    // g1, cauda: "A definir" (D144) so existe no FUTURO, e fica no FIM do grupo.
+    const buyerId = randomUUID();
+    await createBuyerClient(buyerId);
+    const semData = (
+      await saleContractService.createFutureSaleContract(
+        await createFutureInput(buyerId, { invoiceDate: null, paymentDate: null }),
+        adminActor
+      )
+    ).contract;
+    // g2 (finalizado): a trava do "Finalizar" pede faturamento no passado (RC-D85).
+    const finalizado = await contractInState('20154', {
+      invoiceDate: '2020-01-02',
+      paymentDate: '2020-01-10',
+    });
+    await saleContractService.finalizeSaleContract(
+      finalizado.contractId,
+      { expectedVersion: finalizado.version },
       adminActor
     );
-    assert.equal(p2.items.length, 2);
-    assert.equal(p2.total, 5);
-
-    const p3 = await saleContractService.listSaleContracts(
-      { limit: 2, cursor: p2.nextCursor },
+    // g3 (cancelado).
+    const cancelado = await contractInState('20155', {
+      invoiceDate: '2099-01-05',
+      paymentDate: '2099-03-02',
+    });
+    await saleContractService.washoutSaleContract(
+      cancelado.contractId,
+      { expectedVersion: cancelado.version, reason: 'Caiu', washoutBillable: false },
       adminActor
     );
-    assert.equal(p3.items.length, 1);
-    assert.equal(p3.nextCursor, null, 'ultima pagina nao tem proxima');
 
-    // Sem repetir, sem pular e na ordem decrescente de seq.
-    const paginado = [...p1.items, ...p2.items, ...p3.items].map((i) => i.id);
-    assert.equal(new Set(paginado).size, 5);
-    assert.deepEqual([...paginado].sort(), [...criados].sort());
-    const seqs = [...p1.items, ...p2.items, ...p3.items].map((i) => i.contractSeq);
+    const esperado = [
+      atrasoVelho.contractId, // g0, pagamento 10/01/2020
+      atrasoNovo.contractId, // g0, pagamento 20/01/2020
+      abertoPerto.contractId, // g1, pagamento 02/03/2099
+      abertoLonge.contractId, // g1, pagamento 01/06/2099
+      semData.id, // g1, sem data -> cauda do grupo (nulls last)
+      finalizado.contractId, // g2
+      cancelado.contractId, // g3
+    ];
+
+    const tudo = await saleContractService.listSaleContracts({ limit: 50 }, adminActor);
     assert.deepEqual(
-      seqs,
-      [...seqs].sort((x, y) => y - x)
+      tudo.items.map((i) => i.id),
+      esperado
     );
+    assert.equal(tudo.total, 7);
 
-    // O cursor respeita o filtro: filtrando por tipo, o total acompanha.
-    const soVista = await saleContractService.listSaleContracts(
-      { type: 'MERCADO_A_VISTA', limit: 2 },
-      adminActor
-    );
-    assert.equal(soVista.total, 5);
+    // 🔴 O cursor tem que ATRAVESSAR os grupos sem repetir nem pular: com limit 2 a
+    // 2a pagina termina no meio do g1 e a 3a comeca nele e cai no g2. Era aqui que
+    // um keyset "so o g0 e por data" (o default do Financeiro) quebrava.
+    const paginado = [];
+    let cursor = null;
+    let voltas = 0;
+    do {
+      const page = await saleContractService.listSaleContracts({ limit: 2, cursor }, adminActor);
+      assert.equal(page.total, 7, 'o total e do filtro, nao da pagina');
+      paginado.push(...page.items.map((i) => i.id));
+      cursor = page.nextCursor;
+      voltas += 1;
+      assert.ok(voltas < 10, 'paginacao nao converge');
+    } while (cursor);
+    assert.deepEqual(paginado, esperado);
 
     // Cursor malformado cai na 1a pagina em vez de estourar.
     const lixo = await saleContractService.listSaleContracts(
@@ -857,8 +920,87 @@ if (!databaseUrl || !databaseReachable) {
     );
     assert.deepEqual(
       lixo.items.map((i) => i.id),
-      p1.items.map((i) => i.id)
+      esperado.slice(0, 2)
     );
+  });
+
+  test('RC-D118 lista: as 4 contagens sao a KPI row — por busca, e nao pela situacao', async () => {
+    const atrasado = await contractInState('20160', {
+      invoiceDate: '2020-01-06',
+      paymentDate: '2020-01-10',
+    });
+    const aberto = await contractInState('20161', {
+      invoiceDate: '2099-01-05',
+      paymentDate: '2099-03-02',
+    });
+    const finalizado = await contractInState('20162', {
+      invoiceDate: '2020-01-02',
+      paymentDate: '2020-01-10',
+    });
+    await saleContractService.finalizeSaleContract(
+      finalizado.contractId,
+      { expectedVersion: finalizado.version },
+      adminActor
+    );
+    const cancelado = await contractInState('20163', {
+      invoiceDate: '2099-01-05',
+      paymentDate: '2099-03-02',
+    });
+    await saleContractService.washoutSaleContract(
+      cancelado.contractId,
+      { expectedVersion: cancelado.version, reason: 'Caiu', washoutBillable: true },
+      adminActor
+    );
+
+    // A PARTICAO: um contrato em cada estado, e os quatro somam o total.
+    const base = await saleContractService.listSaleContracts({}, adminActor);
+    assert.deepEqual(base.counts, { atraso: 1, aberto: 1, finalizado: 1, cancelado: 1 });
+    assert.equal(
+      base.counts.atraso + base.counts.aberto + base.counts.finalizado + base.counts.cancelado,
+      base.total
+    );
+
+    // A situacao filtra a LISTA e nao mexe nos numeros (RC-D118): clicar num cartao
+    // nao pode alterar os outros tres.
+    for (const [state, id] of [
+      ['atraso', atrasado.contractId],
+      ['aberto', aberto.contractId],
+      ['finalizado', finalizado.contractId],
+      ['cancelado', cancelado.contractId],
+    ]) {
+      const filtrado = await saleContractService.listSaleContracts({ state }, adminActor);
+      assert.deepEqual(
+        filtrado.items.map((i) => i.id),
+        [id],
+        `estado ${state}`
+      );
+      assert.equal(filtrado.total, 1);
+      assert.deepEqual(filtrado.counts, base.counts, `contagens mexeram em ${state}`);
+    }
+
+    // Mas a BUSCA (e tipo/partes/periodo) recorta os numeros, senao os cartoes
+    // falariam de um conjunto e a lista de outro.
+    const detalhe = await saleContractService.getSaleContract(atrasado.contractId, adminActor);
+    const porBusca = await saleContractService.listSaleContracts(
+      { search: detalhe.contract.contractNumber },
+      adminActor
+    );
+    assert.deepEqual(porBusca.counts, { atraso: 1, aberto: 0, finalizado: 0, cancelado: 0 });
+    assert.equal(porBusca.total, 1);
+
+    // 🔴 `cancelado` aqui e TODO washout — no /financeiro e so o que COBRA
+    // (`washoutBillable`). A divergencia e deliberada: a lista mostra o que existe.
+    const naoCobra = await contractInState('20164', {
+      invoiceDate: '2099-01-05',
+      paymentDate: '2099-03-02',
+    });
+    await saleContractService.washoutSaleContract(
+      naoCobra.contractId,
+      { expectedVersion: naoCobra.version, reason: 'Caiu', washoutBillable: false },
+      adminActor
+    );
+    const comOsDois = await saleContractService.listSaleContracts({}, adminActor);
+    assert.equal(comOsDois.counts.cancelado, 2);
   });
 
   test('gestao de contratos: COMMERCIAL vê/detalha TODOS os contratos (escopo aberto)', async () => {

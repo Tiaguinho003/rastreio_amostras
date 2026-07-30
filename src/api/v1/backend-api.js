@@ -2889,12 +2889,15 @@ export function createBackendApiV1({
         }
         const actor = await resolveActorContext(input, authService);
         const query = input?.query ?? {};
-        // RC-F6: a lista virou servidor-side. `status` e `type` chegam como lista
-        // separada por virgula (sao multi-selecao na tela); `cursor` e o contractSeq.
+        // RC-F6: a lista virou servidor-side. `state` e `type` chegam como lista
+        // separada por virgula (sao multi-selecao na tela).
+        // RC-D117/D118: `cursor` e opaco (base64url {g,pd,seq}) porque a ordem e por
+        // grupo de estado; e o filtro de situacao e `state` (os 4 estados derivados),
+        // nao mais `status` (o enum de 3 do banco).
         const result = await saleContractService.listSaleContracts(
           {
             search: query.search,
-            status: query.status,
+            state: query.state,
             type: query.type,
             buyerClientId: query.buyerClientId,
             sellerClientId: query.sellerClientId,

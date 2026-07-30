@@ -12,16 +12,19 @@ import {
   buildContractTimeline,
   buildPartySnapshot,
   buildReceivableView,
-  decodeContractSeqCursor,
-  decodeReceivableCursor,
-  encodeReceivableCursor,
+  contractListGroups,
+  contractStateWhere,
+  CONTRACT_DATE_GROUPS,
+  CONTRACT_MAX_GROUP,
+  decodeGroupCursor,
+  encodeGroupCursor,
   normalizeContractPeriodFilter,
+  normalizeContractStateFilter,
   normalizeEnumFilterList,
   normalizeReceivableFilter,
   normalizeUuidFilter,
-  receivableKeysetWhere,
+  groupKeysetWhere,
   deriveContractAgenda,
-  deriveContractPhases,
   finalizeBlockReason,
   buildApprovalWorklistView,
   decodeApprovalWlCursor,
@@ -139,13 +142,23 @@ export class SaleContractService {
   // query VAZIA e resolvia tudo em memoria — acima do teto de 200 os contratos
   // sumiam sem aviso, a contagem exibida era a do array baixado e `?details=<id>`
   // de um contrato fora da pagina morria calado. Agora busca, filtros e paginacao
-  // (keyset por contractSeq) vivem aqui.
+  // vivem aqui.
+  //
+  // RC-D117: a ordem deixou de ser `contractSeq desc` (cadastro) e passou a ser
+  // URGENCIA — atrasado, depois o que vence mais perto, e os terminais no fim. Como
+  // isso e ordem por GRUPO DE ESTADO, a paginacao virou o cursor de 3 campos do
+  // Financeiro ({g, pd, seq}) no lugar do inteiro; o `decodeContractSeqCursor`
+  // morreu junto (era o unico chamador).
   async listSaleContracts(input, actorContext) {
     const actor = assertAuthenticatedActor(actorContext, 'list sale contracts');
     assertRoleAllowed(actor.role, SALE_CONTRACT_ACCESS_ROLES, 'list sale contracts');
 
+    const brtToday = brtTodayDateOnly();
     const search = typeof input?.search === 'string' ? input.search.trim() : '';
-    const statuses = normalizeEnumFilterList(input?.status, SALE_CONTRACT_STATUSES, 'status');
+    // RC-D118: o filtro de situacao passou a ser o ESTADO (4), nao o `status` do
+    // banco (3) — a KPI row e o painel escolhem a mesma coisa. O atraso deixou de ser
+    // um eixo escondido dentro do EMITIDO.
+    const states = normalizeContractStateFilter(input?.state);
     const types = normalizeEnumFilterList(input?.type, SALE_CONTRACT_TYPES, 'type');
     const buyerClientId = normalizeUuidFilter(input?.buyerClientId, 'buyerClientId');
     const sellerClientId = normalizeUuidFilter(input?.sellerClientId, 'sellerClientId');
@@ -154,21 +167,21 @@ export class SaleContractService {
       fallback: SALE_CONTRACT_LIST_LIMIT_DEFAULT,
       max: SALE_CONTRACT_LIST_LIMIT_MAX,
     });
-    const cursor = decodeContractSeqCursor(input?.cursor);
+    const cursor = decodeGroupCursor(input?.cursor, { maxGroup: CONTRACT_MAX_GROUP });
 
     // Filtros como lista AND (evita a chave OR da busca colidir com a do periodo).
-    // filterClauses (sem cursor) alimenta o count do total; pageWhere acrescenta o
-    // cursor — molde do listUsers.
-    const filterClauses = [];
-    if (statuses.length) filterClauses.push({ status: { in: statuses } });
-    if (types.length) filterClauses.push({ type: { in: types } });
-    if (buyerClientId) filterClauses.push({ buyerClientId });
-    if (sellerClientId) filterClauses.push({ sellerClientId });
+    // 🔴 `baseClauses` NAO carrega a situacao: ela vira GRUPO (abaixo) e fica de fora
+    // das contagens — senao o KPI mostraria so o estado escolhido, e clicar num
+    // cartao mexeria nos outros tres numeros.
+    const baseClauses = [];
+    if (types.length) baseClauses.push({ type: { in: types } });
+    if (buyerClientId) baseClauses.push({ buyerClientId });
+    if (sellerClientId) baseClauses.push({ sellerClientId });
     if (period.from || period.to) {
       const range = {};
       if (period.from) range.gte = period.from;
       if (period.to) range.lte = period.to;
-      filterClauses.push({ [period.field]: range });
+      baseClauses.push({ [period.field]: range });
     }
     if (search.length >= 1) {
       // As partes moram em JSON (seller_snapshot/buyer_snapshot) — ILIKE no `->>` e
@@ -176,7 +189,7 @@ export class SaleContractService {
       // nº da compra e o navegador buscava nº + nomes das partes: campos DIFERENTES
       // nos dois lados. Agora e a uniao dos quatro, num lugar so.
       const partyMatchIds = await this._searchPartyContractIds(search);
-      filterClauses.push({
+      baseClauses.push({
         OR: [
           { contractNumber: { contains: search, mode: 'insensitive' } },
           { purchaseNumber: { contains: search, mode: 'insensitive' } },
@@ -184,30 +197,95 @@ export class SaleContractService {
         ],
       });
     }
+    const baseWhere = baseClauses.length ? { AND: baseClauses } : {};
 
-    const filterWhere = filterClauses.length ? { AND: filterClauses } : {};
-    const pageWhere = cursor
-      ? { AND: [...filterClauses, { contractSeq: { lt: cursor } }] }
-      : filterWhere;
+    const groups = contractListGroups({ brtToday, states });
 
-    // take = limit + 1 detecta a proxima pagina sem um count extra por rolagem.
-    const [rows, total] = await this.prisma.$transaction([
-      this.prisma.saleContract.findMany({
-        where: pageWhere,
-        orderBy: [{ contractSeq: 'desc' }],
-        take: limit + 1,
-        select: SALE_CONTRACT_VIEW_SELECT,
-      }),
-      this.prisma.saleContract.count({ where: filterWhere }),
+    const [rows, counts] = await Promise.all([
+      this._contractPage({ baseWhere, groups, cursor, limit }),
+      this._contractStateCounts({ baseWhere, brtToday }),
     ]);
 
     const hasMore = rows.length > limit;
-    const pageRows = hasMore ? rows.slice(0, limit) : rows;
+    const page = hasMore ? rows.slice(0, limit) : rows;
+
+    // `total` respeita o filtro INTEIRO (e o que a contagem da toolbar mostra), logo
+    // ele soma so os grupos ativos — que estao nos `counts` por chave.
+    const total = groups.reduce((sum, group) => sum + counts[group.key], 0);
+
+    const last = page[page.length - 1];
+    const nextCursor = hasMore
+      ? encodeGroupCursor({
+          g: last.g,
+          pd: last.row.paymentDate ? last.row.paymentDate.toISOString().slice(0, 10) : null,
+          seq: last.row.contractSeq,
+        })
+      : null;
 
     return {
-      items: await this._withAgenda(pageRows),
-      nextCursor: hasMore ? String(pageRows[pageRows.length - 1].contractSeq) : null,
+      items: await this._withAgenda(page.map((entry) => entry.row)),
+      nextCursor,
       total,
+      counts,
+    };
+  }
+
+  // Spill entre grupos: varre a partir do grupo do cursor; so o grupo RETOMADO
+  // aplica o keyset (os seguintes comecam do zero — tudo neles vem depois).
+  // take=limit+1 detecta a proxima pagina. Em geral 1 query; ate 4 sem filtro.
+  // Molde do listBrokerReceivables, com os helpers de cursor compartilhados.
+  async _contractPage({ baseWhere, groups, cursor, limit }) {
+    // Cursor de grupo inativo (troca de filtro) e descartado: o front reseta o
+    // cursor ao trocar de filtro, e esta e a guarda defensiva.
+    const effectiveCursor = cursor && groups.some((gr) => gr.g === cursor.g) ? cursor : null;
+    const startG = effectiveCursor ? effectiveCursor.g : groups[0].g;
+
+    const entries = [];
+    for (const group of groups) {
+      if (group.g < startG) continue;
+      const need = limit + 1 - entries.length;
+      if (need <= 0) break;
+      const afterWhere =
+        group.g === startG && effectiveCursor
+          ? [groupKeysetWhere(effectiveCursor, { dateGroups: CONTRACT_DATE_GROUPS })]
+          : [];
+      const rows = await this.prisma.saleContract.findMany({
+        where: { AND: [baseWhere, group.where, ...afterWhere] },
+        orderBy: group.orderBy,
+        take: need,
+        select: SALE_CONTRACT_VIEW_SELECT,
+      });
+      for (const row of rows) entries.push({ row, g: group.g });
+      if (rows.length === need) break;
+    }
+    return entries;
+  }
+
+  // RC-D118: as quatro contagens que sao a KPI row — e que sao TAMBEM o filtro. Por
+  // `baseWhere` (busca/tipo/partes/periodo) e INDEPENDENTES da situacao ativa e do
+  // cursor: clicar num cartao filtra a lista e nao pode mexer nos outros tres
+  // numeros.
+  //
+  // 2 consultas, nao 4: os status vem de um groupBy, e so o "atraso" precisa de
+  // count proprio (e um recorte por data DENTRO do EMITIDO). "aberto" e a
+  // subtracao — o que garante que os dois nunca se sobreponham nem deixem buraco.
+  async _contractStateCounts({ baseWhere, brtToday }) {
+    const state = contractStateWhere(brtToday);
+    const [byStatus, atraso] = await this.prisma.$transaction([
+      this.prisma.saleContract.groupBy({
+        by: ['status'],
+        where: baseWhere,
+        _count: { _all: true },
+      }),
+      this.prisma.saleContract.count({ where: { AND: [baseWhere, state.atraso] } }),
+    ]);
+    const countOf = (status) =>
+      byStatus.find((entry) => entry.status === status)?._count?._all ?? 0;
+    return {
+      atraso,
+      aberto: countOf('EMITIDO') - atraso,
+      finalizado: countOf('FINALIZADO'),
+      cancelado: countOf('WASH_OUT'),
     };
   }
 
@@ -229,18 +307,14 @@ export class SaleContractService {
       });
       labeled = new Set(logs.map((log) => log.saleContractId));
     }
-    // RC-D80: a linha de fases sai DAQUI e nao de uma consulta propria — ela usa
-    // exatamente os mesmos ingredientes da agenda, entao nao custa nem uma query a
-    // mais. E, derivando do mesmo lugar, a linha e o texto ao lado dela nao tem como
-    // se contradizer na mesma celula.
-    return rows.map((row) => {
-      const input = agendaInputOf(row, labeled.has(row.id));
-      return {
-        ...toSaleContractView(row),
-        agenda: deriveContractAgenda(input, todayKey),
-        phases: deriveContractPhases(input, todayKey),
-      };
-    });
+    // RC-D116: a linha de 5 fases saiu daqui junto com o produto. A agenda ficou, e
+    // agora ela sozinha alimenta as DUAS pecas do card — a frase do proximo
+    // compromisso e o tom da barra de tempo. Derivando do mesmo lugar, elas nao tem
+    // como se contradizer no mesmo cartao.
+    return rows.map((row) => ({
+      ...toSaleContractView(row),
+      agenda: deriveContractAgenda(agendaInputOf(row, labeled.has(row.id)), todayKey),
+    }));
   }
 
   // A mesma agenda para UM contrato (o Detalhes). Deriva do mesmo lugar que a lista
@@ -291,7 +365,7 @@ export class SaleContractService {
       fallback: FINANCEIRO_LIST_LIMIT_DEFAULT,
       max: FINANCEIRO_LIST_LIMIT_MAX,
     });
-    const cursor = decodeReceivableCursor(input?.cursor);
+    const cursor = decodeGroupCursor(input?.cursor, { maxGroup: 2 });
     const search = typeof input?.search === 'string' ? input.search.trim() : '';
     const filter = normalizeReceivableFilter(input?.filter);
 
@@ -339,12 +413,17 @@ export class SaleContractService {
     // que e "vencido" — com duas expressoes paralelas, discordariam no primeiro ajuste.
     // Sao uma PARTICAO: disjuntos entre si e cobrindo o antigo `totalCommission`
     // (EMITIDO ∪ FINALIZADO ∪ washout que cobra), por isso ele saiu da resposta.
+    //
+    // RC-D117: os tres primeiros vem do `contractStateWhere` — a mesma definicao que
+    // /contratos usa. Era a MESMA expressao escrita duas vezes; o vocabulario e que
+    // difere (aqui a corretagem "vence" e e "recebida"; la o contrato "atrasa" e e
+    // "finalizado"). 🔴 O `cancelado` e a UNICA divergencia deliberada: aqui e so o
+    // washout que COBRA (RC-D89) — a carteira nao lista o que nao entra.
+    const CONTRACT_STATES = contractStateWhere(brtToday);
     const STATE_WHERE = {
-      vencido: { AND: [UNPAID, { paymentDate: { lt: brtToday } }] },
-      a_vencer: {
-        AND: [UNPAID, { OR: [{ paymentDate: { gte: brtToday } }, { paymentDate: null }] }],
-      },
-      recebida: { status: 'FINALIZADO' },
+      vencido: CONTRACT_STATES.atraso,
+      a_vencer: CONTRACT_STATES.aberto,
+      recebida: CONTRACT_STATES.finalizado,
       cancelado: WASHOUT_BILLABLE,
     };
     let groups;
@@ -377,8 +456,9 @@ export class SaleContractService {
       if (group.g < startG) continue;
       const need = limit + 1 - pageEntries.length;
       if (need <= 0) break;
+      // `dateGroups` default = [0]: aqui so o G0 e ordenado por vencimento.
       const afterWhere =
-        group.g === startG && effectiveCursor ? [receivableKeysetWhere(effectiveCursor)] : [];
+        group.g === startG && effectiveCursor ? [groupKeysetWhere(effectiveCursor)] : [];
       const rows = await this.prisma.saleContract.findMany({
         where: { AND: [filterWhere, group.where, ...afterWhere] },
         orderBy: group.orderBy,
@@ -427,7 +507,7 @@ export class SaleContractService {
     }
     const last = page[page.length - 1];
     const nextCursor = hasMore
-      ? encodeReceivableCursor({
+      ? encodeGroupCursor({
           g: last.g,
           pd: last.row.paymentDate ? last.row.paymentDate.toISOString().slice(0, 10) : null,
           seq: last.row.contractSeq,

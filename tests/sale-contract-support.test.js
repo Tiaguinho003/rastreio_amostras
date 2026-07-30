@@ -27,13 +27,19 @@ import {
   bucketInvoiceEvents,
   buildSaleContractDraftFromSale,
   computeContractMoney,
+  contractListGroups,
+  contractStateWhere,
+  CONTRACT_DATE_GROUPS,
+  CONTRACT_LIST_STATES,
+  CONTRACT_MAX_GROUP,
+  decodeGroupCursor,
   deriveContractAgenda,
-  deriveContractPhases,
+  encodeGroupCursor,
   finalizeBlockReason,
-  CONTRACT_PHASE_KEYS,
+  groupKeysetWhere,
   computeContractMoneyWithAgio,
-  decodeContractSeqCursor,
   formatContractNumber,
+  normalizeContractStateFilter,
   isFutureContract,
   isSpotContract,
   isWashoutNotBillable,
@@ -1599,18 +1605,6 @@ test('normalizeContractPeriodFilter: base/data invalida e janela invertida sao 4
   );
 });
 
-test('decodeContractSeqCursor: seq positivo; lixo vira 1a pagina', () => {
-  assert.equal(decodeContractSeqCursor('42'), 42);
-  assert.equal(decodeContractSeqCursor(42), 42);
-  assert.equal(decodeContractSeqCursor(undefined), null);
-  assert.equal(decodeContractSeqCursor(''), null);
-  // Cursor malformado nao explode: cai na 1a pagina (molde do Financeiro).
-  assert.equal(decodeContractSeqCursor('abc'), null);
-  assert.equal(decodeContractSeqCursor('1.5'), null);
-  assert.equal(decodeContractSeqCursor('-1'), null);
-  assert.equal(decodeContractSeqCursor('0'), null);
-});
-
 // ── RC-D68: deriveContractAgenda — o proximo compromisso do contrato ─────────
 // O coracao da reforma: a coluna "Situacao" deixa de ser rotulo de fase e passa a
 // dizer o que este contrato ainda vai pedir. Tudo derivado; nada mantido a mao.
@@ -1735,149 +1729,154 @@ test('deriveContractAgenda: sem data nenhuma -> nenhum compromisso', () => {
   });
 });
 
-// ── RC-D80..D83: deriveContractPhases — as cinco luzes da linha da lista ─────
-// Reusa `agendaRow` de proposito: as duas derivacoes comem os MESMOS ingredientes,
-// e e isso que impede a linha de contradizer o chip ao lado dela na mesma celula.
+// ── RC-D117: os quatro estados da lista, os grupos e o cursor ────────────────
+// 🔴 A PARTICAO e o que faz os quatro cartoes de KPI somarem o total (RC-D118).
+// Nao ha como afirmar isso sobre um objeto Prisma, entao o que se testa aqui e a
+// forma dos grupos (chaves, ordem, recorte pelo filtro) — a exaustividade em si e
+// verificada contra o banco na integracao.
 
-const phaseStates = (row, todayKey) =>
-  deriveContractPhases(row, todayKey).points.map((point) => point.state);
+const brtToday = new Date('2026-07-10T00:00:00.000Z');
 
-test('deriveContractPhases: os pontos sao sempre 5, na ordem do documento', () => {
-  const phases = deriveContractPhases(agendaRow(), '2026-07-10');
-  assert.deepEqual(
-    phases.points.map((point) => point.key),
-    ['emissao', 'aprovacao', 'embarque', 'faturamento', 'pagamento']
-  );
-  assert.deepEqual(
-    [...CONTRACT_PHASE_KEYS],
-    phases.points.map((point) => point.key)
-  );
+test('contractStateWhere: os quatro estados existem e recortam por status + data', () => {
+  const state = contractStateWhere(brtToday);
+  assert.deepEqual(Object.keys(state).sort(), [...CONTRACT_LIST_STATES].sort());
+  // Os dois vivos partem o MESMO status pelo pagamento: atraso = venceu; aberto =
+  // vence hoje ou depois, OU nao tem data ("A definir", D144). Nao ha terceiro
+  // caso, e e por isso que `aberto = EMITIDO - atraso` no service e exato.
+  assert.deepEqual(state.atraso.AND[0], { status: 'EMITIDO' });
+  assert.deepEqual(state.atraso.AND[1], { paymentDate: { lt: brtToday } });
+  assert.deepEqual(state.aberto.AND[0], { status: 'EMITIDO' });
+  assert.deepEqual(state.aberto.AND[1], {
+    OR: [{ paymentDate: { gte: brtToday } }, { paymentDate: null }],
+  });
+  // Os terminais nao olham data nenhuma. 🔴 `cancelado` e TODO washout — o
+  // /financeiro filtra por `washoutBillable`, e essa divergencia e deliberada.
+  assert.deepEqual(state.finalizado, { status: 'FINALIZADO' });
+  assert.deepEqual(state.cancelado, { status: 'WASH_OUT' });
 });
 
-test('deriveContractPhases: emissao acesa sempre — o contrato existe, logo foi emitido', () => {
-  for (const status of ['EMITIDO', 'FINALIZADO', 'WASH_OUT']) {
-    assert.equal(
-      deriveContractPhases(agendaRow({ status }), '2026-07-10').points[0].state,
-      'feito'
-    );
-  }
+test('contractListGroups: sem filtro sao os 4, na ordem de urgencia', () => {
+  const groups = contractListGroups({ brtToday });
+  assert.deepEqual(
+    groups.map((g) => g.key),
+    ['atraso', 'aberto', 'finalizado', 'cancelado']
+  );
+  // O indice do grupo E a posicao: o cursor viaja com ele, entao trocar a ordem
+  // sem trocar o `g` faria a paginacao pular contratos.
+  assert.deepEqual(
+    groups.map((g) => g.g),
+    [0, 1, 2, 3]
+  );
+  assert.equal(groups[groups.length - 1].g, CONTRACT_MAX_GROUP);
 });
 
-test('deriveContractPhases: aprovacao nao marcada vira "na" e mantem o slot (RC-D81)', () => {
-  assert.deepEqual(phaseStates(agendaRow({ requiresApproval: false }), '2026-07-10'), [
-    'feito',
-    'na',
-    'pendente',
-    'pendente',
-    'pendente',
+test('contractListGroups: os dois vivos ordenam por vencimento; os terminais, por seq desc', () => {
+  const groups = contractListGroups({ brtToday });
+  // Os dois vivos compartilham a MESMA expressao de ordem — e o que autoriza um
+  // `groupKeysetWhere` unico para ambos (`CONTRACT_DATE_GROUPS`).
+  assert.deepEqual(groups[0].orderBy, groups[1].orderBy);
+  assert.deepEqual(groups[0].orderBy, [
+    { paymentDate: { sort: 'asc', nulls: 'last' } },
+    { contractSeq: 'asc' },
   ]);
+  assert.deepEqual([...CONTRACT_DATE_GROUPS], [groups[0].g, groups[1].g]);
+  // Arquivo se le do mais novo.
+  assert.deepEqual(groups[2].orderBy, [{ contractSeq: 'desc' }]);
+  assert.deepEqual(groups[3].orderBy, [{ contractSeq: 'desc' }]);
 });
 
-test('deriveContractPhases: a etiqueta emitida acende a aprovacao', () => {
-  const row = agendaRow({ requiresApproval: true });
-  assert.equal(deriveContractPhases(row, '2026-07-10').points[1].state, 'pendente');
+test('contractListGroups: o filtro escolhe os grupos (um eixo so, RC-D118)', () => {
+  assert.deepEqual(
+    contractListGroups({ brtToday, states: ['atraso'] }).map((g) => g.key),
+    ['atraso']
+  );
+  // Multi mantem a ordem de URGENCIA, nao a ordem em que o usuario marcou.
+  assert.deepEqual(
+    contractListGroups({ brtToday, states: ['cancelado', 'aberto'] }).map((g) => g.key),
+    ['aberto', 'cancelado']
+  );
+  // Vazio = sem filtro, nao "nenhum".
+  assert.equal(contractListGroups({ brtToday, states: [] }).length, 4);
+});
+
+test('normalizeContractStateFilter: csv, lista, dedup; invalido e 422', () => {
+  assert.deepEqual(normalizeContractStateFilter('atraso,aberto'), ['atraso', 'aberto']);
+  assert.deepEqual(normalizeContractStateFilter(['ATRASO', ' atraso ']), ['atraso']);
+  assert.deepEqual(normalizeContractStateFilter(undefined), []);
+  assert.deepEqual(normalizeContractStateFilter(''), []);
+  // Ignorar em silencio devolveria a lista inteira sem ninguem perceber.
+  assert.throws(
+    () => normalizeContractStateFilter('quitado'),
+    (err) => err.status === 422 && err.details?.field === 'state'
+  );
+});
+
+test('decodeGroupCursor: round-trip e teto de grupo por pagina', () => {
+  const cursor = { g: 3, pd: '2026-07-10', seq: 42 };
+  assert.deepEqual(decodeGroupCursor(encodeGroupCursor(cursor), { maxGroup: 3 }), cursor);
+  // 🔴 O teto e por PAGINA: o cursor do g3 de /contratos nao pode ser aceito pelo
+  // /financeiro, que so tem 3 grupos — cursor de outra lista vira 1a pagina.
+  assert.equal(decodeGroupCursor(encodeGroupCursor(cursor), { maxGroup: 2 }), null);
+  assert.deepEqual(
+    decodeGroupCursor(encodeGroupCursor({ g: 0, pd: null, seq: 7 }), { maxGroup: 3 }),
+    { g: 0, pd: null, seq: 7 }
+  );
+  // Malformado nao explode: cai na 1a pagina.
+  assert.equal(decodeGroupCursor('nao-e-base64url-de-json', { maxGroup: 3 }), null);
+  assert.equal(decodeGroupCursor('', { maxGroup: 3 }), null);
+  assert.equal(decodeGroupCursor(undefined, { maxGroup: 3 }), null);
   assert.equal(
-    deriveContractPhases({ ...row, hasApprovalLabel: true }, '2026-07-10').points[1].state,
-    'feito'
+    decodeGroupCursor(encodeGroupCursor({ g: 0, pd: '10/07/2026', seq: 1 }), { maxGroup: 3 }),
+    null
+  );
+  assert.equal(
+    decodeGroupCursor(encodeGroupCursor({ g: -1, pd: null, seq: 1 }), { maxGroup: 3 }),
+    null
   );
 });
 
-test('deriveContractPhases (RC-D76/D81): embarque e faturamento NUNCA divergem', () => {
-  for (const invoiceDate of [null, '2026-07-01T00:00:00.000Z', '2026-07-30T00:00:00.000Z']) {
-    const states = phaseStates(agendaRow({ invoiceDate }), '2026-07-10');
-    assert.equal(states[2], states[3]);
-  }
+test('groupKeysetWhere: o /financeiro (default dateGroups=[0]) segue intacto', () => {
+  // O helper ganhou um 2o chamador quando /contratos passou a ordenar por
+  // urgencia. Se ele quebrar, quebra a CARTEIRA tambem — por isso o default
+  // continua sendo exatamente o que o Financeiro precisava.
+  const pd = new Date('2026-07-10T00:00:00.000Z');
+  assert.deepEqual(groupKeysetWhere({ g: 0, pd: '2026-07-10', seq: 5 }), {
+    OR: [
+      { paymentDate: { gt: pd } },
+      { paymentDate: null },
+      { AND: [{ paymentDate: pd }, { contractSeq: { gt: 5 } }] },
+    ],
+  });
+  // Cauda dos nulos (nulls-last): dali pra frente so o seq avanca.
+  assert.deepEqual(groupKeysetWhere({ g: 0, pd: null, seq: 5 }), {
+    AND: [{ paymentDate: null }, { contractSeq: { gt: 5 } }],
+  });
+  // Arquivo (seq desc): "depois" = seq menor.
+  assert.deepEqual(groupKeysetWhere({ g: 1, pd: null, seq: 5 }), { contractSeq: { lt: 5 } });
+  assert.deepEqual(groupKeysetWhere({ g: 2, pd: '2026-07-10', seq: 5 }), {
+    contractSeq: { lt: 5 },
+  });
 });
 
-test('deriveContractPhases (RC-D77): faturamento acende so DEPOIS do dia, nunca nele', () => {
-  // No proprio dia a agenda ainda diz "Fatura em 10/07" — ponto cheio contradiria
-  // a frase ao lado, na mesma celula.
-  const noDia = agendaRow({ invoiceDate: '2026-07-10T00:00:00.000Z' });
-  assert.equal(deriveContractAgenda(noDia, '2026-07-10').kind, 'faturamento');
-  assert.equal(phaseStates(noDia, '2026-07-10')[3], 'pendente');
-  assert.equal(phaseStates(noDia, '2026-07-11')[3], 'feito');
-});
-
-test('deriveContractPhases: data "a definir" (D144) nao acende nada', () => {
-  assert.deepEqual(phaseStates(agendaRow({ invoiceDate: null }), '2026-07-10').slice(2, 4), [
-    'pendente',
-    'pendente',
-  ]);
-});
-
-test('deriveContractPhases (RC-D79): o pagamento acende por ACAO, nunca por data', () => {
-  const vencido = agendaRow({ paymentDate: '2026-07-01T00:00:00.000Z' });
-  // Pagamento vencido continua APAGADO: o vermelho do atraso e do chip (RC-D83).
-  assert.equal(deriveContractAgenda(vencido, '2026-07-10').kind, 'pagamento_vencido');
-  assert.equal(phaseStates(vencido, '2026-07-10')[4], 'pendente');
-  assert.equal(phaseStates({ ...vencido, status: 'FINALIZADO' }, '2026-07-10')[4], 'feito');
-});
-
-test('deriveContractPhases (RC-D84): finalizar da TODAS as fases por completas', () => {
-  // EFEITO, nao condicao — o portao segue morto (RC-D66). ⚠️ Consequencia aceita:
-  // o contrato finalizado sem a etiqueta ter saido mostra a aprovacao CHEIA.
-  assert.deepEqual(
-    phaseStates(
-      agendaRow({
-        status: 'FINALIZADO',
-        requiresApproval: true,
-        hasApprovalLabel: false,
-        invoiceDate: '2026-08-12T00:00:00.000Z',
-      }),
-      '2026-07-10'
-    ),
-    ['feito', 'feito', 'feito', 'feito', 'feito']
-  );
-});
-
-test('deriveContractPhases (RC-D84): o "na" sobrevive — fase que nao existe nao completa', () => {
-  assert.deepEqual(
-    phaseStates(agendaRow({ status: 'FINALIZADO', requiresApproval: false }), '2026-07-10'),
-    ['feito', 'na', 'feito', 'feito', 'feito']
-  );
-});
-
-test('deriveContractPhases: 🔴 o BURACO segue legitimo ENQUANTO o contrato vive', () => {
-  // Antes de finalizar, a linha nao esconde nada: marcado, etiqueta nao enviada e
-  // a data ja passada = furo no meio. Quem "consertar" isso reintroduz o portao.
-  assert.deepEqual(
-    phaseStates(
-      agendaRow({
-        status: 'EMITIDO',
-        requiresApproval: true,
-        hasApprovalLabel: false,
-        invoiceDate: '2026-07-01T00:00:00.000Z',
-      }),
-      '2026-07-10'
-    ),
-    ['feito', 'pendente', 'feito', 'feito', 'pendente']
-  );
-});
-
-test('deriveContractPhases: washout marca a linha e preserva o que ja tinha acontecido', () => {
-  const phases = deriveContractPhases(
-    agendaRow({
-      status: 'WASH_OUT',
-      requiresApproval: true,
-      hasApprovalLabel: true,
-      invoiceDate: '2026-07-01T00:00:00.000Z',
-    }),
-    '2026-07-10'
-  );
-  assert.equal(phases.cancelado, true);
-  assert.deepEqual(
-    phases.points.map((point) => point.state),
-    ['feito', 'feito', 'feito', 'feito', 'pendente']
-  );
-  // O contrato vivo nao carrega a marca.
-  assert.equal(deriveContractPhases(agendaRow(), '2026-07-10').cancelado, false);
-});
-
-test('deriveContractPhases: sem todayKey nada e afirmado por data', () => {
-  assert.deepEqual(
-    phaseStates(agendaRow({ invoiceDate: '2026-01-01T00:00:00.000Z' }), null).slice(2, 4),
-    ['pendente', 'pendente']
-  );
+test('groupKeysetWhere: em /contratos o g1 TAMBEM e por data', () => {
+  // Sem isto o grupo "aberto" pagina como arquivo e o keyset compara a coluna
+  // errada — a rolagem repetiria e pularia contratos no meio do grupo.
+  const opts = { dateGroups: CONTRACT_DATE_GROUPS };
+  const pd = new Date('2026-08-20T00:00:00.000Z');
+  assert.deepEqual(groupKeysetWhere({ g: 1, pd: '2026-08-20', seq: 9 }, opts), {
+    OR: [
+      { paymentDate: { gt: pd } },
+      { paymentDate: null },
+      { AND: [{ paymentDate: pd }, { contractSeq: { gt: 9 } }] },
+    ],
+  });
+  // E os terminais seguem sendo arquivo.
+  assert.deepEqual(groupKeysetWhere({ g: 2, pd: null, seq: 9 }, opts), {
+    contractSeq: { lt: 9 },
+  });
+  assert.deepEqual(groupKeysetWhere({ g: 3, pd: null, seq: 9 }, opts), {
+    contractSeq: { lt: 9 },
+  });
 });
 
 // ── RC-D85/D86: finalizeBlockReason — a unica trava do "Finalizar" ───────────
@@ -1896,14 +1895,22 @@ test('finalizeBlockReason (RC-D86): sem data planejada nao finaliza', () => {
   assert.equal(finalizeBlockReason({ invoiceDate: null }, '2026-07-12'), 'invoice_date_missing');
 });
 
-test('finalizeBlockReason: o dia em que libera e ANTES do ponto do faturamento acender', () => {
-  // As duas regras usam a mesma data com corte diferente, de proposito: dia 12 ja
-  // finaliza, mas a linha so acende no 13 — e a RC-D84 tapa o vao, porque quem
-  // finalizou no 12 ja tem a linha inteira cheia.
+test('finalizeBlockReason: no dia do faturamento ja libera, e a agenda ainda cobra ele', () => {
+  // As duas regras leem a mesma data com corte diferente, de proposito: no dia 12 o
+  // "Finalizar" JA esta liberado ("a partir de", RC-D85) e a agenda ainda diz
+  // "faturamento" — porque a nota nao foi observada, so planejada. As duas coisas
+  // convivem no mesmo cartao: a frase cobra, o menu permite.
   const row = agendaRow({ invoiceDate: '2026-07-12T00:00:00.000Z' });
   assert.equal(finalizeBlockReason(row, '2026-07-12'), null);
-  assert.equal(phaseStates(row, '2026-07-12')[3], 'pendente');
-  assert.equal(phaseStates({ ...row, status: 'FINALIZADO' }, '2026-07-12')[3], 'feito');
+  assert.deepEqual(deriveContractAgenda(row, '2026-07-12'), {
+    kind: 'faturamento',
+    dayKey: '2026-07-12',
+  });
+  // Finalizado, o compromisso desaparece — nao ha mais o que cobrar.
+  assert.equal(
+    deriveContractAgenda({ ...row, status: 'FINALIZADO' }, '2026-07-12').kind,
+    'finalizado'
+  );
 });
 
 // ── RC-D111: o front pergunta a MESMA coisa que o backend ────────────────────

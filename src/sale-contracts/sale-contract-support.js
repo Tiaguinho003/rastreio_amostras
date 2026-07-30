@@ -532,79 +532,12 @@ export function deriveContractAgenda(
   return { kind: 'nenhum', dayKey: null };
 }
 
-// ------------------------------------------------------------
-// As cinco fases (RC-D80..D83) — a linha de progressao da lista
-// ------------------------------------------------------------
-
-// 🔴 NAO E BARRA DE PROGRESSO — sao CINCO LUZES. Cada ponto acende pelo seu proprio
-// criterio, independente dos outros, porque no modelo da §6 nada trava nada: da pra
-// FINALIZAR sem ter enviado a aprovacao (RC-D66 matou o portao) e pagar antes do
-// faturamento. Logo `● ○ ● ● ●` (buraco no meio) e `● ● ○ ○ ●` (cheio na ponta) sao
-// estados LEGITIMOS, nao inconsistencia a corrigir. Quem tentar "consertar" isso
-// forcando ordem vai reintroduzir o portao que a §6 derrubou.
-export const CONTRACT_PHASE_KEYS = Object.freeze([
-  'emissao',
-  'aprovacao',
-  'embarque',
-  'faturamento',
-  'pagamento',
-]);
-
-// Estados do ponto. `na` = a fase nao existe neste contrato (aprovacao nao marcada);
-// o slot fica assim mesmo, porque a linha vive numa TABELA e 5 pontos em toda linha
-// e o que mantem as colunas alinhadas entre contratos.
-export const CONTRACT_PHASE_STATES = Object.freeze(['feito', 'pendente', 'na']);
-
-// Mesmos ingredientes da agenda (`agendaInputOf`) — de proposito: se a linha e a
-// coluna "Situacao" derivassem de fontes diferentes, elas poderiam se contradizer na
-// mesma celula. `paymentDate` entra na assinatura e nao e lido: o pagamento marca por
-// ACAO (RC-D79), nunca por data.
-export function deriveContractPhases(
-  { status, requiresApproval = false, hasApprovalLabel = false, invoiceDate = null },
-  todayKey
-) {
-  const invoiceDayKey = dayKeyOf(invoiceDate);
-  // RC-D77: embarque e faturamento marcam quando a data PASSA — eles nao deixam
-  // rastro, entao aqui o ✓ afirma o que o sistema nao observou (escolha do Flavio,
-  // contra a recomendacao). Estritamente passada: no proprio dia a agenda ainda diz
-  // "Fatura em 12/08", e um ponto cheio na mesma celula contradiria a frase ao lado.
-  // Sem data ("A definir", D144) nao ha o que afirmar: pendente.
-  const invoiceDayPassed = Boolean(invoiceDayKey && todayKey && invoiceDayKey < todayKey);
-  // RC-D84: finalizar da o contrato inteiro por cumprido — a linha enche. E EFEITO,
-  // nao condicao: o portao continua morto (RC-D66), ninguem precisa completar fase
-  // nenhuma para poder finalizar.
-  // ⚠️ Consequencia aceita: contrato finalizado SEM a etiqueta de aprovacao ter
-  // saido passa a mostrar a aprovacao cheia. Como o aviso tambem some ao finalizar
-  // (getDashboardAvisos filtra status='EMITIDO'), o fato sai do app. O Flavio viu
-  // esse caso no preview e escolheu assim.
-  const done = status === 'FINALIZADO';
-  return {
-    // Washout nao e fase — e o fim. A linha para de valer inteira (a UI esmaece e
-    // fecha com ✕), mas os pontos seguem derivados: o que ja tinha acontecido
-    // aconteceu.
-    cancelado: status === 'WASH_OUT',
-    points: [
-      // O contrato existe, logo foi emitido. Nao ha caso em que este ponto esteja
-      // vazio — e por isso a emissao nunca aparece como pendencia em lugar nenhum.
-      { key: 'emissao', state: 'feito' },
-      {
-        // O `na` sobrevive ao FINALIZADO de proposito: uma fase que nao existe
-        // neste contrato nao tem como estar completa. "Todas as fases completas"
-        // (RC-D84) e sobre as que se aplicam.
-        key: 'aprovacao',
-        state: !requiresApproval ? 'na' : hasApprovalLabel || done ? 'feito' : 'pendente',
-      },
-      // RC-D76/D81: os dois leem o MESMO `invoiceDate`, entao nunca aparecem em
-      // estados diferentes. Sao dois pontos por decisao do Flavio (as fases sao
-      // distintas mesmo caindo no mesmo dia), com essa consequencia aceita.
-      { key: 'embarque', state: invoiceDayPassed || done ? 'feito' : 'pendente' },
-      { key: 'faturamento', state: invoiceDayPassed || done ? 'feito' : 'pendente' },
-      // RC-D79: "Finalizar" = o pagamento entrou. A data e previsao; o ATRASO dela
-      // fica na coluna "Situacao" (RC-D83), nao aqui — a linha nao tem vermelho.
-      { key: 'pagamento', state: done ? 'feito' : 'pendente' },
-    ],
-  };
-}
+// RC-D116: a linha das CINCO FASES (RC-D80..D83) foi APAGADA do produto — o
+// `deriveContractPhases` vivia aqui, ao lado da agenda e dos mesmos ingredientes.
+// A lista deixou de ser tabela (RC-D112) e o que o card mostra agora e uma barra de
+// TEMPO (emissao -> pagamento) com a frase do proximo compromisso; as duas coisas
+// saem da agenda, que fica. Nao economizou consulta nenhuma ao sair: o `groupBy` da
+// etiqueta de aprovacao e da agenda.
 
 // RC-D85/D86: "Finalizar" so a partir da DATA DE FATURAMENTO — antes dela nao houve
 // nota, logo nao houve pagamento a declarar. Inclui o proprio dia ("a partir de").
@@ -928,20 +861,36 @@ export function normalizeReceivableFilter(raw) {
   return typeof raw === 'string' && RECEIVABLE_FILTERS.includes(raw) ? raw : 'todos';
 }
 
-// Revisao do Pagamento (FN4): cursor keyset opaco do Financeiro. {g, pd, seq}:
-// g = grupo (0 em aberto / 1 recebida / 2 cancelado); pd = 'YYYY-MM-DD'|null (so
-// importa em G0, ordenado por paymentDate asc nulls-last); seq = contractSeq (tiebreak
-// unico e monotonico). base64url pra viajar como string opaca na querystring.
-export function encodeReceivableCursor(cursor) {
+// Cursor keyset opaco das listas paginadas por GRUPO DE ESTADO — o Financeiro
+// (FN4) e, desde a RC-D117, a lista de /contratos. {g, pd, seq}: g = indice do
+// grupo; pd = 'YYYY-MM-DD'|null (so importa nos grupos ordenados por data, ver
+// `groupKeysetWhere`); seq = contractSeq (tiebreak unico e monotonico). base64url
+// pra viajar como string opaca na querystring.
+//
+// 🔴 DOIS chamadores. Estes tres helpers nasceram so do Financeiro (`*Receivable*`)
+// e foram generalizados quando /contratos passou a ordenar por urgencia: o que era
+// fixo no corpo (teto de 3 grupos, "so o g0 e por data") virou parametro. Quebrar
+// um deles quebra a carteira TAMBEM — os testes cobrem as duas formas de proposito.
+export function encodeGroupCursor(cursor) {
   return Buffer.from(JSON.stringify(cursor), 'utf8').toString('base64url');
 }
 
-export function decodeReceivableCursor(raw) {
+// `maxGroup` = maior indice de grupo que a pagina tem (2 no Financeiro, 3 em
+// /contratos). Cursor de um grupo inexistente vira 1a pagina, como todo cursor
+// malformado.
+export function decodeGroupCursor(raw, { maxGroup }) {
   if (typeof raw !== 'string' || raw === '') return null;
   try {
     const p = JSON.parse(Buffer.from(raw, 'base64url').toString('utf8'));
     const okPd = p?.pd === null || (typeof p?.pd === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(p.pd));
-    if (p && Number.isInteger(p.g) && p.g >= 0 && p.g <= 2 && Number.isInteger(p.seq) && okPd) {
+    if (
+      p &&
+      Number.isInteger(p.g) &&
+      p.g >= 0 &&
+      p.g <= maxGroup &&
+      Number.isInteger(p.seq) &&
+      okPd
+    ) {
       return { g: p.g, pd: p.pd, seq: p.seq };
     }
   } catch {
@@ -951,11 +900,11 @@ export function decodeReceivableCursor(raw) {
 }
 
 // Fragmento Prisma "estritamente DEPOIS do cursor, DENTRO do grupo cursor.g".
-// G0 (nao-pago), ordem (paymentDate asc nulls-last, contractSeq asc): avanca pela
-// data e, na cauda dos nulos, so por seq. G1/G2 (arquivo), ordem contractSeq desc:
-// "depois" = seq menor.
-export function receivableKeysetWhere(cursor) {
-  if (cursor.g === 0) {
+// Grupo em `dateGroups`, ordem (paymentDate asc nulls-last, contractSeq asc):
+// avanca pela data e, na cauda dos nulos, so por seq. Os demais (arquivo), ordem
+// contractSeq desc: "depois" = seq menor.
+export function groupKeysetWhere(cursor, { dateGroups = [0] } = {}) {
+  if (dateGroups.includes(cursor.g)) {
     const seqGt = { contractSeq: { gt: cursor.seq } };
     if (cursor.pd === null) {
       return { AND: [{ paymentDate: null }, seqGt] };
@@ -1067,14 +1016,91 @@ function normalizeFilterDate(value, fieldName) {
   return date;
 }
 
-// Cursor da lista de contratos. A ordem e `contractSeq desc` — coluna UNICA e
-// monotonica —, entao o cursor E o proprio seq: nao ha tupla a esconder, ao
-// contrario do cursor de 3 campos do Financeiro (que precisa de base64url).
-// Cursor malformado vira 1a pagina, mesmo molde do decodeReceivableCursor.
-export function decodeContractSeqCursor(raw) {
-  if (raw === undefined || raw === null || raw === '') return null;
-  const seq = Number(raw);
-  return Number.isInteger(seq) && seq > 0 ? seq : null;
+// ===========================================================================
+// RC-D117: os QUATRO ESTADOS da lista de /contratos, e a ordem por urgencia
+// ===========================================================================
+
+// Uma definicao so, lida pelo filtro (que escolhe os grupos) E pelas contagens
+// (que alimentam os cartoes de KPI) — a licao que a RC-D93 deixou escrita no
+// Financeiro: cartao e filtro nao podem discordar sobre o que e "atraso". Com duas
+// expressoes paralelas, discordariam no primeiro ajuste.
+//
+// Sao uma PARTICAO dos tres status: disjuntos entre si e cobrindo o enum inteiro,
+// que e o que faz os quatro numeros somarem o total.
+//
+// 🔴 DUAS diferencas deliberadas em relacao ao Financeiro, que le os tres primeiros
+// daqui (`listBrokerReceivables`):
+//   1. `cancelado` aqui e TODO washout; la e so o que COBRA (`washoutBillable`,
+//      RC-D89). A lista de contratos nao e a carteira — ela mostra o que existe.
+//   2. "atraso" e so o PAGAMENTO (RC-D64). Faturamento vencido nao e atraso: a
+//      data de faturamento e previsao, e a agenda ja avisa dela.
+export function contractStateWhere(brtToday) {
+  const emitido = { status: 'EMITIDO' };
+  return {
+    atraso: { AND: [emitido, { paymentDate: { lt: brtToday } }] },
+    aberto: {
+      AND: [emitido, { OR: [{ paymentDate: { gte: brtToday } }, { paymentDate: null }] }],
+    },
+    finalizado: { status: 'FINALIZADO' },
+    cancelado: { status: 'WASH_OUT' },
+  };
+}
+
+// Ordem DENTRO de cada grupo. Os dois grupos vivos vencem primeiro (fila de
+// trabalho); os dois terminais sao arquivo, e arquivo se le do mais novo.
+// `nulls: 'last'` nos dois vivos de proposito: o g0 nunca tem nulo (paymentDate <
+// hoje exige data), mas manter a MESMA expressao de ordem nos dois e o que
+// autoriza um `groupKeysetWhere` unico para ambos.
+const CONTRACT_DUE_ORDER = Object.freeze([
+  { paymentDate: { sort: 'asc', nulls: 'last' } },
+  { contractSeq: 'asc' },
+]);
+const CONTRACT_ARCHIVE_ORDER = Object.freeze([{ contractSeq: 'desc' }]);
+
+// Os grupos ordenados por data (para o keyset saber por onde avancar).
+export const CONTRACT_DATE_GROUPS = Object.freeze([0, 1]);
+export const CONTRACT_MAX_GROUP = 3;
+
+// O eixo do filtro da lista. 🔴 Ele e o ESTADO (4), nao o `status` do banco (3), e
+// isso e o que faz a KPI row e o painel de filtros nao poderem discordar (RC-D118):
+// os quatro cartoes e os quatro chips sao a MESMA escolha. Com `status` + um
+// `overdue` a parte, dois dos quatro cartoes viravam um filtro que o painel nao
+// tinha como mostrar — "Emitido" marcado exibindo so um terco dos emitidos.
+export const CONTRACT_LIST_STATES = Object.freeze(['atraso', 'aberto', 'finalizado', 'cancelado']);
+
+// Os grupos ATIVOS, na ordem de urgencia: atrasado -> a vencer -> finalizado ->
+// cancelado. Vazio = os quatro (sem filtro).
+export function contractListGroups({ brtToday, states = [] }) {
+  const state = contractStateWhere(brtToday);
+  const all = [
+    { g: 0, key: 'atraso', where: state.atraso, orderBy: CONTRACT_DUE_ORDER },
+    { g: 1, key: 'aberto', where: state.aberto, orderBy: CONTRACT_DUE_ORDER },
+    { g: 2, key: 'finalizado', where: state.finalizado, orderBy: CONTRACT_ARCHIVE_ORDER },
+    { g: 3, key: 'cancelado', where: state.cancelado, orderBy: CONTRACT_ARCHIVE_ORDER },
+  ];
+  return states.length ? all.filter((group) => states.includes(group.key)) : all;
+}
+
+// `state` da querystring: um ou mais dos quatro, csv ou lista. Vazio = sem filtro;
+// valor invalido e 422 — ignorar em silencio faria um erro de digitacao devolver a
+// lista inteira sem ninguem perceber (mesmo motivo do normalizeEnumFilterList, que
+// nao serve aqui porque estas chaves sao minusculas).
+export function normalizeContractStateFilter(raw) {
+  if (raw === undefined || raw === null || raw === '') return [];
+  const values = Array.isArray(raw) ? raw : String(raw).split(',');
+  const out = [];
+  for (const value of values) {
+    const normalized = String(value).trim().toLowerCase();
+    if (normalized === '') continue;
+    if (!CONTRACT_LIST_STATES.includes(normalized)) {
+      throw new HttpError(422, 'state is invalid', {
+        code: 'VALIDATION_ERROR',
+        field: 'state',
+      });
+    }
+    if (!out.includes(normalized)) out.push(normalized);
+  }
+  return out;
 }
 
 // "Hoje" no fuso BRT (America/Sao_Paulo — sem DST desde 2019, offset fixo −3h),
