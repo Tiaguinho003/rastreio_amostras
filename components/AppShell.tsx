@@ -825,6 +825,14 @@ export function AppShell({
               {desktopNavItems.map((item) => {
                 const active = isMainNavItemActive(pathname, item.href);
                 const subItems = NAV_SUB_ITEMS[item.href];
+                // F2: o `activeSubTab` passou a vir do layout do route group, que
+                // le o `?tab=` CRU — antes cada pagina normalizava antes de passar.
+                // So vale se casar com uma sub-aba real desta secao; qualquer outra
+                // coisa (null, valor invalido, `?tab=` de outra rota) vira undefined
+                // e cai na primeira sub-aba, que e a mesma normalizacao de antes.
+                const resolvedSubTab = subItems?.some((sub) => sub.tab === activeSubTab)
+                  ? activeSubTab
+                  : undefined;
 
                 if (!subItems) {
                   return (
@@ -874,7 +882,7 @@ export function AppShell({
                       <div className="fv-sidenav-subnav">
                         {subItems.map((sub, index) => {
                           const subActive =
-                            active && (activeSubTab ? activeSubTab === sub.tab : index === 0);
+                            active && (resolvedSubTab ? resolvedSubTab === sub.tab : index === 0);
                           return (
                             <Link
                               key={sub.tab}

@@ -14,35 +14,34 @@ import {
   useState,
 } from 'react';
 
-import { AppShell } from '../../components/AppShell';
-import { BottomSheet } from '../../components/BottomSheet';
-import { DetailOverlay } from '../../components/DetailOverlay';
-import { NewSampleModal } from '../../components/NewSampleModal';
-import { SUCCESS_CHECK_MS } from '../../components/SuccessCheckOverlay';
-import { ClientLookupField } from '../../components/clients/ClientLookupField';
-import { ClassificationFilterField } from '../../components/samples/ClassificationFilterField';
-import { SampleCard } from '../../components/samples/SampleCard';
-import { BlendBadge } from '../../components/samples/BlendBadge';
-import { HarvestDisplay } from '../../components/samples/HarvestDisplay';
+import { BottomSheet } from '../../../components/BottomSheet';
+import { DetailOverlay } from '../../../components/DetailOverlay';
+import { NewSampleModal } from '../../../components/NewSampleModal';
+import { SUCCESS_CHECK_MS } from '../../../components/SuccessCheckOverlay';
+import { ClientLookupField } from '../../../components/clients/ClientLookupField';
+import { ClassificationFilterField } from '../../../components/samples/ClassificationFilterField';
+import { SampleCard } from '../../../components/samples/SampleCard';
+import { BlendBadge } from '../../../components/samples/BlendBadge';
+import { HarvestDisplay } from '../../../components/samples/HarvestDisplay';
 import {
   SampleDetailView,
   type SampleDetailInitialAction,
-} from '../../components/samples/SampleDetailView';
-import { SampleCreateRadialFab } from '../../components/samples/SampleCreateRadialFab';
-import { SampleLabelPrintSheet } from '../../components/samples/SampleLabelPrintSheet';
-import { SampleLossSheet } from '../../components/samples/SampleLossSheet';
-import { SampleSendFlow } from '../../components/samples/SampleSendFlow';
+} from '../../../components/samples/SampleDetailView';
+import { SampleCreateRadialFab } from '../../../components/samples/SampleCreateRadialFab';
+import { SampleLabelPrintSheet } from '../../../components/samples/SampleLabelPrintSheet';
+import { SampleLossSheet } from '../../../components/samples/SampleLossSheet';
+import { SampleSendFlow } from '../../../components/samples/SampleSendFlow';
 import {
   BlendConfirmationSheet,
   type BlendContribution,
   type BlendCreateOptions,
-} from '../../components/samples/BlendConfirmationSheet';
+} from '../../../components/samples/BlendConfirmationSheet';
 import {
   SelectedSamplesDropdown,
   type SelectedSampleSummary,
-} from '../../components/samples/SelectedSamplesDropdown';
-import { SampleCardActionsSheet } from '../../components/samples/SampleCardActionsSheet';
-import { PlaygroundMobileNotice } from '../../components/playground/PlaygroundMobileNotice';
+} from '../../../components/samples/SelectedSamplesDropdown';
+import { SampleCardActionsSheet } from '../../../components/samples/SampleCardActionsSheet';
+import { PlaygroundMobileNotice } from '../../../components/playground/PlaygroundMobileNotice';
 import {
   ApiError,
   createBlend,
@@ -52,24 +51,24 @@ import {
   listClassificationValues,
   listSamples,
   updateRegistration,
-} from '../../lib/api-client';
-import { formatPercentDisplay } from '../../lib/classification-format';
-import { mapEligibilityReasonToLabel } from '../../lib/samples/eligibility-labels';
+} from '../../../lib/api-client';
+import { formatPercentDisplay } from '../../../lib/classification-format';
+import { mapEligibilityReasonToLabel } from '../../../lib/samples/eligibility-labels';
 import {
   SAMPLES_INITIAL,
   samplesListReducer,
   type SampleCursor,
   type SamplesListState,
-} from '../../lib/samples/samples-list-reducer';
+} from '../../../lib/samples/samples-list-reducer';
 import {
   reconcileSelection,
   toggleSelection,
   type BlendSelection,
-} from '../../lib/samples/blend-selection';
-import { useListRevalidation } from '../../lib/use-list-revalidation';
-import { buildHarvestPresets } from '../../lib/sample-identification';
-import { sampleStatusDisplay } from '../../lib/sample-display';
-import { useToast } from '../../lib/toast/ToastProvider';
+} from '../../../lib/samples/blend-selection';
+import { useListRevalidation } from '../../../lib/use-list-revalidation';
+import { buildHarvestPresets } from '../../../lib/sample-identification';
+import { sampleStatusDisplay } from '../../../lib/sample-display';
+import { useToast } from '../../../lib/toast/ToastProvider';
 import type {
   ActiveBlendDetail,
   ClientSummary,
@@ -77,11 +76,11 @@ import type {
   SampleEligibilityReason,
   SampleSnapshot,
   SampleStatsResponse,
-} from '../../lib/types';
-import { getRouteLeftBehind } from '../../lib/navigation/route-history';
-import { useIsDesktop } from '../../lib/use-desktop';
-import { useRequireAuth } from '../../lib/use-auth';
-import { NON_PROSPECTOR_ROLES } from '../../lib/roles';
+} from '../../../lib/types';
+import { getRouteLeftBehind } from '../../../lib/navigation/route-history';
+import { useIsDesktop } from '../../../lib/use-desktop';
+import { useRequireRole } from '../../../lib/auth/AuthProvider';
+import { NON_PROSPECTOR_ROLES } from '../../../lib/roles';
 
 // FV (KPI row): mini-metrica sob o valor de cada card — molde de /cadastros.
 type KpiDelta = { text: string; dir: 'up' | 'down' | 'flat' };
@@ -163,7 +162,7 @@ function parseSamplesTab(raw: string | null): SamplesTab {
 // DOM. O mobile renderiza PlaygroundMobileNotice (estatico) e nunca o baixa.
 const PlaygroundTab = dynamic(
   () =>
-    import('../../components/playground/PlaygroundTab').then((module_) => module_.PlaygroundTab),
+    import('../../../components/playground/PlaygroundTab').then((module_) => module_.PlaygroundTab),
   {
     ssr: false,
     loading: () => <div className="pg-canvas-skeleton" aria-hidden />,
@@ -530,9 +529,7 @@ export default function SamplesPageWrapper() {
 }
 
 function SamplesPage() {
-  const { session, loading, logout, setSession } = useRequireAuth({
-    allowedRoles: NON_PROSPECTOR_ROLES,
-  });
+  const { session } = useRequireRole(NON_PROSPECTOR_ROLES);
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -1807,7 +1804,7 @@ function SamplesPage() {
     setActiveFilterSection((current) => (current === sectionId ? null : sectionId));
   }
 
-  if (loading || !session) {
+  if (!session) {
     return null;
   }
 
@@ -2498,7 +2495,7 @@ function SamplesPage() {
   );
 
   return (
-    <AppShell session={session} onLogout={logout} onSessionChange={setSession} activeSubTab={tab}>
+    <>
       <section
         className={`samples-page-v2 fv-lotes-page${tab === 'simulador' ? ' is-tab-simulador' : ''}`}
       >
@@ -3279,6 +3276,6 @@ function SamplesPage() {
           />
         ) : null}
       </DetailOverlay>
-    </AppShell>
+    </>
   );
 }

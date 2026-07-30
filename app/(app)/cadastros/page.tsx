@@ -3,14 +3,13 @@
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { AppShell } from '../../components/AppShell';
-import { DetailOverlay } from '../../components/DetailOverlay';
-import { BrokerFormModal } from '../../components/cadastros/BrokerFormModal';
+import { DetailOverlay } from '../../../components/DetailOverlay';
+import { BrokerFormModal } from '../../../components/cadastros/BrokerFormModal';
 import {
   ClientDetailView,
   type ClientDetailInitialAction,
-} from '../../components/clients/ClientDetailView';
-import { ClientsBrowser } from '../../components/clients/ClientsBrowser';
+} from '../../../components/clients/ClientDetailView';
+import { ClientsBrowser } from '../../../components/clients/ClientsBrowser';
 import {
   ApiError,
   createBroker,
@@ -18,12 +17,12 @@ import {
   listBrokers,
   lookupUsersForReference,
   updateBroker,
-} from '../../lib/api-client';
-import { formatPhone } from '../../lib/client-field-formatters';
-import { CLIENT_MANAGEMENT_ROLES } from '../../lib/roles';
-import { useRequireAuth } from '../../lib/use-auth';
-import { useIsDesktop } from '../../lib/use-desktop';
-import type { Broker, BrokerInput, ClientStatsResponse, UserLookupItem } from '../../lib/types';
+} from '../../../lib/api-client';
+import { formatPhone } from '../../../lib/client-field-formatters';
+import { CLIENT_MANAGEMENT_ROLES } from '../../../lib/roles';
+import { useRequireRole } from '../../../lib/auth/AuthProvider';
+import { useIsDesktop } from '../../../lib/use-desktop';
+import type { Broker, BrokerInput, ClientStatsResponse, UserLookupItem } from '../../../lib/types';
 
 // Cadastros = hub de todo nao-PROSPECTOR com 2 abas (a aba Bancos saiu na
 // D141 -- banco virou texto livre na conta bancaria). "Clientes" (default) e a
@@ -49,9 +48,7 @@ export default function CadastrosPageWrapper() {
 }
 
 function CadastrosPage() {
-  const { session, loading, logout, setSession } = useRequireAuth({
-    allowedRoles: CLIENT_MANAGEMENT_ROLES,
-  });
+  const { session } = useRequireRole(CLIENT_MANAGEMENT_ROLES);
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -218,7 +215,7 @@ function CadastrosPage() {
     [brokers]
   );
 
-  if (loading || !session) return null;
+  if (!session) return null;
 
   function openCreateBroker() {
     setEditingBroker(null);
@@ -394,7 +391,7 @@ function CadastrosPage() {
   ];
 
   return (
-    <AppShell session={session} onLogout={logout} onSessionChange={setSession} activeSubTab={tab}>
+    <>
       <section className="clients-page-v2 fv-cad-page">
         {/* RD16: o header verde da pagina saiu — o chrome mobile agora e unico
             e mora no AppShell (.fv-mtopbar: titulo da rota + camera + avatar). */}
@@ -728,6 +725,6 @@ function CadastrosPage() {
           />
         ) : null}
       </DetailOverlay>
-    </AppShell>
+    </>
   );
 }

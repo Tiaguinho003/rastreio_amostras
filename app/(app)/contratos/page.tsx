@@ -3,10 +3,9 @@
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect } from 'react';
 
-import { AppShell } from '../../components/AppShell';
-import { ContratosPanel } from '../../components/contracts/ContratosPanel';
-import { CONTRATOS_ROLES } from '../../lib/roles';
-import { useRequireAuth } from '../../lib/use-auth';
+import { ContratosPanel } from '../../../components/contracts/ContratosPanel';
+import { useRequireRole } from '../../../lib/auth/AuthProvider';
+import { CONTRATOS_ROLES } from '../../../lib/roles';
 
 // RC-D1 (2026-07-27): o hub de sub-abas ACABOU — /contratos e PAGINA UNICA, so a
 // lista de contratos. O Financeiro voltou a ser rota propria (/financeiro, ADMIN)
@@ -25,22 +24,19 @@ function ContratosPageInner() {
   // no guard de /financeiro e vao pro dashboard; edge aceito (nada em producao).
   const financeiroTarget = rawTab === 'financeiro' ? '/financeiro' : null;
 
-  const { session, loading, logout, setSession } = useRequireAuth({
-    allowedRoles: CONTRATOS_ROLES,
-  });
+  const { session } = useRequireRole(CONTRATOS_ROLES);
 
   useEffect(() => {
     if (financeiroTarget) router.replace(financeiroTarget);
   }, [financeiroTarget, router]);
 
-  if (loading || !session) return null;
+  if (!session) return null;
   // Enquanto o redirect de compat nao navega, nao pisca a lista.
   if (financeiroTarget) return null;
 
   return (
-    <AppShell session={session} onLogout={logout} onSessionChange={setSession}>
-      <section className="clients-page-v2 ctr-page fv-ctr-page">
-        {/* RD16: o header verde da pagina saiu — o chrome mobile agora e unico
+    <section className="clients-page-v2 ctr-page fv-ctr-page">
+      {/* RD16: o header verde da pagina saiu — o chrome mobile agora e unico
             e mora no AppShell (.fv-mtopbar: titulo da rota + camera + avatar).
             RC-F6: `fv-ctr-page` e o escopo do kit institucional desta pagina
             (molde `fv-cad-page`/`fv-users-page`). `ctr-page` FICA: carrega as
@@ -48,9 +44,8 @@ function ContratosPageInner() {
             /financeiro — ainda no kit legado — tambem usa.
             O `.fv-page-head` do desktop e os botoes de criar moram no
             ContratosPanel, junto do estado que eles abrem. */}
-        <ContratosPanel session={session} />
-      </section>
-    </AppShell>
+      <ContratosPanel session={session} />
+    </section>
   );
 }
 

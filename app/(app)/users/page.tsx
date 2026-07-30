@@ -4,10 +4,9 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
-import { AppShell } from '../../components/AppShell';
-import { BottomSheet } from '../../components/BottomSheet';
-import { SuccessCheckOverlay, SUCCESS_CHECK_MS } from '../../components/SuccessCheckOverlay';
-import { InactivateUserModal } from '../../components/users/InactivateUserModal';
+import { BottomSheet } from '../../../components/BottomSheet';
+import { SuccessCheckOverlay, SUCCESS_CHECK_MS } from '../../../components/SuccessCheckOverlay';
+import { InactivateUserModal } from '../../../components/users/InactivateUserModal';
 import {
   ApiError,
   createUser,
@@ -17,17 +16,22 @@ import {
   resetUserPassword,
   unlockUser,
   updateUser,
-} from '../../lib/api-client';
-import { maskPhoneInput } from '../../lib/client-field-formatters';
-import { formatRelativeTime } from '../../lib/relative-time';
-import { useToast } from '../../lib/toast/ToastProvider';
-import { useIsDesktop } from '../../lib/use-desktop';
-import { getRoleLabel, isAssignableUserRole } from '../../lib/roles';
-import { useRequireAuth } from '../../lib/use-auth';
-import type { UserRole, UserSummary } from '../../lib/types';
+} from '../../../lib/api-client';
+import { maskPhoneInput } from '../../../lib/client-field-formatters';
+import { formatRelativeTime } from '../../../lib/relative-time';
+import { useToast } from '../../../lib/toast/ToastProvider';
+import { useIsDesktop } from '../../../lib/use-desktop';
+import { getRoleLabel, isAssignableUserRole } from '../../../lib/roles';
+import { useRequireRole } from '../../../lib/auth/AuthProvider';
+import type { UserRole, UserSummary } from '../../../lib/types';
 
 // Papeis oferecidos ao CRIAR um usuario. O PROSPECTOR ficou de fora: o papel
 // continua existindo (enum, login, app de campo), mas ninguem cria mais.
+// Papel exigido pela rota. Constante de MODULO, nao literal inline: o
+// `useRequireRole` memoiza por referencia, e um array novo a cada render
+// invalidaria o memo sem necessidade.
+const USERS_PAGE_ROLES: UserRole[] = ['ADMIN'];
+
 const CREATE_ROLE_OPTIONS: UserRole[] = [
   'ADMIN',
   'CLASSIFIER',
@@ -258,7 +262,7 @@ export default function UsersPageWrapper() {
 }
 
 function UsersPage() {
-  const { session, loading, logout, setSession } = useRequireAuth({ allowedRoles: ['ADMIN'] });
+  const { session } = useRequireRole(USERS_PAGE_ROLES);
   const toast = useToast();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -578,7 +582,7 @@ function UsersPage() {
     return () => window.clearTimeout(id);
   }, [modal.mode]);
 
-  if (loading || !session) return null;
+  if (!session) return null;
 
   // --- Handlers ---
 
@@ -956,7 +960,7 @@ function UsersPage() {
   const mobileListChrome = isDesktop ? null : toolbar;
 
   return (
-    <AppShell session={session} onLogout={logout} onSessionChange={setSession}>
+    <>
       <section className="clients-page-v2 fv-users-page">
         {/* RD16: o header verde da pagina saiu — o chrome mobile agora e unico
             e mora no AppShell (.fv-mtopbar: titulo da rota + camera + avatar). */}
@@ -1868,6 +1872,6 @@ function UsersPage() {
           onCancel={() => setInactivateOpen(false)}
         />
       ) : null}
-    </AppShell>
+    </>
   );
 }
