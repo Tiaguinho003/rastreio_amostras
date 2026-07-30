@@ -2,8 +2,25 @@
 
 Status: Ativo (documento-mãe / verdade viva do funcionamento atual)
 Escopo: o que as páginas `/contratos` e `/financeiro` fazem hoje — a casca (rotas + acesso por papel), o contrato de compra e venda ("Fechamento" → PDF), o Espelho de Corretagem, a carteira do **Financeiro**, a **aprovação**, as **três situações** do contrato e a **agenda** derivada delas, o modelo de dados e as rotas de API.
-Última revisão: 2026-07-30 (**RC-D121..D129** — o modal de Detalhes vira **4 abas** (`Detalhes · Aprovação · Espelho · Histórico`) e cada aba mostra o **documento** no lugar dos campos em texto: as 8 seções saem porque o PDF as imprime, e sobra uma **faixa** com o que o papel NÃO diz (total, ágio, corretagem em R$, corretores). O **espelho** e a **etiqueta** deixam de ser modais e viram conteúdo de aba — três superfícies apagadas. Anterior no mesmo dia: **RC-D112..D120** — a lista de `/contratos` vira **card nos dois breakpoints** (a tabela do desktop sai), com uma **barra de TEMPO** no lugar da linha de 5 fases (que foi apagada), ordem por **urgência** em 4 grupos de estado e uma **KPI row clicável que É o filtro**; dinheiro sai da lista, o card inteiro abre o detalhe e o vermelho passa a significar só **atraso**. Anterior: 2026-07-29, **RC-D103..D111** — o espelho entregue passa a ficar **guardado**: o renderizador lê sempre de um **snapshot**, a entrega o **congela** na linha de auditoria, o guardado é **imutável** e ele sai **15 dias depois do fim do contrato** (prazo derivado, nunca persistido). Junto, a auditoria da corretagem: o `round2` derrubava o **meio-centavo**, faltava o gate da **parte cadastrada** e front×back perguntavam coisas diferentes por lado. Antes, no mesmo dia: **RC-D96..D102** — a etiqueta de aprovação deixa de ser write-only: só **Nº compra** e **Lotes de origem** são editáveis e os dois **gravam de volta** antes de imprimir, com o lote travado quando é liga ou componente de liga. No mesmo dia: **RC-D92..D95**, o `/financeiro` entra no kit FV: desktop vira **tabela**, os quatro estados viram a **KPI row clicável que é o filtro** e o acordeão do card morre. No mesmo dia: **RC-D87..D91**, o washout **pergunta** se haverá cobrança de corretagem e a resposta decide o Financeiro e o Espelho; **RC-D84..D86**, finalizar significa que o contrato inteiro aconteceu; **RC-D69..D72**, a seleção de lote vira **campo**. Anterior: 2026-07-28, **RC-D62..D68** — o contrato deixa de ser máquina de status e vira **agenda**)
+Última revisão: 2026-07-30 (**RC-D121..D129** — o detalhe do contrato vira **4 abas** e as três superfícies que flutuavam sobre ele viram conteúdo. Seguida de uma **varredura de alinhamento** no mesmo dia: docs, skills e comentários de código conferidos contra o código.)
 Documentos relacionados: `Contratos-Plano-de-Trabalho.md` (backlog, decisões e pendências), `Dashboard-Visao-Geral.md` (eventos/cards que apontam pra cá), `Auditoria-Navegacao-por-Papel.md`, `API-e-Contratos.md`, `Produto-e-Fluxos.md`
+
+**As rodadas do ciclo RC** (o porquê de cada uma está na seção indicada do `Contratos-Plano-de-Trabalho.md`):
+
+| Data       | Decisões      | §   | O que mudou                                                                               |
+| ---------- | ------------- | --- | ----------------------------------------------------------------------------------------- |
+| 2026-07-27 | RC-D1..D26    | 5   | `/contratos` e `/financeiro` viram páginas separadas; **`/embarques` extinta**            |
+| 2026-07-28 | RC-D27..D61   | 5   | A criação repensada: painel de 2 passos, o **lote como 1º campo**, o documento como passo |
+| 2026-07-28 | RC-D62..D68   | 6   | 🔴 **O contrato deixa de ser máquina de status e vira AGENDA**; o embarque é apagado      |
+| 2026-07-29 | RC-D69..D73   | 7   | O lote vira campo; o campo travado ganha a 2ª forma                                       |
+| 2026-07-29 | RC-D74..D83   | 8   | Status ≠ fase; a linha de 5 fases nasce (e morre na RC-D116)                              |
+| 2026-07-29 | RC-D84..D86   | 9   | Finalizar significa que o contrato inteiro aconteceu                                      |
+| 2026-07-29 | RC-D87..D91   | 10  | O washout **pergunta** se haverá cobrança; o lote vira leitura                            |
+| 2026-07-29 | RC-D92..D95   | 11  | `/financeiro` no kit FV: tabela + KPI row que é o filtro                                  |
+| 2026-07-29 | RC-D96..D102  | 12  | A etiqueta de aprovação **edita de volta** (Nº compra + lotes)                            |
+| 2026-07-29 | RC-D103..D111 | 13  | O espelho entregue passa a ficar **guardado** (snapshot + retenção de 15 dias)            |
+| 2026-07-30 | RC-D112..D120 | 14  | A lista vira **card nos dois breakpoints**, com barra de TEMPO e ordem por urgência       |
+| 2026-07-30 | RC-D121..D129 | 15  | O detalhe vira **4 abas**; três modais viram conteúdo                                     |
 
 > ⚠️ **O contrato não é livro de status — é agenda** (RC-D62..D68, `Contratos-Plano-de-Trabalho.md` **§6**). Ele guarda só o que é **subproduto de trabalho já feito** (emitir o PDF, imprimir a etiqueta, gerar o espelho, aplicar ágio, cancelar por washout) e deixou de pedir **escrituração** — marcar faturado, marcar pago, confirmar embarque. Sobraram **três situações** (`EMITIDO` · `FINALIZADO` · `WASH_OUT`) e uma **agenda derivada** das datas que o documento já imprime. O **embarque foi apagado inteiro**. Tudo abaixo descreve o **código de hoje**.
 
@@ -140,7 +157,7 @@ A **tarja** lateral, o preenchimento da barra e o **ponto** do status saem de **
 ### 4.3 PDF e Detalhes
 
 - **PDF** gerado com `pdf-lib` a partir de um layout fixo (D111) e do `issuer-config` (dados da emitente).
-- **Modal de Detalhes** (`SaleContractDetailsModal`): visão completa do contrato + **timeline** (`/sale-contracts/[id]/timeline`) + as ações que não cabem no card. A matriz card × modal é fixada por D121/D126 e revista pela **RC-D25/RC-D62**.
+- **Modal de Detalhes** (`SaleContractDetailsModal`): **quatro abas** (§4.4) — o documento, a aprovação, o espelho e a timeline (`/sale-contracts/[id]/timeline`) —, mais as ações que não cabem no card. A matriz card × modal é fixada por D121/D126 e revista pela **RC-D25/RC-D62/RC-D123**.
 
 **Onde cada ação mora hoje:**
 
@@ -165,7 +182,7 @@ detalhe abre sempre em `Detalhes`.
 
 Finalizar e Reabrir **não pedem confirmação** — são reversíveis, e confirmar um toque reversível é ruído; o Washout continua pedindo motivo, porque continua definitivo (`SaleContractLifecycleDialog`, hoje **só washout**). Desde a RC-D125/D127 a **única** superfície que ainda abre por cima do detalhe é a confirmação do "Solicitar aprovação" — e enquanto ela está de pé o overlay não fecha por ESC/backdrop (`dismissGuardRef`).
 
-### 4.1 As quatro abas (RC-D121)
+### 4.4 As quatro abas (RC-D121)
 
 | aba           | o que responde                | o que tem dentro                                                                     |
 | ------------- | ----------------------------- | ------------------------------------------------------------------------------------ |
@@ -232,7 +249,7 @@ voltar ao Espelho refaria cada download.
   - 🔴 **O campo edita o texto CRU (`originLotText`), nunca os chips do papel.** O `splitOriginLotForLabel` reparte por espaço/vírgula/`;` (**preserva hífen**, ex.: `PA-01`), corta cada código em 16 chars e exibe no **máximo 8 (7 + "+")** — o `+` é sentinela de desenho. Salvar de volta a partir dele apagaria os lotes que ele representa. Desde a RC-D100 esse recorte também roda **no envio** (`normalizeCustomLabelLines` chama a mesma função), o que fechou a **AP-P3** — os dois lot-splitters viraram um.
   - **Lote vazio some do papel** (RC-D96): antes o rótulo "LOTES" saía órfão sobre a área em branco.
   - Layout **em 2 colunas** (logo + Nº Fechamento + Nº Compra à esquerda; Produtor + Armazém + Sacas + Lotes à direita) no `print-agent/label.js` (`buildCustomLabelLayout`, com auto-ajuste de fonte). Ver `Liga-Plano` (log 2026-07-20) para a origem derivada/pinável da liga.
-- **Worklist (sem UI):** `listApprovalContracts` continua particionando por estado (a enviar / enviada) via `$queryRaw` (G0/G1/G2) com cursor `{g, key, seq}` — o estado depende de um agregado de contagem do log — e ordenando por `invoice_date ASC NULLS LAST`. O endpoint está de pé e testado; **nada na UI o chama** desde a RC-F4.
+- **Worklist (sem UI):** `listApprovalContracts` continua particionando por estado (a enviar / enviada) via `$queryRaw` (G0/G1/G2) com cursor `{g, key, seq}` — o estado depende de um agregado de contagem do log — e ordenando por `invoice_date ASC NULLS LAST`. O endpoint está de pé e testado; **nada na UI o chama** desde a RC-F4. 🔴 É o **maior bloco de código sem chamador** do domínio — ~165 linhas de serviço + os 3 helpers de cursor (`normalizeApprovalWlFilter`/`encode`/`decodeApprovalWlCursor`) + a rota + o handler + `ApprovalReceivable`/`ApprovalListResponse` + `listApprovals` no `api-client` + **6 testes de integração**. A varredura de 2026-07-30 confirmou que nada o alcança e deixou a decisão de apagar **em aberto**, porque a RC-F3 pode querer o recorte de volta.
 
 > **Onde ficou o "quais contratos precisam de etiqueta hoje?".** Em **três** lugares, todos derivados: a **frase do card** de `/contratos` (RC-D68/D114 — e ela puxa esses contratos para o topo da lista, RC-D117), o **card de "Avisos"** do dashboard (aviso binário "aprovação a enviar", que aparece quando `invoice_date ≤ hoje + lead` — ou a data é "À definir" — e **some quando a etiqueta é gerada**; ver `Dashboard-Visao-Geral.md` §7.4) e o filtro por situação da lista. O **lembrete de aprovação no calendário** foi removido no DSB-D9 (data imprecisa) e o card **"Aprovações enviadas"** morreu na RC-D26 (componente, rota e CSS apagados). Desde a RC-D23 cada item de Avisos abre **o próprio contrato** (`/contratos?details=<id>&highlight=<id>`), onde se gera a etiqueta. O campo `approvalReminderLeadDays` é obrigatório no form quando `requiresApproval` (1–365, default 30), gravado na criação e editável no Editar quando "Sim"; o botão "Solicitar aprovação" (AP32) latcha com o default 30.
 
@@ -312,6 +329,8 @@ _(O `Arquitetura-Tecnica.md` resume o domínio na seção "Modelo de dados" → 
 
 ## 13. Estado de validação
 
-Contrato à vista + futuro, a aprovação, a **RC-F1 + RC-F4** (`/contratos` página única + `/financeiro` ADMIN-only + `/embarques` extinta), a **RC-F5** (a criação repensada), a **RC-D62..D68** (as três situações + a agenda + a morte do embarque) e a **RC-D69..D72** (o lote como campo, criação em 2 passos) foram **implementados ponta a ponta**, com gates verdes (lint/format/typecheck/schemas/unit/contracts/integração/build) — mas **em `main`, não pushados**, e **aguardando conferência no dev local e validação no device** (ver `Contratos-Plano-de-Trabalho.md` §5, §6 e §7). Este documento descreve o comportamento **do código**; divergências observadas no device viram achados no plano de trabalho.
+Tudo o que este documento descreve está **implementado ponta a ponta**, com gates verdes (lint/format/typecheck/schemas/unit/contracts/integração/build): a **RC-F1 + RC-F4** (`/contratos` página única + `/financeiro` ADMIN-only + `/embarques` extinta), a **RC-F5** (a criação repensada, §4.1), a **RC-D62..D68** (as três situações + a agenda + a morte do embarque), a **RC-D69..D73** (o lote como campo), a **RC-D84..D91** (finalizar/reabrir + o washout que pergunta), a **RC-D92..D95** (o Financeiro no kit FV, §6), a **RC-D96..D102** (a etiqueta que edita de volta, §7), a **RC-D103..D111** (o espelho guardado, §5), a **RC-D112..D120** (a lista em card, §4.0) e a **RC-D121..D129** (as quatro abas, §4.4).
+
+⚠️ **Nada disso foi pushado, e nada foi conferido no device.** Está tudo em `main` local. Este documento descreve o comportamento **do código**; divergências observadas no aparelho viram achados no `Contratos-Plano-de-Trabalho.md`.
 
 🔴 **A migration `20260728120000` é destrutiva.** Antes de aplicá-la em **produção**, conferir no banco que `sale_contract` não tem linha alguma com `status IN ('FATURADO','PAGO')` nem `shipped_at` não-nulo. A afirmação de que este domínio nunca foi deployado é de doc; apagar coluna merece a checagem no banco.

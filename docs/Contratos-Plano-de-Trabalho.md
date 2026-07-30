@@ -1,9 +1,26 @@
 # Contratos — Plano de Trabalho
 
 Status: Em andamento (backlog + decisões + pendências da página `/contratos`)
-Escopo: o backlog, as pendências e o **ledger de decisões** da feature de Contratos (hub `/contratos`: contrato/PDF, Espelho de Corretagem, Financeiro, Aprovações, Embarque). O **estado atual** do que existe vive em `Contratos-Visao-Geral.md`; aqui ficam as decisões (o porquê), as pendências abertas e o histórico condensado.
-Última revisão: 2026-07-29 (**§12 — RC-D96..D102 IMPLEMENTADAS**: a etiqueta de aprovação deixa de ser write-only — só **Nº compra** e **Lotes de origem** são editáveis, e os dois **gravam de volta** (contrato e cadastro do lote) antes de imprimir; o lote **trava** quando é liga ou componente de liga, e o campo edita o **texto cru**, nunca os chips recortados; lote vazio some do papel. Antes, no mesmo dia: **§11 — RC-D92..D95**, o `/financeiro` entra no kit FV — desktop vira **tabela**, os quatro estados viram a **KPI row clicável que é o filtro** (o `totalCommission` sai por ser a soma deles) e o acordeão do card morre. Fecha a **2ª rodada da RC-F6**. Antes, no mesmo dia: **§10 — RC-D87..D91**, o washout **pergunta** se haverá cobrança de corretagem e a resposta — não mais o tipo — decide o Financeiro (revoga a D145); o lote deixa de desfazer venda e de trocar de dono com contrato. **§9 — RC-D84..D86**: finalizar significa que o contrato inteiro aconteceu, e só existe a partir da data de faturamento. **§8 — RC-D74..D79**: status e fase são dois conceitos; embarque e faturamento são o MESMO DIA. **§7 — RC-D69..D73**: a seleção de lote vira **campo** e a criação à vista cai para dois passos. Anterior: 2026-07-28, **§6 — RC-D62..D68**: o contrato deixa de ser máquina de status e vira **agenda**)
+Escopo: o backlog, as pendências e o **ledger de decisões** da feature de Contratos (`/contratos` + `/financeiro`: contrato/PDF, Espelho de Corretagem, aprovação e a carteira). _(O **Embarque** foi apagado do produto na RC-D65 e as **Aprovações** deixaram de ser worklist na RC-F4 — os dois ledgers ficaram no apêndice, marcados como revogados.)_ O **estado atual** do que existe vive em `Contratos-Visao-Geral.md`; aqui ficam as decisões (o porquê), as pendências abertas e o histórico condensado.
+Última revisão: 2026-07-30 (**§15 — RC-D121..D129 IMPLEMENTADAS**: o detalhe vira 4 abas (`Detalhes · Aprovação · Espelho · Histórico`), a aba Detalhes é o **PDF** mais uma faixa com **o que o papel não diz**, e a etiqueta + o espelho deixam de ser modais. No mesmo dia, a **§14** fechou a RC-F6.)
 Documentos relacionados: `Contratos-Visao-Geral.md` (documento-mãe / estado atual), `Dashboard-Visao-Geral.md`, `API-e-Contratos.md`, `Auditoria-Navegacao-por-Papel.md`
+
+**As rodadas do ciclo RC** (o porquê de cada uma está na seção indicada do `Contratos-Plano-de-Trabalho.md`):
+
+| Data       | Decisões      | §   | O que mudou                                                                               |
+| ---------- | ------------- | --- | ----------------------------------------------------------------------------------------- |
+| 2026-07-27 | RC-D1..D26    | 5   | `/contratos` e `/financeiro` viram páginas separadas; **`/embarques` extinta**            |
+| 2026-07-28 | RC-D27..D61   | 5   | A criação repensada: painel de 2 passos, o **lote como 1º campo**, o documento como passo |
+| 2026-07-28 | RC-D62..D68   | 6   | 🔴 **O contrato deixa de ser máquina de status e vira AGENDA**; o embarque é apagado      |
+| 2026-07-29 | RC-D69..D73   | 7   | O lote vira campo; o campo travado ganha a 2ª forma                                       |
+| 2026-07-29 | RC-D74..D83   | 8   | Status ≠ fase; a linha de 5 fases nasce (e morre na RC-D116)                              |
+| 2026-07-29 | RC-D84..D86   | 9   | Finalizar significa que o contrato inteiro aconteceu                                      |
+| 2026-07-29 | RC-D87..D91   | 10  | O washout **pergunta** se haverá cobrança; o lote vira leitura                            |
+| 2026-07-29 | RC-D92..D95   | 11  | `/financeiro` no kit FV: tabela + KPI row que é o filtro                                  |
+| 2026-07-29 | RC-D96..D102  | 12  | A etiqueta de aprovação **edita de volta** (Nº compra + lotes)                            |
+| 2026-07-29 | RC-D103..D111 | 13  | O espelho entregue passa a ficar **guardado** (snapshot + retenção de 15 dias)            |
+| 2026-07-30 | RC-D112..D120 | 14  | A lista vira **card nos dois breakpoints**, com barra de TEMPO e ordem por urgência       |
+| 2026-07-30 | RC-D121..D129 | 15  | O detalhe vira **4 abas**; três modais viram conteúdo                                     |
 
 > **Divisão de papéis:** a `Contratos-Visao-Geral.md` é a **verdade viva** (o que existe hoje). Este plano guarda **decisões (por quê), pendências (o que falta) e o backlog**. O histórico completo de sessões (S1–S91 etc.) e a prosa superada foram para o **Git** (docs antigos removidos em 2026-07-13); o ledger no apêndice condensa cada decisão à resolução final.
 
@@ -11,7 +28,9 @@ Documentos relacionados: `Contratos-Visao-Geral.md` (documento-mãe / estado atu
 
 ## 1. Estado geral
 
-Contrato à vista + futuro, a criação repensada (RC-F5) e a moldura institucional da lista (1ª rodada da RC-F6) estão **implementados ponta a ponta** — gates verdes (lint/format/typecheck/unit/integração/build) — em `main`, **não pushados**, **aguardando validação no device**.
+Da §5 à §15 está tudo **implementado ponta a ponta** — gates verdes (lint/format/typecheck/unit/contracts/schemas/integração/build) — em `main`, **não pushados**, **aguardando conferência no dev local e validação no device**. A **RC-F6 acabou** (§11 e §14 fecharam as duas páginas); o que resta do roteiro é a **RC-F2** e a **RC-F3**, as duas re-escopadas pela §6.
+
+> **Onde está o estado atual:** este plano guarda o porquê. Para o que o código faz hoje, a fonte é a `Contratos-Visao-Geral.md` — e cada seção numerada abaixo é a rodada que produziu aquele estado, em ordem cronológica.
 
 > ⚠️ **A §6 (2026-07-28) mudou a natureza do contrato.** Ele **não é mais máquina de status**: são **três situações** (`EMITIDO` · `FINALIZADO` · `WASH_OUT`) e uma **agenda derivada** das datas do documento. **Faturar, Pagar e Embarcar não existem mais**; o embarque inteiro (EMB1–EMB34) foi apagado, a aprovação não trava nada (AP18 revogado) e o `/financeiro` virou leitura. Tudo o que o ledger abaixo diz sobre `FATURADO`, `PAGO`, embarque e portões é **histórico**.
 
@@ -1951,6 +1970,73 @@ etiqueta e os PDFs do espelho, só na primeira ativação. E a aba fica **montad
   `ClientLookupField` e do `/profile`). É um bloco de kit COMPARTILHADO, e podá-lo às cegas no meio de
   uma rodada de UI é o tipo de colateral que a `css-architecture` existe para evitar. Fica como sweep
   deliberado.
+
+## 16. Varredura de alinhamento (2026-07-30)
+
+**Pedido dele**, antes dos ajustes finos de design e das funcionalidades que faltam: _"gostaria que as
+documentações sobre a página de contratos e outras documentações que são afetadas pelas grandes
+alterações estejam todas alinhadas com o estado atual, assim como sua memória e skills. Com isso você
+também fará análise de possíveis inconsistências no funcionamento, análise de código morto,
+organização das documentações."_
+
+Nenhuma decisão nova. Esta seção é o **registro do que foi conferido** — para a próxima varredura
+começar de onde esta parou — e a lista do que ficou **em aberto por ser decisão dele**.
+
+### 16.1 O que foi corrigido
+
+**Comentários de código que afirmavam coisa falsa** (11): a etiqueta descrita como "modal aberto pela
+worklist" (`backend-api.js` em três pontos), o leque de `/samples` dizendo que a etiqueta mora "na
+sub-aba Aprovações", o card de Eventos dizendo que o calendário tem feed de embarque e que o chip leva
+"à sub-aba dona", o card de Avisos chamando a aba Aprovação de "seção", a rota `/dashboard/invoice-events`
+descrevendo um ramo "realizado (FATURADO/PAGO)" que a RC-D62 apagou, e o redirect de `/embarques`
+citando uma "seção Embarque do detalhe".
+
+**Skills**: a `modals` mantinha três verbetes inteiros sobre peças mortas — o modal "Etiqueta enviada",
+o par de portões central-sobre-central (EMB28/AP18) e a nota de que as `.ctr-doc-*` pertenciam ao
+`EspelhoCorretagemModal`. Viraram lápides **com a lição preservada** (a de maior alcance: _portão só se
+justifica quando o passo seguinte é impossível sem o anterior — os dois daqui travavam escrituração, e
+o que se fez foi apagar os atos_). A `forms` citava `.alm-lots-group`/`.alm-field-hint`/
+`.alm-locked-input`, família apagada na RC-D127 quando a etiqueta migrou para o kit `.fv-form-*`.
+
+**Docs**: a Visão Geral tinha **duas §4.1** (colisão desta rodada) e um §13 parado na RC-D72; o Plano
+tinha o cabeçalho parado na §12 e o escopo citando "Embarque"; o `README.md` descrevia contratos até a
+§6, o playground em PG38 e o shell em SN-D6; o `Redesign-Plano-de-Trabalho.md` afirmava que
+`/contratos` era tabela no desktop e que `/financeiro` seguia no kit legado — as duas caíram; o
+`Etiqueta-de-Envio-Plano-de-Trabalho.md` apontava para o `ApprovalLabelModal`; o
+`Arquitetura-Tecnica.md` não registrava a coluna `snapshot` do `SaleContractEspelhoLog`.
+
+**Organização:** os cabeçalhos dos dois docs de contrato tinham virado parágrafos de dez linhas com o
+histórico inteiro embutido — e desatualizavam a cada rodada. Viraram **uma linha de "última revisão" +
+uma tabela das doze rodadas**, que estende sem reescrever.
+
+### 16.2 Inconsistências de funcionamento (achadas, NÃO corrigidas)
+
+Ficam para a rodada de ajustes, porque mudam comportamento:
+
+| #   | Onde                                       | O quê                                                                                                                                                                 |
+| --- | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | `SaleContractDetailsModal` — efeito do PDF | Ele não depende do `reloadNonce`. "Gerar etiqueta" grava o **Nº compra** no contrato, e o PDF **imprime** o Nº compra: voltar à aba Detalhes mostra o documento velho |
+| 2   | `SaleContractDetailsModal` — aba Aprovação | Num contrato **FINALIZADO** o prefill responde 409 e a aba mostra a **string crua do backend**. O `WASH_OUT` tem frase escrita; o finalizado não                      |
+| 3   | `ContractEspelhoTab` — "Gerar de novo"     | Liga `generating`, que só desliga quando o `deliveredId` MUDA — e ele não muda. Sem exportar, não há volta ao guardado a não ser fechando o detalhe                   |
+
+O #1 já existia antes desta rodada (o efeito nunca teve `reloadNonce`), mas só agora ficou alcançável
+em um clique. O #2 era um **toast** no clique do botão e virou banner sem ninguém pedir. O #3 é novo: o
+modal tinha a seta ← para voltar; a aba não tem.
+
+### 16.3 Código morto (levantado, decisão dele)
+
+- 🔴 **A worklist de aprovação** — `/sale-contracts/approvals` → `listApprovalContracts` (~165 linhas)
+  - os 3 helpers de cursor + rota + handler + tipos + `listApprovals` + **6 testes de integração**.
+    Sem consumidor desde a RC-F4. **A RC-F3 pode querer o recorte de volta** — por isso não foi tocada.
+- `uploadSamplePhoto`/`uploadClassificationPhoto` (`lib/api-client.ts`), únicos consumidores de
+  `POST /samples/[id]/photos`. A foto de classificação sobe hoje por `/classification/extract-and-prepare`.
+  ⚠️ Confirmar que nenhum agente externo posta nessa rota antes de apagar.
+- Órfãs pequenas: `espelhoEligibility` (substituída pela `espelhoSideEligibility`, RC-D111),
+  `lastBusinessDayIso` (era o default do seletor de embarque), `CONTRACT_AGENDA_KINDS`, `.ctr-btn-primary`.
+- **CSS: 545 classes com regra viva e nenhuma menção no código.** As famílias grandes não são de
+  contrato — `new-sample` (104), `sample-classification` (51), `sample-detail` (37), `inactivate-user`
+  (33). O prefixo `.ctr-*` está **limpo**: 101 classes vivas, 1 órfã. A `.nsv2-field*` (8 classes)
+  segue órfã de propósito — §15.7.
 
 ## Apêndice A — Ledger de decisões (condensado)
 

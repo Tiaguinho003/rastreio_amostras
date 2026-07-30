@@ -65,7 +65,7 @@ O projeto e um monolito modular em Next.js, com frontend e backend no mesmo repo
 1. `SaleContract`
    O contrato de compra e venda: snapshots congelados das partes/banco/armazens, valores recalculados no backend, situacao `EMITIDO|FINALIZADO|WASH_OUT` (RC-D62, 2026-07-28 — o `FATURADO`/`PAGO` e o embarque inteiro sairam) e concorrencia otimista por `version`. Eixo lateral fora da situacao: aprovacao (`requiresApproval` + `approvalReminderLeadDays`), que **avisa e nao trava**. As datas planejadas (`invoiceDate`/`paymentDate`) sao campos do documento e alimentam a **agenda** derivada.
 2. Sub-tabelas e logs de auditoria
-   `SaleContractBroker` (corretagem por lado, nome do corretor em snapshot), `SaleContractExport`, `SaleContractStatusLog` (marcos de situacao — inclusive quem finalizou/reabriu), `SaleContractAgioLog`, `SaleContractEspelhoLog` e `ApprovalLabelLog` (envios de etiqueta, com `CustomPrintJob`).
+   `SaleContractBroker` (corretagem por lado, nome do corretor em snapshot), `SaleContractExport`, `SaleContractStatusLog` (marcos de situacao — inclusive quem finalizou/reabriu), `SaleContractAgioLog`, `SaleContractEspelhoLog` (auditoria do export **e** o documento guardado: a coluna `snapshot` e nulavel porque a nulabilidade E a retencao de 15 dias — RC-D103/D105) e `ApprovalLabelLog` (envios de etiqueta, com `CustomPrintJob`).
 3. Cadastro de apoio
    `Broker`, `ClientBankAccount` (banco em texto livre — D141), `ClientAttachment` e os lookups `ContractModality`/`PaymentForm`/`Packaging`.
    O detalhe funcional (as tres situacoes, a agenda derivada, a aprovacao) vive na `Contratos-Visao-Geral.md` §3/§9.

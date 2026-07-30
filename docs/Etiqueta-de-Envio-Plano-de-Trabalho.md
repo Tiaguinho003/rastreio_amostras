@@ -14,7 +14,7 @@
 Hoje o sistema imprime dois tipos de etiqueta:
 
 1. **Etiqueta de amostra** (`buildLabel` em `print-agent/label.js`) — com QR code cujo valor é o `internalLotNumber` (ou `id`). O QR serve para **busca interna** pela câmera do app e **exige login** para resolver. _(Ponteiros atualizados: `app/camera/page.tsx` foi deletado no ciclo CAM — a câmera é o `CameraSheet` global; e o `qrValue` mora em `components/samples/SampleLabelPrintSheet.tsx`, painel próprio desde o redesenho FV.)_
-2. **Etiqueta de Aprovação** (antiga "Etiqueta avulsa" — `buildCustomLabel` / ~~`CustomLabelPrintCard.tsx`~~ **hoje `ApprovalLabelModal`**, aberto só pela sub-aba Aprovações de `/embarques`; a porta que existia em `/samples` saiu na AP29) — etiqueta livre com campos editáveis, sem QR, impressa pela fila desacoplada `CustomPrintJob`.
+2. **Etiqueta de Aprovação** (antiga "Etiqueta avulsa" — `buildCustomLabel` / ~~`CustomLabelPrintCard.tsx`~~ → ~~`ApprovalLabelModal`~~ **hoje `ApprovalLabelForm`**, o conteúdo da **aba Aprovação** do detalhe do contrato: a sub-aba de `/embarques` morreu na RC-F4, o modal na RC-D127, e a porta que existia em `/samples` já tinha saído na AP29) — etiqueta livre com campos editáveis, sem QR, impressa pela fila desacoplada `CustomPrintJob`.
 
 A nova demanda é uma terceira etiqueta, a **Etiqueta de Envio**: quando o operador envia fisicamente uma amostra a um cliente/comprador, imprime-se uma etiqueta com dados do envio e um QR que, ao ser escaneado pelo destinatário (que **não tem acesso ao sistema**), abre **apenas o PDF do laudo** daquele lote.
 
