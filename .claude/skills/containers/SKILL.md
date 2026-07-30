@@ -66,6 +66,28 @@ Sinais de que o "passo" é campo disfarçado:
 O contrário também vale: **conferir** um documento é passo legítimo, porque apresenta algo que o
 formulário não tinha e a decisão ("emitir?") é outra.
 
+### 🔴 A regra acima é sobre um ATO. Menu que aprofunda é outra coisa
+
+Tudo até aqui pressupõe um painel que **executa um ato** com momentos (preencher → conferir →
+emitir), onde a seleção virava sheet só para alimentar o formulário seguinte. A cura era: **traga a
+seleção para dentro do destino, como campo.**
+
+Quando o painel inteiro é um **menu**, esse destino não existe. Não há formulário nem rodapé onde o
+campo moraria — o efeito de escolher é a coisa acontecer e o painel fechar. Aí um segundo painel é
+**drill-down**, o padrão de menu que aprofunda, e os "sinais de campo disfarçado" são justamente o
+que se espera dele: sem rodapé (tocar é a decisão) e com busca fixa + lista rolando.
+
+Como distinguir em uma pergunta: **existe um passo depois, que o escolhido preencheria?** Se sim, é
+campo. Se a escolha é a última coisa que acontece antes de fechar, é drill-down.
+
+Vivo em `NodePaletteSheet` (Simulador, PG60): passo 1 = qual tipo de node; escolher "Lote" desliza
+para passo 2 = qual lote, e a escolha do lote cria o node e fecha. Os outros dois tipos não têm o
+que perguntar e resolvem no passo 1 — então **só o card que aprofunda leva chevron**, porque é o
+único cujo toque não termina ali.
+
+A montagem é a MESMA da seção abaixo (trilha que recorta, `is-past`/`is-next`, voltar pelo
+`onDismissAttempt`) — muda o critério de quando criar o passo, não a mecânica.
+
 **Como se monta.** Um `BottomSheet` só. O corpo vira a **trilha que recorta** e cada passo rola
 sozinho — os dois na mesma célula de grid, o que saiu deslocado para fora:
 
@@ -112,7 +134,9 @@ continua no tab order; com `visibility` sem delay ele some antes de animar.
 **Cabeçalho e rodapé não deslizam** — só o miolo. O rodapé é um só, do painel, e troca o rótulo do
 botão (`key` no elemento para o React remontar e o crossfade acontecer). Se um passo ficaria **sem
 rodapé nenhum** por não ter decisão a confirmar, releia o quadro no topo desta seção: ele é
-provavelmente um campo.
+provavelmente um campo — **a menos que o painel seja um menu**, e aí nenhum passo tem rodapé
+(drill-down, dois blocos acima). Num menu o título desce para dentro do passo e desliza junto; é o
+que o `.fv-panel-sheet` já força, por não usar o slot de `title` do sheet.
 
 **Voltar um passo, não fechar.** Seta ←, ESC e o back do Android voltam; quem responde é o
 `BottomSheet` via `onDismissAttempt` → devolver `false` **com efeito colateral** (§3). O primeiro
@@ -315,6 +339,22 @@ desabilitado) — se divergirem, uma ação existe num breakpoint e some no outr
 Sem componente próprio: um bloco condicional dentro do card, com os campos e um botão de salvar. O
 estado é só `qualId | null` (ou `boolean`), e o card fica em `detailBusy` enquanto está aberto.
 Exemplos: edição de envio e edição da data de chegada em `SampleDetailView`.
+
+**O gatilho é o VALOR, não o card.** Um alvo do tamanho do card parece generoso e custa caro: some
+com a possibilidade de tocar o card sem editar (selecionar, arrastar), e o usuário não sabe onde
+começa a edição. O valor vira um chip com chevron; o resto do card segue neutro.
+
+🔴 **Se o card for ARRASTÁVEL, `onClick` no corpo dele dispara ao terminar o arrasto.** Em canvas
+(React Flow) há duas saídas, e a certa depende de quem é o alvo: `onNodeClick` no canvas, que só
+reage a clique de verdade (é como o Resultado do Simulador abre a ficha), ou um botão próprio com
+`nodrag`, que impede o arrasto de nascer ali (é como o chip de sacas abre o dropdown). Um `onClick`
+solto no corpo do card não é opção.
+
+Salvar fica **ao lado do campo**, pequeno, e **desabilitado enquanto não há mudança válida** — sem
+isso o botão convida a um clique que não faz nada. Erro dentro do campo (`feedback-messages`), e
+ESC fecha sem aplicar: em canvas, com `stopPropagation`, senão o ESC segue para a superfície de
+baixo. Para fechar ao clicar fora, `onBlur` no container conferindo `relatedTarget` — sem essa
+conferência o foco andando do input para o botão de salvar já fecharia o dropdown.
 
 ---
 
@@ -628,7 +668,8 @@ muda) · **🔜 ciclo** migra quando o redesenho chegar na página — nada de c
 | /contratos ?details=    | Etiqueta de aprovação — **abre de dentro do `DetailOverlay`** (RC-D25)                                                     | central **stacked**                            | fica                                                      |
 | /financeiro             | **Nenhuma** — a página é leitura pura (RC-D67)                                                                             | —                                              | ✅                                                        |
 | Simulador               | Ficha de resultado (`.pg-ficha-sheet`, backdrop atravessável); connect menu                                                | painel lateral                                 | ✅ (PG52)                                                 |
-| Simulador               | Escolher o tipo de node (`.pg-nodes-sheet`, backdrop **padrão**) — a paleta docada no canvas morreu                        | painel lateral                                 | ✅ (PG58)                                                 |
+| Simulador               | Tipo de node → qual lote (`.pg-nodes-sheet`, backdrop **padrão**) — menu que aprofunda, §1-A                               | painel de **dois passos**                      | ✅ (PG58/PG60)                                            |
+| Simulador               | Editar as sacas de um node de Lote                                                                                         | **dropdown inline no node**                    | ✅ (PG60)                                                 |
 
 **A migração acontece PÁGINA A PÁGINA**, dentro do redesenho completo de cada página: os
 contêineres dela realinham na mesma passada, junto com estrutura, cards e tipografia. Cada página é
