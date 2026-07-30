@@ -4,11 +4,16 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { getSaleContract } from '../../lib/api-client';
-import { espelhoEligibility, espelhoSides, type EspelhoSide } from '../../lib/espelho';
+import {
+  espelhoEligibility,
+  espelhoSideLabel,
+  espelhoSides,
+  type EspelhoSide,
+} from '../../lib/espelho';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import type { SaleContract, SaleContractDetail, SessionData } from '../../lib/types';
 
-// Re-export p/ compatibilidade (EspelhoCorretagemModal/ContratosPanel importam daqui).
+// Re-export p/ compatibilidade (o ContratosPanel importa daqui).
 export type { EspelhoSide };
 
 type EspelhoConferenciaModalProps = {
@@ -98,7 +103,9 @@ export function EspelhoConferenciaModal({
 
   // Espelha os valores que o PDF imprime (D131–D133): Data = data de GERAÇÃO
   // (hoje); Preço = EFETIVO (cru ± ágio/deságio por saca).
-  const generatedDate = new Date().toLocaleDateString('pt-BR');
+  // O fuso é o do NEGÓCIO, não o do aparelho: o PDF formata em America/Sao_Paulo, e
+  // sem isto um aparelho fora do BRT conferia uma data diferente da impressa.
+  const generatedDate = new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
   // Espelho (dedup): lê o preço efetivo da view (fonte única) em vez de recalcular.
   const effectiveUnitPrice = view.effectiveUnitPrice;
   const agioText =
@@ -138,7 +145,7 @@ export function EspelhoConferenciaModal({
                 aria-pressed={side === s}
                 onClick={() => setSide(s)}
               >
-                {s === 'seller' ? 'Vendedor' : 'Comprador'}
+                {espelhoSideLabel(s)}
               </button>
             ))}
           </div>

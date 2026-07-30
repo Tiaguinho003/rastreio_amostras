@@ -28538,6 +28538,19 @@ body.is-selection-mode .mobile-tabbar {
   color: var(--brand-muted);
   text-align: center;
 }
+/* RC-D104: espelho GUARDADO cujo contrato mudou depois da entrega. Nao e erro
+   (o documento esta certo — foi isso que saiu), entao nao usa o vermelho do
+   `.sdv-modal-error`: e um AVISO ambar, dentro do fluxo do documento. */
+.ctr-doc-warning {
+  margin: 0;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid #e4d3a8;
+  border-radius: 10px;
+  background: #fdf8ec;
+  font-size: 0.76rem;
+  line-height: 1.35;
+  color: #7a6220;
+}
 /* Fechar | Baixar | Exportar numa linha (Fechar so o necessario). */
 .app-modal.is-themed .app-modal-actions.ctr-doc-actions {
   display: grid;
@@ -28698,6 +28711,114 @@ body.is-selection-mode .mobile-tabbar {
   margin: 0 0 0.2rem;
   font-size: 0.78rem;
   color: var(--muted, #6b7280);
+}
+
+/* RC-D106: a PRATELEIRA dos espelhos guardados, no Detalhes do contrato. Fica
+   colada na secao do PDF do contrato porque e a mesma coisa — a estante de
+   documentos —, e por isso a linha herda a geometria do `.ctr-tl-item` (o cartao
+   do historico, no mesmo modal) em vez de inventar uma terceira caixa. A
+   diferenca e que aqui a linha ABRE algo: e `<button>`, com o afundar do
+   `button-press-effect` e nenhuma troca de cor no toque. */
+.ctr-details-espelhos {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.ctr-espelho-shelf {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.ctr-espelho-shelf-row {
+  -webkit-tap-highlight-color: transparent;
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.3rem 0.6rem;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--brand-cream-line);
+  border-radius: 10px;
+  background: #faf9f6;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.ctr-espelho-shelf-row:active {
+  transform: scale(0.985);
+}
+
+@media (hover: hover) {
+  .ctr-espelho-shelf-row:hover {
+    border-color: var(--brand-green-ink);
+  }
+}
+
+.ctr-espelho-shelf-row:focus-visible {
+  outline: 2px solid rgba(36, 57, 47, 0.35);
+  outline-offset: 2px;
+}
+
+.ctr-espelho-shelf-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.15rem 0.5rem;
+  min-width: 0;
+}
+
+.ctr-espelho-shelf-side {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--brand-green-ink);
+}
+
+.ctr-espelho-shelf-meta {
+  font-size: 0.78rem;
+  color: var(--brand-muted);
+  overflow-wrap: anywhere;
+}
+
+.ctr-espelho-shelf-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.ctr-espelho-shelf-tag {
+  padding: 0.1rem 0.4rem;
+  border: 1px solid var(--brand-cream-line);
+  border-radius: 999px;
+  background: #fff;
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--brand-muted);
+  white-space: nowrap;
+}
+
+/* Mesmo ambar do `.ctr-doc-warning` (o aviso que o operador ve ao abrir): o selo
+   na estante e a previa daquele texto, e a cor amarra os dois. */
+.ctr-espelho-shelf-tag.is-warn {
+  border-color: #e4d3a8;
+  background: #fdf8ec;
+  color: #7a6220;
+}
+
+.ctr-espelho-shelf-hint {
+  margin: 0;
+  font-size: 0.74rem;
+  color: var(--brand-muted);
 }
 
 /* 🪦 RC-D69 (2026-07-29): o bloco `.lotpick-*` MORREU INTEIRO — 26 regras e a

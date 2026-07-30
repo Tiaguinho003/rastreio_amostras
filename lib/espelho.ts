@@ -1,6 +1,21 @@
-import type { SaleContract, SaleContractStatus } from './types';
+import type { EspelhoSide, SaleContract, SaleContractStatus } from './types';
 
-export type EspelhoSide = 'seller' | 'buyer';
+// O tipo mora em types.ts (folha da árvore de imports) e é re-exportado aqui, que é
+// onde os consumidores do espelho o buscam.
+export type { EspelhoSide };
+
+// RC-D111: rótulo pt-BR do lado, em UM lugar. O ternário
+// `side === 'seller' ? 'Vendedor' : 'Comprador'` estava copiado em 4 arquivos, e num
+// deles rodava sobre um `side?: string` — qualquer valor inesperado, inclusive
+// undefined, saía como "Comprador".
+export const ESPELHO_SIDE_LABEL: Record<EspelhoSide, string> = {
+  seller: 'Vendedor',
+  buyer: 'Comprador',
+};
+
+export function espelhoSideLabel(side: EspelhoSide | null | undefined): string {
+  return side ? (ESPELHO_SIDE_LABEL[side] ?? '—') : '—';
+}
 
 // Espelho de Corretagem: elegibilidade no FRONT (espelha os gates do backend
 // ESPELHO_*). Só contratos congelados (D73/D105) com corretagem no lado; o cancelado

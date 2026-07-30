@@ -31,6 +31,7 @@ import {
   reopenSaleContract,
   setSaleContractApprovalFlag,
 } from '../../lib/api-client';
+import { espelhoSideLabel, type EspelhoSide } from '../../lib/espelho';
 import { formatRelativeTime } from '../../lib/relative-time';
 import { downloadFile, shareOrDownloadFile } from '../../lib/share-blob';
 import { useToast } from '../../lib/toast/ToastProvider';
@@ -45,6 +46,7 @@ import type {
 } from '../../lib/types';
 import { ApprovalLabelModal } from '../ApprovalLabelModal';
 import { DetailOverlay } from '../DetailOverlay';
+import { EspelhoCorretagemModal } from './EspelhoCorretagemModal';
 import {
   agendaColor,
   contractAgenda,
@@ -86,6 +88,16 @@ function dateOnly(iso: string | null | undefined): string {
   return date.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
 }
 
+// Timestamp REAL (não @db.Date) no fuso do NEGÓCIO — é a mesma data que o PDF do
+// espelho imprime na coluna "Data". Formatar em UTC aqui faria a prateleira mostrar
+// um dia diferente do papel nas primeiras horas da noite.
+function brtDateOnly(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+}
+
 // Data/hora exata de apoio do timeline (D119). Marcos legados são @db.Date
 // (meia-noite UTC) — mostrar só a data em UTC evita "voltar um dia" no fuso.
 function exactStamp(item: SaleContractTimelineItem): string {
@@ -117,7 +129,10 @@ function timelineLabel(item: SaleContractTimelineItem): string {
     }
     case 'ESPELHO':
       // D127: o log é gravado na EXPORTAÇÃO (Exportar/Baixar) — a prévia não audita.
-      return `Espelho exportado — ${item.side === 'seller' ? 'Vendedor' : 'Comprador'}`;
+      // RC-D105: a linha FICA depois de o documento expirar (o fato auditado não
+      // expira), e é por isso que ela não diz nada sobre disponibilidade — quem mostra
+      // o que ainda se pode abrir é a prateleira, acima.
+      return `Espelho exportado — ${espelhoSideLabel(item.side)}`;
     case 'STATUS': {
       // RC-D63: a marca terminal VAI e VOLTA — o log acumula as duas linhas, e
       // é por isso que "quem finalizou e quando" não virou coluna do contrato.
@@ -249,17 +264,26 @@ export function SaleContractDetailsModal({
   const [approvalError, setApprovalError] = useState<string | null>(null);
   const [approvalConfirmOpen, setApprovalConfirmOpen] = useState(false);
   const approvalConfirmTrapRef = useFocusTrap(approvalConfirmOpen);
+  // RC-D106: a PRATELEIRA — abre um espelho GUARDADO (re-renderizado do snapshot
+  // congelado na entrega). Molde do labelPrefill: superfície irmã do overlay,
+  // segurando o dismissGuardRef enquanto aberta.
+  const [openEspelho, setOpenEspelho] = useState<{
+    logId: string;
+    side: EspelhoSide;
+    expiresAt: string | null;
+    stale: boolean;
+  } | null>(null);
 
   // F3 do redesign: com superficie interna aberta (confirm de aprovacao ou
   // etiqueta), ESC/X do overlay NAO fecham o detalhe (molde do dismissGuardRef
   // da F1 — ver DetailOverlay).
   const dismissGuardRef = useRef(false);
   useEffect(() => {
-    dismissGuardRef.current = approvalConfirmOpen || labelPrefill != null;
+    dismissGuardRef.current = approvalConfirmOpen || labelPrefill != null || openEspelho != null;
     return () => {
       dismissGuardRef.current = false;
     };
-  }, [approvalConfirmOpen, labelPrefill]);
+  }, [approvalConfirmOpen, labelPrefill, openEspelho]);
 
   useEffect(() => {
     if (!open) return;
@@ -351,6 +375,16 @@ export function SaleContractDetailsModal({
   const meta = STATUS_META[view.status];
   const agenda = contractAgenda(view);
   const agendaTone = agendaColor(agenda);
+
+  // RC-D106: a prateleira sai do TIMELINE — os itens ESPELHO já vêm com o estado do
+  // documento guardado, então não há endpoint novo. O histórico mostra todos os
+  // exports; a prateleira, só os que ainda se pode abrir. Mais recente primeiro (o
+  // timeline já vem decrescente).
+  const savedEspelhos = (timeline ?? []).filter(
+    (item) => item.kind === 'ESPELHO' && item.available && item.logId && item.side
+  );
+  // Enquanto o contrato está vivo não há prazo; o relógio começa quando ele termina.
+  const shelfExpiresAt = savedEspelhos.find((item) => item.expiresAt)?.expiresAt ?? null;
 
   // AP32: "Solicitar aprovação" é um latch de mão única — só aparece quando o contrato
   // ainda é "Não" + EMITIDO + gerencia; depois de "Sim" não há como desmarcar (nem aqui
@@ -590,6 +624,61 @@ export function SaleContractDetailsModal({
             </div>
           </section>
 
+          {/* RC-D106: os espelhos ENTREGUES que ainda estão guardados. Fica junto do
+              PDF do contrato porque é a mesma coisa — a estante de documentos. Só
+              aparece quando há algo para abrir; o histórico, no fim, guarda a linha
+              de todos os exports mesmo depois de o documento expirar (RC-D105). */}
+          {savedEspelhos.length > 0 ? (
+            <section className="ctr-details-espelhos">
+              <h4 className="ctr-section-title">Espelhos de corretagem</h4>
+              <ul className="ctr-espelho-shelf">
+                {savedEspelhos.map((item) => (
+                  <li key={item.id}>
+                    <button
+                      type="button"
+                      className="ctr-espelho-shelf-row"
+                      onClick={() =>
+                        setOpenEspelho({
+                          logId: item.logId as string,
+                          side: item.side as EspelhoSide,
+                          expiresAt: item.expiresAt ?? null,
+                          stale: Boolean(item.stale),
+                        })
+                      }
+                    >
+                      <span className="ctr-espelho-shelf-main">
+                        <span className="ctr-espelho-shelf-side">
+                          {espelhoSideLabel(item.side)}
+                        </span>
+                        <span className="ctr-espelho-shelf-meta">
+                          {brtDateOnly(item.at)}
+                          {item.commission != null ? ` · ${money(item.commission)}` : ''}
+                        </span>
+                      </span>
+                      {item.superseded || item.stale ? (
+                        <span className="ctr-espelho-shelf-tags">
+                          {item.superseded ? (
+                            <span className="ctr-espelho-shelf-tag">substituído</span>
+                          ) : null}
+                          {item.stale ? (
+                            <span className="ctr-espelho-shelf-tag is-warn">
+                              contrato mudou depois
+                            </span>
+                          ) : null}
+                        </span>
+                      ) : null}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <p className="ctr-espelho-shelf-hint">
+                {shelfExpiresAt
+                  ? `Disponíveis até ${brtDateOnly(shelfExpiresAt)} — 15 dias depois do fim do contrato.`
+                  : 'Ficam guardados enquanto o contrato estiver em andamento, e saem 15 dias depois de ele terminar.'}
+              </p>
+            </section>
+          ) : null}
+
           <div className="ctr-details-info">
             <section>
               <h4 className="ctr-section-title">Identificação</h4>
@@ -721,6 +810,19 @@ export function SaleContractDetailsModal({
           saleContractId={contract.id}
           onSent={() => setReloadNonce((n) => n + 1)}
           onClose={() => setLabelPrefill(null)}
+        />
+      ) : null}
+      {/* RC-D106: espelho GUARDADO — o mesmo modal da prévia, em modo releitura
+          (logId). Aqui Baixar/Exportar não registram nada: é o mesmo documento. */}
+      {openEspelho ? (
+        <EspelhoCorretagemModal
+          session={session}
+          contract={view}
+          side={openEspelho.side}
+          logId={openEspelho.logId}
+          expiresAt={openEspelho.expiresAt}
+          stale={openEspelho.stale}
+          onClose={() => setOpenEspelho(null)}
         />
       ) : null}
       {/* AP32: confirmação do latch de mão única — "Solicitar aprovação" é definitivo. */}
