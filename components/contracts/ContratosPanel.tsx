@@ -25,6 +25,7 @@ import { getBrtToday, toDayKey } from '../../lib/dashboard-calendar';
 import { useDelayedValue } from '../../lib/use-delayed-value';
 import { useContractHighlight } from '../../lib/use-contract-highlight';
 import { useIsDesktop } from '../../lib/use-desktop';
+import { useRevalidate } from '../../lib/revalidation/use-revalidate';
 import { useToast } from '../../lib/toast/ToastProvider';
 import type {
   AgioDesagioType,
@@ -441,6 +442,18 @@ export function ContratosPanel({ session }: { session: SessionData }) {
       });
     }
   }, [session, appliedSearch, appliedFilters]);
+
+  // F3 (SN-D13): antes esta lista SÓ se atualizava pelas mutações feitas aqui
+  // dentro — era uma das 5 superfícies sem revalidação nenhuma (§2.7). Agora
+  // reage também ao retorno do app, ao poll e a escritas de fora. O card mostra
+  // cliente e lote além do contrato, daí os três assuntos.
+  useRevalidate({
+    subjects: ['contratos', 'clientes', 'lotes'],
+    enabled: Boolean(session),
+    onRevalidate: () => {
+      void refresh();
+    },
+  });
 
   const contracts = listState.items;
 

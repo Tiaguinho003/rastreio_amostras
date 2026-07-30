@@ -46,7 +46,7 @@ import {
 } from '../../lib/form-schemas';
 import { useCameraSheet } from '../../lib/camera-sheet/CameraSheetProvider';
 import { useFocusTrap } from '../../lib/use-focus-trap';
-import { useListRevalidation } from '../../lib/use-list-revalidation';
+import { useRevalidate } from '../../lib/revalidation/use-revalidate';
 import type {
   ActiveBlendDetail,
   AffectedBlendDetail,
@@ -863,7 +863,11 @@ export function SampleDetailView({
     cameraWasOpenRef.current = cameraSheetOpen;
   }, [cameraSheetOpen, refreshDetail]);
   const detailStatus = detail?.sample.status;
-  useListRevalidation({
+  // O detalhe mostra o lote e o cliente/dono. O `revalidateDetail` ja tem guard
+  // de `detailBusyRef`, entao a publicacao das proprias acoes daqui (envio,
+  // perda, invalidacao, edicao) nao vira busca duplicada.
+  useRevalidate({
+    subjects: ['lotes', 'clientes'],
     enabled:
       Boolean(session) &&
       Boolean(sampleId) &&

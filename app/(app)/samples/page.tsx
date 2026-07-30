@@ -65,7 +65,7 @@ import {
   toggleSelection,
   type BlendSelection,
 } from '../../../lib/samples/blend-selection';
-import { useListRevalidation } from '../../../lib/use-list-revalidation';
+import { useRevalidate, type RevalidationSource } from '../../../lib/revalidation/use-revalidate';
 import { buildHarvestPresets } from '../../../lib/sample-identification';
 import { sampleStatusDisplay } from '../../../lib/sample-display';
 import { useToast } from '../../../lib/toast/ToastProvider';
@@ -422,7 +422,8 @@ function getInitialFilterSection(filters: HiddenFilters): FilterSectionId {
    da janela do TTL (contada desde que saiu da Lotes).
    Desde 2026-07-07 o snapshot e SO a primeira pintura (stale-while-revalidate):
    um refetch silencioso roda por baixo no mount restaurado, no retorno do app
-   ao primeiro plano e a cada 60s (useListRevalidation) — a lista nao fica mais
+   ao primeiro plano, a cada 60s E a cada escrita no assunto (useRevalidate) — a
+   lista nao fica mais
    congelada em dados velhos. ── */
 
 const SAMPLES_SNAPSHOT_KEY = 'samples-list-snapshot-v3';
@@ -704,7 +705,7 @@ function SamplesPage() {
   // (decisao 5.31 = a — refetch automatico).
   const [newSampleRefetchKey, setNewSampleRefetchKey] = useState(0);
   // Revalidacao silenciosa (2026-07-07): incrementa pra refazer o fetch SEM
-  // skeleton/scroll-reset (retorno ao app + polling — useListRevalidation).
+  // skeleton/scroll-reset (barramento + retorno ao app + polling — useRevalidate).
   const [refreshTick, setRefreshTick] = useState(0);
 
   // FV: menu ⋯ da linha da tabela — id do lote com o menu aberto.
@@ -1336,14 +1337,16 @@ function SamplesPage() {
     refreshTick,
   ]);
 
-  // Revalidacao silenciosa (mesmo padrao do dashboard): refetch ao voltar o app
-  // pro primeiro plano (throttle 30s) + polling 60s com a pagina visivel.
+  // Revalidacao silenciosa: refetch ao voltar o app pro primeiro plano
+  // (throttle 30s), a cada escrita no assunto (barramento, F3) e no polling de
+  // 60s com a pagina visivel.
   // Guards: nao atropela carregamento/paginacao em andamento; o POLLING pausa
   // no modo Liga (trocar a lista no meio da montagem atrapalha), mas o retorno
   // ao app segue revalidando — a selecao guarda snapshots e sobrevive.
+  // O `publish` NAO pausa: e mudanca conhecida, entao vale como o foreground.
   const samplesStatusRef = useRef(samplesState.status);
   samplesStatusRef.current = samplesState.status;
-  const requestSilentRefetch = useCallback((source: 'foreground' | 'poll') => {
+  const requestSilentRefetch = useCallback((source: RevalidationSource) => {
     if (source === 'poll' && selectionModeRef.current === 'blend') return;
     const status = samplesStatusRef.current;
     if (status === 'loading-initial' || status === 'loading-more') return;
@@ -1351,7 +1354,10 @@ function SamplesPage() {
     setRefreshTick((tick) => tick + 1);
   }, []);
 
-  useListRevalidation({
+  // A lista mostra lote E o nome do dono, entao reage aos dois assuntos: um
+  // cliente renomeado em /cadastros muda o texto dos cards daqui.
+  useRevalidate({
+    subjects: ['lotes', 'clientes'],
     enabled: Boolean(session),
     onRevalidate: requestSilentRefetch,
   });

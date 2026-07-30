@@ -14,6 +14,7 @@ import {
   getRelatoriosStats,
   listInformeFeed,
 } from '../../lib/api-client';
+import { useRevalidate } from '../../lib/revalidation/use-revalidate';
 import { isWeeklyReportAuthor } from '../../lib/roles';
 import { useDebouncedValue } from '../../lib/use-debounced-value';
 import { useIsDesktop } from '../../lib/use-desktop';
@@ -99,14 +100,19 @@ export function RelatoriosViewer({ session, canCreate }: RelatoriosViewerProps) 
     [debouncedSearch, typeFilter]
   );
 
+  // `silent` = revalidação por baixo (barramento/foreground/poll): NÃO acende o
+  // skeleton nem limpa o erro visível, pra lista não piscar sozinha na cara de
+  // quem está lendo. Só a carga real e a troca de filtro mostram carregamento.
   const loadPage = useCallback(
-    async (targetPage: number, mode: 'replace' | 'append') => {
-      if (mode === 'replace') {
-        setInitialLoading(true);
-      } else {
-        setLoadingMore(true);
+    async (targetPage: number, mode: 'replace' | 'append', silent = false) => {
+      if (!silent) {
+        if (mode === 'replace') {
+          setInitialLoading(true);
+        } else {
+          setLoadingMore(true);
+        }
+        setError(null);
       }
-      setError(null);
 
       try {
         const response = await listInformeFeed(session, {
@@ -121,16 +127,22 @@ export function RelatoriosViewer({ session, canCreate }: RelatoriosViewerProps) 
         setHasNext(response.page.hasNext);
         setPage(response.page.page);
       } catch (cause) {
-        setError(
-          cause instanceof ApiError
-            ? cause.message
-            : 'Não foi possível carregar os relatórios. Verifique sua conexão.'
-        );
+        // Falha de revalidação silenciosa não derruba a lista que está na tela:
+        // o usuário fica com o último dado bom em vez de um erro do nada.
+        if (!silent) {
+          setError(
+            cause instanceof ApiError
+              ? cause.message
+              : 'Não foi possível carregar os relatórios. Verifique sua conexão.'
+          );
+        }
       } finally {
-        if (mode === 'replace') {
-          setInitialLoading(false);
-        } else {
-          setLoadingMore(false);
+        if (!silent) {
+          if (mode === 'replace') {
+            setInitialLoading(false);
+          } else {
+            setLoadingMore(false);
+          }
         }
       }
     },
@@ -156,6 +168,18 @@ export function RelatoriosViewer({ session, canCreate }: RelatoriosViewerProps) 
   useEffect(() => {
     refetchStats();
   }, [refetchStats]);
+
+  // F3 (SN-D13): o feed era uma das 5 superfícies sem revalidação nenhuma —
+  // relatório criado em outro aparelho só aparecia reiniciando o app. Lista e
+  // KPIs andam juntos (é o mesmo par que a criação de visita já atualiza).
+  useRevalidate({
+    subjects: ['relatorios'],
+    enabled: Boolean(session),
+    onRevalidate: () => {
+      void loadPage(1, 'replace', true);
+      refetchStats();
+    },
+  });
 
   const toggleExpanded = useCallback((id: string) => {
     setExpandedIds((current) => {

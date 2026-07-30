@@ -78,6 +78,8 @@ import type {
   PushConfigResponse,
   PushSubscriptionMutationResponse,
 } from './types';
+import { publish } from './revalidation/bus';
+import { subjectForPath } from './revalidation/subjects';
 
 export class ApiError extends Error {
   status: number;
@@ -177,6 +179,19 @@ async function request<TResponse>(
 
   if (response.status !== 204 && Object.keys(payload).length === 0) {
     throw new ApiError(response.status, 'Resposta invalida do servidor', null);
+  }
+
+  // SN-D14 (F3): escrita que deu certo anuncia o assunto que tocou. Este e o
+  // PONTO UNICO — as ~77 mutacoes do app passam todas por aqui, entao nenhum
+  // ponto de escrita precisa lembrar de avisar, e endpoint novo ja nasce
+  // publicando. A regra 3 do §5.2 do doc pedia o contrario (cada ponto publica
+  // na mao); foi mudada de proposito, porque a lista manual apodrece do mesmo
+  // jeito que a lista de chaves do logout apodreceu.
+  if (method !== 'GET') {
+    const subject = subjectForPath(path);
+    if (subject) {
+      publish([subject]);
+    }
   }
 
   return payload as TResponse;

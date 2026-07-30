@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 
 import { ApiError, listFinanceiro } from '../../lib/api-client';
+import { useRevalidate } from '../../lib/revalidation/use-revalidate';
 import { useContractHighlight } from '../../lib/use-contract-highlight';
 import { useIsDesktop } from '../../lib/use-desktop';
 import type {
@@ -156,13 +157,36 @@ export function FinanceiroPanel({ session }: { session: SessionData }) {
     };
   }, [searchInput, appliedSearch]);
 
+  // F3 (SN-D13): a carteira era uma das 5 superfícies sem revalidação nenhuma —
+  // e é a mais sensível a dado velho, porque é dinheiro. O painel não tinha
+  // função de recarga nomeada (o fetch é este efeito), então a revalidação
+  // entra como um token nas deps. `silent` = não pisca skeleton nem derruba a
+  // lista da tela se a rede falhar.
+  const [reloadToken, setReloadToken] = useState(0);
+  const silentReloadRef = useRef(false);
+
+  useRevalidate({
+    // O que a carteira mostra é derivado de CONTRATO — fechar/finalizar um
+    // contrato em /contratos muda o que se vê aqui. Daí os dois assuntos.
+    subjects: ['corretagem', 'contratos'],
+    enabled: Boolean(session),
+    onRevalidate: () => {
+      silentReloadRef.current = true;
+      setReloadToken((token) => token + 1);
+    },
+  });
+
   // Fetch inicial: dispara ao mudar busca/filtro/sessão. Reseta o cursor (a
   // paginação é keyset por página).
   useEffect(() => {
     if (!session) return;
+    const silent = silentReloadRef.current;
+    silentReloadRef.current = false;
     const abortController = new AbortController();
     let active = true;
-    dispatchList({ type: 'fetch-initial' });
+    if (!silent) {
+      dispatchList({ type: 'fetch-initial' });
+    }
     loadMoreStateRef.current.token += 1;
     loadMoreStateRef.current.inFlight = false;
     loadMoreStateRef.current.abort?.abort();
@@ -185,6 +209,7 @@ export function FinanceiroPanel({ session }: { session: SessionData }) {
       .catch((cause) => {
         if (!active) return;
         if (cause instanceof DOMException && cause.name === 'AbortError') return;
+        if (silent) return;
         dispatchList({
           type: 'error',
           message: cause instanceof ApiError ? cause.message : 'Falha ao carregar o financeiro.',
@@ -195,7 +220,7 @@ export function FinanceiroPanel({ session }: { session: SessionData }) {
       active = false;
       abortController.abort();
     };
-  }, [appliedSearch, filter, session]);
+  }, [appliedSearch, filter, session, reloadToken]);
 
   // Load-more pelo cursor. inFlight + token protegem contra race em scrolls rápidos.
   const runLoadMore = useCallback(

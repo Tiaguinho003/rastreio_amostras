@@ -23,6 +23,7 @@ import { useToast } from '../../../lib/toast/ToastProvider';
 import { useIsDesktop } from '../../../lib/use-desktop';
 import { getRoleLabel, isAssignableUserRole } from '../../../lib/roles';
 import { useRequireRole } from '../../../lib/auth/AuthProvider';
+import { useRevalidate } from '../../../lib/revalidation/use-revalidate';
 import type { UserRole, UserSummary } from '../../../lib/types';
 
 // Papeis oferecidos ao CRIAR um usuario. O PROSPECTOR ficou de fora: o papel
@@ -490,30 +491,49 @@ function UsersPage() {
   }, [runLoadMore, listState.nextCursor, listState.status, session]);
 
   // Recarrega a primeira pagina apos mutacoes (criar/editar/inativar/etc).
-  const refreshList = useCallback(async () => {
-    if (!session) return;
-    dispatchList({ type: 'fetch-initial' });
-    loadMoreStateRef.current.token += 1;
-    loadMoreStateRef.current.inFlight = false;
-    try {
-      const response = await listUsers(session, {
-        search: appliedSearch || undefined,
-        limit: USER_PAGE_LIMIT,
-      });
-      dispatchList({
-        type: 'success-initial',
-        items: response.items,
-        total: response.page.total,
-        nextCursor: response.page.nextCursor,
-      });
-    } catch (cause) {
-      dispatchList({
-        type: 'error',
-        message:
-          cause instanceof ApiError ? cause.message : 'Não foi possível carregar os usuários',
-      });
-    }
-  }, [appliedSearch, session]);
+  // `silent` = revalidacao por baixo (barramento/foreground/poll): nao dispara
+  // 'fetch-initial', entao a lista NAO pisca skeleton, e uma falha nao derruba
+  // o que ja esta na tela — o usuario fica com o ultimo dado bom.
+  const refreshList = useCallback(
+    async (silent = false) => {
+      if (!session) return;
+      if (!silent) {
+        dispatchList({ type: 'fetch-initial' });
+      }
+      loadMoreStateRef.current.token += 1;
+      loadMoreStateRef.current.inFlight = false;
+      try {
+        const response = await listUsers(session, {
+          search: appliedSearch || undefined,
+          limit: USER_PAGE_LIMIT,
+        });
+        dispatchList({
+          type: 'success-initial',
+          items: response.items,
+          total: response.page.total,
+          nextCursor: response.page.nextCursor,
+        });
+      } catch (cause) {
+        if (silent) return;
+        dispatchList({
+          type: 'error',
+          message:
+            cause instanceof ApiError ? cause.message : 'Não foi possível carregar os usuários',
+        });
+      }
+    },
+    [appliedSearch, session]
+  );
+
+  // F3 (SN-D13): /users era uma das 5 superfícies sem revalidação nenhuma —
+  // usuário criado ou inativado por outro ADMIN só aparecia reiniciando o app.
+  useRevalidate({
+    subjects: ['usuarios'],
+    enabled: Boolean(session),
+    onRevalidate: () => {
+      void refreshList(true);
+    },
+  });
 
   // --- Load detail when modal opens ---
   useEffect(() => {

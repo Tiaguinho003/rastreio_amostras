@@ -23,7 +23,7 @@ import { ApiError, listClients, lookupUsersForReference } from '../../lib/api-cl
 import { formatClientDocument, formatPhone } from '../../lib/client-field-formatters';
 import { formatRelativeTime } from '../../lib/relative-time';
 import { useIsDesktop } from '../../lib/use-desktop';
-import { useListRevalidation } from '../../lib/use-list-revalidation';
+import { useRevalidate } from '../../lib/revalidation/use-revalidate';
 import { useToast } from '../../lib/toast/ToastProvider';
 import type {
   ClientStatus,
@@ -299,7 +299,7 @@ export function ClientsBrowser({
   // revalidate) — ver o effect do fetch inicial.
   const skipInitialFetchRef = useRef<boolean>(initialSnapshot !== null && !incompleteFromUrl);
   // Revalidacao silenciosa (2026-07-07): tick refaz o fetch sem skeleton
-  // (retorno ao app + polling — useListRevalidation).
+  // (barramento + retorno ao app + polling — useRevalidate).
   const [refreshTick, setRefreshTick] = useState(0);
   const pendingScrollRestoreRef = useRef<number | null>(
     initialSnapshot ? initialSnapshot.scrollTop : null
@@ -564,7 +564,10 @@ export function ClientsBrowser({
     setRefreshTick((tick) => tick + 1);
   }, []);
 
-  useListRevalidation({
+  // O browser serve as duas sub-abas de /cadastros (Clientes e Corretores),
+  // entao assina os dois assuntos.
+  useRevalidate({
+    subjects: ['clientes', 'corretores'],
     enabled: Boolean(session),
     onRevalidate: requestSilentRefetch,
   });

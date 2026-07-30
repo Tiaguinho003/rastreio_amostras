@@ -8,6 +8,7 @@ import {
   getDashboardPaymentEvents,
 } from '../../lib/api-client';
 import { isRoleAllowed, PAYMENT_FEED_ROLES } from '../../lib/roles';
+import { useRevalidate } from '../../lib/revalidation/use-revalidate';
 import { useRecentSendsFeed } from '../../lib/use-recent-sends-feed';
 import { AvisosCard } from './AvisosCard';
 import { EventsCalendarCard } from './EventsCalendarCard';
@@ -37,10 +38,13 @@ export function DashboardDesktop({ session }: DashboardDesktopProps) {
   // refetch em foco/visibilidade pelo hook (o mesmo dos cards de envios). Fica na
   // coluna à DIREITA do calendário (grid de 2 colunas). Auth-only p/ todos os
   // não-PROSPECTOR (o dashboard padrão já é só deles).
+  // F3 (SN-D13): o card de Avisos era uma das 5 superfícies sem revalidação —
+  // ele resume pendência de lote, contrato e relatório, então assina os três.
   const avisos = useRecentSendsFeed<DashboardAviso>(
     session,
     getDashboardAvisos,
-    'Não foi possível carregar os avisos.'
+    'Não foi possível carregar os avisos.',
+    ['lotes', 'contratos', 'relatorios']
   );
 
   // ───────── Card de Eventos (2 feeds mesclados client-side) ─────────
@@ -54,7 +58,6 @@ export function DashboardDesktop({ session }: DashboardDesktopProps) {
   const [invoiceEvents, setInvoiceEvents] = useState<Record<string, DashboardCalendarEvent[]>>({});
   const [eventsError, setEventsError] = useState<string | null>(null);
   const [paymentWindow, setPaymentWindow] = useState<{ from: string; to: string } | null>(null);
-  const lastEventsFetchRef = useRef<number>(0);
   const handleWindowChange = useCallback((from: string, to: string) => {
     setPaymentWindow({ from, to });
   }, []);
@@ -101,32 +104,31 @@ export function DashboardDesktop({ session }: DashboardDesktopProps) {
     fetchInvoiceEvents();
   }, [fetchPaymentEvents, fetchInvoiceEvents]);
 
+  // F3 (SN-D13): os listeners de focus/visibilitychange que este card mantinha
+  // por conta própria saíram — o `useRevalidate` faz isso e traz junto o
+  // barramento. O calendário é montado a partir de CONTRATO (vencimento de
+  // pagamento e de nota), então é `contratos` que o invalida: marcar um
+  // pagamento em /contratos ou /financeiro agora repinta o calendário na hora.
+  // Poll desligado pelo mesmo motivo do card de Avisos.
+  useRevalidate({
+    subjects: ['contratos'],
+    enabled: true,
+    onRevalidate: refetchEvents,
+    pollMs: null,
+    throttleMs: REFETCH_THROTTLE_MS,
+  });
+
   useEffect(() => {
-    const doFetch = () => {
-      lastEventsFetchRef.current = Date.now();
-      refetchEvents();
-    };
     // Inicial + a cada mudança da janela visível (o card emite via onWindowChange).
-    doFetch();
+    refetchEvents();
+    // O resize que ENTRA no desktop re-busca: o gate `matchMedia` dos fetchers
+    // barra tudo abaixo de 901px, então sem isto o card ficaria no skeleton.
     const mq = window.matchMedia(DESKTOP_MQ);
-    // Throttle + gate de visibilityState: um Alt+Tab dispara focus E visibilitychange;
-    // sem isso eram até 6 requests (3 ao ocultar + 6 ao voltar) por 1 retorno.
-    const throttled = () => {
-      if (Date.now() - lastEventsFetchRef.current < REFETCH_THROTTLE_MS) return;
-      doFetch();
-    };
     const onBreakpoint = () => {
-      if (mq.matches) doFetch(); // paridade com o card de envios: re-busca no resize
+      if (mq.matches) refetchEvents();
     };
-    const onVisible = () => {
-      if (document.visibilityState === 'visible') throttled();
-    };
-    window.addEventListener('focus', throttled);
-    document.addEventListener('visibilitychange', onVisible);
     mq.addEventListener('change', onBreakpoint);
     return () => {
-      window.removeEventListener('focus', throttled);
-      document.removeEventListener('visibilitychange', onVisible);
       mq.removeEventListener('change', onBreakpoint);
     };
   }, [refetchEvents]);
