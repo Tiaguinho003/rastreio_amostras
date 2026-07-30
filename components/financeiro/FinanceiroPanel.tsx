@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 
 import { ApiError, listFinanceiro } from '../../lib/api-client';
+import { SkeletonCards, SkeletonTableRows } from '../Skeleton';
 import { useRevalidate } from '../../lib/revalidation/use-revalidate';
 import {
   SNAPSHOT_KEYS,
@@ -522,16 +523,12 @@ export function FinanceiroPanel({ session }: { session: SessionData }) {
     </div>
   );
 
-  const tableSkeletonRows = (count: number, keyPrefix: string) =>
-    Array.from({ length: count }).map((_, i) => (
-      <tr key={`${keyPrefix}-${i}`} className="fv-table-skel-row" aria-hidden="true">
-        {Array.from({ length: TABLE_COLUMN_COUNT }).map((__, j) => (
-          <td key={j}>
-            <span className="fv-table-skel" />
-          </td>
-        ))}
-      </tr>
-    ));
+  // F4: o helper local virou o `SkeletonTableRows` do kit (era um dos 5 lacos
+  // aninhados iguais espalhados pelo app). Fica so o wrapper que fixa o numero
+  // de colunas desta tabela.
+  const tableSkeletonRows = (count: number) => (
+    <SkeletonTableRows rows={count} columns={TABLE_COLUMN_COUNT} />
+  );
 
   return (
     <>
@@ -556,15 +553,13 @@ export function FinanceiroPanel({ session }: { session: SessionData }) {
           isDesktop ? (
             <div className="spv2-list-scroll fv-table-scroll">
               <table className="fv-table">
-                <tbody>{tableSkeletonRows(6, 'boot')}</tbody>
+                <tbody>{tableSkeletonRows(6)}</tbody>
               </table>
             </div>
           ) : (
             <div className="spv2-list-scroll">
               {mobileListChrome}
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div key={`boot-${i}`} className="spv2-skeleton-card" aria-hidden />
-              ))}
+              <SkeletonCards count={4} />
             </div>
           )
         ) : status === 'error' && items.length === 0 ? (
@@ -660,7 +655,7 @@ export function FinanceiroPanel({ session }: { session: SessionData }) {
                     </td>
                   </tr>
                 ))}
-                {status === 'loading-more' ? tableSkeletonRows(3, 'more') : null}
+                {status === 'loading-more' ? tableSkeletonRows(3) : null}
               </tbody>
             </table>
             {nextCursor ? (
@@ -677,11 +672,7 @@ export function FinanceiroPanel({ session }: { session: SessionData }) {
               {items.map((item) => (
                 <FinanceiroCard key={item.id} item={item} isHighlighted={highlightId === item.id} />
               ))}
-              {status === 'loading-more'
-                ? Array.from({ length: 3 }).map((_, i) => (
-                    <div key={`more-${i}`} className="spv2-skeleton-card" aria-hidden />
-                  ))
-                : null}
+              {status === 'loading-more' ? <SkeletonCards count={3} /> : null}
             </div>
             {nextCursor ? (
               <div ref={loadMoreRef} className="cv2-load-more-sentinel" aria-hidden />

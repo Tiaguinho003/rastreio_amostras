@@ -17,6 +17,7 @@ import {
 import { BottomSheet } from '../../../components/BottomSheet';
 import { DetailOverlay } from '../../../components/DetailOverlay';
 import { NewSampleModal } from '../../../components/NewSampleModal';
+import { SkeletonCards, SkeletonTableRows } from '../../../components/Skeleton';
 import { SUCCESS_CHECK_MS } from '../../../components/SuccessCheckOverlay';
 import { ClientLookupField } from '../../../components/clients/ClientLookupField';
 import { ClassificationFilterField } from '../../../components/samples/ClassificationFilterField';
@@ -2635,9 +2636,7 @@ function SamplesPage() {
             /* LOT-L4: skeleton em vez de texto "Carregando..." (design-system §3). */
             <div className="spv2-list-scroll">
               {mobileListChrome}
-              {Array.from({ length: 3 }).map((_, i) => (
-                <div key={`skel-initial-${i}`} className="spv2-skeleton-card" aria-hidden />
-              ))}
+              <SkeletonCards count={3} />
             </div>
           ) : samplesState.status === 'error' && samplesState.items.length === 0 ? (
             /* LOT-B1: falha de carregamento deixa de ser silenciosa — antes o
@@ -2949,17 +2948,7 @@ function SamplesPage() {
                     );
                   })}
 
-                  {isLoadingMore
-                    ? Array.from({ length: 3 }).map((_, i) => (
-                        <tr key={`skel-${i}`} className="fv-table-skel-row" aria-hidden="true">
-                          {Array.from({ length: 8 }).map((__, cell) => (
-                            <td key={`skel-cell-${cell}`}>
-                              <span className="fv-table-skel" />
-                            </td>
-                          ))}
-                        </tr>
-                      ))
-                    : null}
+                  {isLoadingMore ? <SkeletonTableRows rows={3} columns={8} /> : null}
                 </tbody>
               </table>
 
@@ -2994,11 +2983,7 @@ function SamplesPage() {
                 />
               ))}
 
-              {isLoadingMore
-                ? Array.from({ length: 3 }).map((_, i) => (
-                    <div key={`skel-${i}`} className="spv2-skeleton-card" aria-hidden />
-                  ))
-                : null}
+              {isLoadingMore ? <SkeletonCards count={3} /> : null}
 
               {/* LOT-B1: erro do load-more aparece onde o usuário está (fim
                   da lista), em vez de sumir no estado. */}

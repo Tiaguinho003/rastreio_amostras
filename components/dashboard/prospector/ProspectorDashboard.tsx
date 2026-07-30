@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { HeaderAvatarMenu } from '../../HeaderAvatarMenu';
+import { SkeletonBox, SkeletonCards, SkeletonLine } from '../../Skeleton';
 import { VisitReportCard } from '../../visits/VisitReportCard';
 import { CommercialVisitFormSheet } from '../../informe/CommercialVisitFormSheet';
 import { ApiError, cancelVisitReport } from '../../../lib/api-client';
@@ -245,20 +246,16 @@ export function ProspectorDashboard({ session, onLogout }: ProspectorDashboardPr
               </div>
             ) : !error ? (
               <div className="dashboard-operations-grid">
-                <div
-                  className="dashboard-operation-card dashboard-skeleton-card is-wide"
-                  aria-hidden="true"
-                >
-                  <span className="dashboard-skeleton-icon-wrap" />
-                  <span className="dashboard-skeleton-line dashboard-skeleton-line-sm" />
-                </div>
-                <div
-                  className="dashboard-operation-card dashboard-skeleton-card is-wide"
-                  aria-hidden="true"
-                >
-                  <span className="dashboard-skeleton-icon-wrap" />
-                  <span className="dashboard-skeleton-line dashboard-skeleton-line-sm" />
-                </div>
+                {Array.from({ length: 2 }).map((_, i) => (
+                  <div
+                    key={`op-skel-${i}`}
+                    className="dashboard-operation-card is-wide is-skeleton"
+                    aria-hidden="true"
+                  >
+                    <SkeletonBox />
+                    <SkeletonLine />
+                  </div>
+                ))}
               </div>
             ) : null}
           </section>
@@ -280,10 +277,8 @@ export function ProspectorDashboard({ session, onLogout }: ProspectorDashboardPr
                 sempre visiveis (scroll interno, ver CSS). */}
             <div className="prospector-list-scroll">
               {listLoading ? (
-                <div className="rsm-list" aria-hidden="true">
-                  <div className="rsm-skeleton-card" />
-                  <div className="rsm-skeleton-card" />
-                  <div className="rsm-skeleton-card" />
+                <div className="rsm-list">
+                  <SkeletonCards count={3} />
                 </div>
               ) : null}
 

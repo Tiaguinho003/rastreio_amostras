@@ -136,7 +136,7 @@ export function ClientCommercialSummaryCard({
   isBuyer: boolean;
 }) {
   if (!summary) {
-    return <div className="fv-cd-chart-skeleton" aria-hidden="true" />;
+    return <div className="fv-skel-card fv-cd-chart-skel" aria-hidden="true" />;
   }
 
   const series = summary.monthlySales ?? [];

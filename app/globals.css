@@ -3067,56 +3067,22 @@ button:disabled {
   }
 }
 
-/* ── Skeleton for loading ── */
+/* ── Esqueleto do card de operacao (escopo) ──────────────────────────────
+   🪦 As 4 classes `.dashboard-skeleton-*` viraram o kit `.fv-skel-*` na F4
+   (SN-D10). Sobra AQUI so o que e da pagina: o proprio card de operacao em
+   modo esqueleto — ele nao e um bloco novo, e o card real sem conteudo. */
 
-.dashboard-skeleton-card {
-  pointer-events: none;
-}
-
-.dashboard-skeleton-icon-wrap {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  background: #e8e3d5;
-}
-
-.dashboard-skeleton-card .dashboard-skeleton-line-sm {
-  width: 60%;
-  height: 10px;
-  border-radius: 5px;
-  background: #e0dbd0;
-}
-
-@keyframes dashboard-shimmer {
-  0% {
-    background-position: -200% 0;
-  }
-  100% {
-    background-position: 200% 0;
-  }
-}
-
-.dashboard-skeleton-card {
+.dashboard-operation-card.is-skeleton {
   pointer-events: none;
   background: rgba(0, 0, 0, 0.04);
   box-shadow: none;
 }
 
-.dashboard-skeleton-line {
-  height: 0.75rem;
-  border-radius: 6px;
-  background: linear-gradient(
-    90deg,
-    rgba(0, 0, 0, 0.06) 25%,
-    rgba(0, 0, 0, 0.02) 50%,
-    rgba(0, 0, 0, 0.06) 75%
-  );
-  background-size: 200% 100%;
-  animation: dashboard-shimmer 1.5s ease-in-out infinite;
-}
-
-.dashboard-skeleton-line-sm {
-  width: 45%;
+/* A barra do card de operacao e mais curta e mais baixa que a do kit: ela
+   ocupa o lugar de um rotulo de uma palavra, nao de uma linha de texto. */
+.dashboard-operation-card.is-skeleton .fv-skel-line {
+  width: 60%;
+  height: 10px;
 }
 
 .sample-search {
@@ -3961,45 +3927,8 @@ button:disabled {
 
 /* ── spv2: scroll infinito ── */
 
-.spv2-skeleton-card {
-  position: relative;
-  overflow: hidden;
-  min-height: 80px;
-  /* Espelha o card v2 branco: raio + sombra suave (sem a borda verde tracejada
-     antiga) e altura mais perto do card real. Base cinza-clara neutra pra o
-     shimmer branco do ::before continuar visivel. */
-  border-radius: clamp(14px, 4vw, 16px);
-  background: #eef0ec;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  box-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.04),
-    0 4px 12px rgba(0, 0, 0, 0.06);
-  flex-shrink: 0;
-  pointer-events: none;
-}
-
-.spv2-skeleton-card::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.7) 50%,
-    transparent 100%
-  );
-  animation: spv2-skeleton-shimmer 1.2s ease-in-out infinite;
-  transform: translateX(-100%);
-}
-
-@keyframes spv2-skeleton-shimmer {
-  0% {
-    transform: translateX(-100%);
-  }
-  100% {
-    transform: translateX(100%);
-  }
-}
+/* 🪦 `.spv2-skeleton-card` — virou `.fv-skel-card` na F4 (SN-D10). Era a mais
+   usada das seis familias (5 paginas) e o visual dela e o que o kit adotou. */
 
 .spv2-load-sentinel {
   width: 100%;
@@ -6504,29 +6433,13 @@ button:disabled {
   stroke-linejoin: round;
 }
 
-/* Skeleton no formato do card final (design system §3). */
-.rsm-skeleton-card {
+/* Esqueleto no formato do card final (design-system §3). 🪦 A classe
+   `.rsm-skeleton-card` virou o kit `.fv-skel-card` na F4 (SN-D10); o que sobra
+   aqui e a ALTURA, que e da pagina — o card do feed e um acordeao alto, nao um
+   card de lista. Escopado no `.rsm-list`, que e o container compartilhado pelos
+   dois consumidores (o feed de /relatorios e o dashboard do PROSPECTOR). */
+.rsm-list .fv-skel-card {
   height: clamp(180px, 46vw, 210px);
-  border-radius: clamp(14px, 4vw, 16px);
-  background: linear-gradient(
-    90deg,
-    rgba(0, 0, 0, 0.04) 0%,
-    rgba(0, 0, 0, 0.08) 50%,
-    rgba(0, 0, 0, 0.04) 100%
-  );
-  background-size: 200% 100%;
-  animation:
-    rsm-skeleton-shimmer 1.4s ease-in-out infinite,
-    sdv-fadeIn 0.45s cubic-bezier(0.22, 1, 0.36, 1) backwards;
-}
-
-@keyframes rsm-skeleton-shimmer {
-  0% {
-    background-position: 200% 0;
-  }
-  100% {
-    background-position: -200% 0;
-  }
 }
 
 /* Estado vazio / erro de carga. */
@@ -21696,10 +21609,12 @@ body.is-selection-mode .mobile-tabbar {
 }
 
 /* Movimento reduzido: desliga as animações do DASHBOARD (entrances do
-   hero/sheet/cards, pulse infinito dos badges e shimmer dos skeletons —
-   nenhum bloco de prefers-reduced-motion cobria a página; DSH-A1 da
-   revisão geral). `:nth-child(n)` espelha a especificidade das regras de
-   entrada escalonada; `.rsm-skeleton-card` também serve o /informe. */
+   hero/sheet/cards e pulse infinito dos badges — nenhum bloco de
+   prefers-reduced-motion cobria a página; DSH-A1 da revisão geral).
+   `:nth-child(n)` espelha a especificidade das regras de entrada escalonada.
+   Os SKELETONS saíram desta lista na F4: eles são um kit agora, e quem os
+   desliga é o bloco do próprio kit — uma regra para o app inteiro, em vez de
+   duas famílias cobertas aqui e outras duas descobertas. */
 @media (prefers-reduced-motion: reduce) {
   .dashboard-hero,
   .dashboard-mobile .dashboard-hero-search,
@@ -21709,10 +21624,8 @@ body.is-selection-mode .mobile-tabbar {
   .dd-events-card,
   .dashboard-operation-badge,
   .dashboard-mobile .dashboard-operation-card.is-wide .dashboard-operation-badge,
-  .dashboard-skeleton-line,
   .dd-events-grid.is-slide-left,
-  .dd-events-grid.is-slide-right,
-  .rsm-skeleton-card {
+  .dd-events-grid.is-slide-right {
     animation: none;
   }
 }
@@ -21815,7 +21728,11 @@ body.is-selection-mode .mobile-tabbar {
   overflow: hidden;
   background: var(--pg-canvas-bg);
 }
-/* Skeleton do next/dynamic: reserva o mesmo box do canvas (sem CLS). */
+/* Skeleton do next/dynamic: reserva o mesmo box do canvas (sem CLS).
+   🔴 NAO entra no kit `.fv-skel-*` da F4, de proposito: isto nao e esqueleto de
+   conteudo, e reserva de caixa. Um canvas nao tem "formato de card" pra imitar,
+   e um brilho passando por cima do papel do simulador sugeriria que o desenho
+   esta chegando quando o que falta e o BUNDLE. Fica parado, na cor do papel. */
 .pg-canvas-skeleton {
   width: 100%;
   height: 100%;
@@ -23596,6 +23513,89 @@ body.is-selection-mode .mobile-tabbar {
   font-size: 0.66rem;
 }
 
+/* ── Esqueleto (F4 do ciclo SN, SN-D10) ──────────────────────────────────
+   A camada 4 virou sistema. Antes eram SEIS familias com prefixo de pagina
+   (`.spv2-skeleton-card`, `.rsm-skeleton-card`, `.fv-table-skel`,
+   `.dashboard-skeleton-*`, `.fv-cd-chart-skeleton`), TRES tecnicas de
+   animacao e QUATRO duracoes (1,1s / 1,2s / 1,4s / 1,5s) — duas telas
+   carregando lado a lado piscavam fora de compasso. Agora e uma superficie
+   e uma cadencia.
+
+   O que o kit da: superficie + animacao + raio. O que ele NAO da: a ALTURA
+   — o esqueleto tem que ter o formato do card final (design-system §3), e
+   isso e da pagina. Escopar la (`.relatorios-page .fv-skel-card { height }`).
+
+   A tecnica e a do gradiente deslizante, nao a do `::before` com translateX:
+   funciona igual num `<div>` de card, num `<span>` dentro de `<td>` e num
+   quadradinho de icone, sem exigir `position: relative` + `overflow: hidden`
+   de quem usa.
+
+   🔴 A unica peca que NAO entra aqui e a `.pg-canvas-skeleton` — ver o
+   comentario dela na secao do simulador. */
+
+.fv-skel-card,
+.fv-skel-line,
+.fv-skel-box {
+  /* Base cinza-clara + faixa mais clara passando. As duas paradas saem do
+     mesmo tom do card do kit, so que uma delas aberta. */
+  background: linear-gradient(90deg, var(--fv-active-bg) 0%, #f6f8f6 50%, var(--fv-active-bg) 100%);
+  background-size: 200% 100%;
+  animation: fv-skel-shimmer 1.4s ease-in-out infinite;
+  /* Esqueleto nao recebe toque: ele ocupa o lugar de algo clicavel que ainda
+     nao existe, e sem isto o card fantasma responde ao dedo. */
+  pointer-events: none;
+  flex-shrink: 0;
+}
+
+/* No formato do card branco do kit — mesmo raio, mesma moldura, mesma sombra.
+   `min-height` e piso, nao altura: quem sabe o tamanho do card final e a
+   pagina. */
+.fv-skel-card {
+  min-height: 80px;
+  border-radius: clamp(14px, 4vw, 16px);
+  border: 1px solid var(--fv-line);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.04),
+    0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+/* Barra de texto: linha de tabela, linha de card, item de lista. */
+.fv-skel-line {
+  display: block;
+  height: 0.8rem;
+  border-radius: 6px;
+}
+
+/* Quadrado de icone/avatar. */
+.fv-skel-box {
+  display: block;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--fv-radius-lg);
+}
+
+@keyframes fv-skel-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Movimento reduzido: UM bloco cobre o app inteiro. Antes so 2 das 4
+   animacoes de esqueleto eram desligadas — o shimmer do card de lista (o mais
+   usado, em 5 paginas) e o pulse da tabela seguiam rodando pra quem pediu
+   movimento reduzido. */
+@media (prefers-reduced-motion: reduce) {
+  .fv-skel-card,
+  .fv-skel-line,
+  .fv-skel-box {
+    animation: none;
+    background: var(--fv-active-bg);
+  }
+}
+
 /* ══════════════════════════════════════════════════════════════
    Kit FV compartilhado dos DETALHES (hero de painel): botao redondo
    de acao, menu ⋯ e tab-strip. Nasceram no drawer do cliente
@@ -24216,23 +24216,9 @@ body.is-selection-mode .mobile-tabbar {
     transform: scale(0.94);
   }
 
-  /* Skeleton de "carregar mais": barras pulsantes por celula. */
-  .fv-table-skel {
-    display: block;
-    height: 13px;
-    border-radius: 6px;
-    background: var(--fv-active-bg);
-    animation: fv-skel-pulse 1.1s ease-in-out infinite;
-  }
-  @keyframes fv-skel-pulse {
-    0%,
-    100% {
-      opacity: 1;
-    }
-    50% {
-      opacity: 0.45;
-    }
-  }
+  /* 🪦 `.fv-table-skel` — virou o kit `.fv-skel-line` na F4 (SN-D10). A linha
+     da tabela nao precisa de regra propria: o `.fv-table-skel-row` continua
+     sendo so gancho semantico, e a barra de dentro e a do kit. */
 }
 
 /* ── Painel de filtros (kit FV, dentro do BottomSheet side-sheet). Vive nos
@@ -25161,12 +25147,12 @@ body.is-selection-mode .mobile-tabbar {
   text-align: center;
 }
 
-.fv-cd-chart-skeleton {
+/* 🪦 `.fv-cd-chart-skeleton` — a superficie virou o kit `.fv-skel-card` na F4;
+   sobra a altura do grafico, que e desta tela. De quebra ele passou a ANIMAR:
+   antes era um retangulo parado, o unico esqueleto do app que nao dizia que
+   havia algo a caminho. */
+.fv-cd-chart-skel {
   min-height: 180px;
-  border-radius: var(--fv-radius-lg);
-  border: 1px solid var(--fv-line);
-  background: var(--fv-canvas);
-  opacity: 0.6;
 }
 
 /* Cards numericos (Em aberto / Vendido / Comprado) — estilo dos minicards

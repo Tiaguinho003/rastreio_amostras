@@ -12,6 +12,7 @@ import {
 } from 'react';
 
 import { ANIMATION_MS, BottomSheet } from '../BottomSheet';
+import { SkeletonCards } from '../Skeleton';
 import { ChipMultiSelectField } from '../ChipMultiSelectField';
 import { ClientLookupField } from '../clients/ClientLookupField';
 import {
@@ -881,10 +882,9 @@ export function ContratosPanel({ session }: { session: SessionData }) {
 
   // RC-D112: skeleton de CARD nos dois breakpoints — a tabela saiu, e com ela as
   // linhas de `<td>` vazios.
-  const skeletonCards = (count: number, keyPrefix: string) =>
-    Array.from({ length: count }).map((_, i) => (
-      <div key={`${keyPrefix}-${i}`} className="spv2-skeleton-card" aria-hidden />
-    ));
+  // F4: o helper local virou o `SkeletonCards` do kit — era um dos 7 lacos
+  // identicos que o primitivo veio substituir.
+  const skeletonCards = (count: number) => <SkeletonCards count={count} />;
 
   // A LISTA: a mesma nos dois breakpoints (RC-D112). O que muda é a densidade do
   // card, e isso é decisão dele (`isDesktop`), não desta função.
@@ -911,7 +911,7 @@ export function ContratosPanel({ session }: { session: SessionData }) {
           onReabrir={() => void runTerminal(contract, 'reopen')}
         />
       ))}
-      {listState.status === 'loading-more' ? skeletonCards(3, 'more') : null}
+      {listState.status === 'loading-more' ? skeletonCards(3) : null}
     </div>
   );
 
@@ -967,7 +967,7 @@ export function ContratosPanel({ session }: { session: SessionData }) {
         {listState.status === 'loading-initial' ? (
           <div className="spv2-list-scroll ctr-list-scroll">
             {mobileListChrome}
-            {skeletonCards(isDesktop ? 6 : 4, 'boot')}
+            {skeletonCards(isDesktop ? 6 : 4)}
           </div>
         ) : contracts.length === 0 ? (
           // `ctr-list-scroll` no desktop tambem no vazio: sem ele o

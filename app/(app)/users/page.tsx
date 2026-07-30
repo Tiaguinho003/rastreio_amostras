@@ -5,6 +5,7 @@ import { Suspense, useCallback, useEffect, useReducer, useRef, useState } from '
 import { createPortal } from 'react-dom';
 
 import { BottomSheet } from '../../../components/BottomSheet';
+import { SkeletonCards, SkeletonTableRows } from '../../../components/Skeleton';
 import { SuccessCheckOverlay, SUCCESS_CHECK_MS } from '../../../components/SuccessCheckOverlay';
 import { InactivateUserModal } from '../../../components/users/InactivateUserModal';
 import {
@@ -1147,15 +1148,7 @@ function UsersPage() {
               <div className="spv2-list-scroll fv-table-scroll">
                 <table className="fv-table">
                   <tbody>
-                    {Array.from({ length: 6 }).map((_, i) => (
-                      <tr key={`boot-${i}`} className="fv-table-skel-row" aria-hidden="true">
-                        {Array.from({ length: 6 }).map((__, j) => (
-                          <td key={j}>
-                            <span className="fv-table-skel" />
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
+                    <SkeletonTableRows rows={6} columns={6} />
                   </tbody>
                 </table>
               </div>
@@ -1342,17 +1335,9 @@ function UsersPage() {
                       </tr>
                     );
                   })}
-                  {listState.status === 'loading-more'
-                    ? Array.from({ length: 3 }).map((_, i) => (
-                        <tr key={`skel-${i}`} className="fv-table-skel-row" aria-hidden="true">
-                          {Array.from({ length: 6 }).map((__, j) => (
-                            <td key={j}>
-                              <span className="fv-table-skel" />
-                            </td>
-                          ))}
-                        </tr>
-                      ))
-                    : null}
+                  {listState.status === 'loading-more' ? (
+                    <SkeletonTableRows rows={3} columns={6} />
+                  ) : null}
                 </tbody>
               </table>
               {listState.nextCursor ? (
@@ -1413,11 +1398,7 @@ function UsersPage() {
               })}
               {/* Carregar mais: 3 skeletons (sem travar o scroll); o sentinel
                   fino abaixo dispara o IntersectionObserver. Igual /clients. */}
-              {listState.status === 'loading-more'
-                ? Array.from({ length: 3 }).map((_, i) => (
-                    <div key={`skel-${i}`} className="spv2-skeleton-card" aria-hidden />
-                  ))
-                : null}
+              {listState.status === 'loading-more' ? <SkeletonCards count={3} /> : null}
               {listState.nextCursor ? (
                 <div ref={loadMoreRef} className="cv2-load-more-sentinel" aria-hidden />
               ) : null}

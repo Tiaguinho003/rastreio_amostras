@@ -13,6 +13,7 @@ import {
 import { ClientQuickCreateModal } from './ClientQuickCreateModal';
 import type { ClientDetailInitialAction } from './ClientDetailView';
 import { BottomSheet } from '../BottomSheet';
+import { SkeletonCards, SkeletonTableRows } from '../Skeleton';
 import {
   EMPTY_CLIENT_FILTERS,
   countActiveClientFilters,
@@ -1190,17 +1191,9 @@ export function ClientsBrowser({
                     </tr>
                   );
                 })}
-                {clientsState.status === 'loading-more'
-                  ? Array.from({ length: 3 }).map((_, i) => (
-                      <tr key={`skel-${i}`} className="fv-table-skel-row" aria-hidden="true">
-                        {Array.from({ length: 6 }).map((__, j) => (
-                          <td key={j}>
-                            <span className="fv-table-skel" />
-                          </td>
-                        ))}
-                      </tr>
-                    ))
-                  : null}
+                {clientsState.status === 'loading-more' ? (
+                  <SkeletonTableRows rows={3} columns={6} />
+                ) : null}
               </tbody>
             </table>
             {clientsState.nextCursor ? (
@@ -1297,11 +1290,7 @@ export function ClientsBrowser({
             })}
             {/* Carregar mais: 3 skeleton cards acima (sem travar o scroll),
                 igual /samples. O sentinel fino abaixo dispara o IntersectionObserver. */}
-            {clientsState.status === 'loading-more'
-              ? Array.from({ length: 3 }).map((_, i) => (
-                  <div key={`skel-${i}`} className="spv2-skeleton-card" aria-hidden />
-                ))
-              : null}
+            {clientsState.status === 'loading-more' ? <SkeletonCards count={3} /> : null}
             {clientsState.nextCursor ? (
               <div ref={loadMoreRef} className="cv2-load-more-sentinel" aria-hidden />
             ) : null}

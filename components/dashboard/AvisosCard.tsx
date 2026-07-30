@@ -3,6 +3,7 @@
 import Link from 'next/link';
 
 import { LoadError } from '../LoadError';
+import { SkeletonLine } from '../Skeleton';
 import { formatAvisoDue } from '../../lib/aviso-due';
 import type { DashboardAviso } from '../../lib/types';
 
@@ -42,9 +43,9 @@ export function AvisosCard({ items, error, onRetry }: AvisosCardProps) {
         // 1º load falhou: erro + retry no lugar do skeleton eterno.
         <LoadError message={error} onRetry={onRetry} compact />
       ) : items === null ? (
-        <div className="avisos-list is-skeleton" aria-hidden="true">
+        <div className="avisos-list">
           {Array.from({ length: 4 }).map((_, i) => (
-            <span key={i} className="dashboard-skeleton-line" />
+            <SkeletonLine key={i} />
           ))}
         </div>
       ) : items.length === 0 ? (

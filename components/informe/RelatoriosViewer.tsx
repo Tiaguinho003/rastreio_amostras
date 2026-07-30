@@ -7,6 +7,7 @@ import { useInformeCreateSheets } from './useInformeCreateSheets';
 import { VisitsTrendChart } from './VisitsTrendChart';
 import { WeeklyReportCard } from './WeeklyReportCard';
 import { VisitReportCard } from '../visits/VisitReportCard';
+import { SkeletonCards } from '../Skeleton';
 import {
   ApiError,
   cancelVisitReport,
@@ -564,10 +565,8 @@ export function RelatoriosViewer({ session, canCreate }: RelatoriosViewerProps) 
             {typeChips}
 
             {initialLoading ? (
-              <div className="rsm-list" aria-hidden="true">
-                <div className="rsm-skeleton-card" />
-                <div className="rsm-skeleton-card" />
-                <div className="rsm-skeleton-card" />
+              <div className="rsm-list">
+                <SkeletonCards count={3} />
               </div>
             ) : null}
 
