@@ -25532,11 +25532,6 @@ body.is-selection-mode .mobile-tabbar {
 .ctr-btn:active {
   transform: scale(0.97);
 }
-.ctr-btn-primary {
-  background: var(--brand-green);
-  border-color: var(--brand-green);
-  color: #fff;
-}
 /* Acao destrutiva (Washout) — de-enfatizada no card: texto/borda vermelhos. */
 .ctr-btn-danger {
   color: var(--color-danger);

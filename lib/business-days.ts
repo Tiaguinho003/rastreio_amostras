@@ -31,16 +31,6 @@ export function todayInputValueBRT(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
 }
 
-// Recua uma data 'YYYY-MM-DD' até o dia útil mais recente <= ela (sáb/dom → sex).
-// Default do seletor de embarque: abrir num fim de semana não vira beco (o fds
-// segue bloqueado, mas o campo já nasce num dia válido). Malformado = devolve igual.
-export function lastBusinessDayIso(iso: string): string {
-  if (typeof iso !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
-    return iso;
-  }
-  const date = new Date(`${iso}T00:00:00Z`);
-  while (isWeekendDate(date)) {
-    date.setUTCDate(date.getUTCDate() - 1);
-  }
-  return date.toISOString().slice(0, 10);
-}
+// 🪦 `lastBusinessDayIso` — recuava uma data até o dia útil anterior. Era o default
+// do seletor de data de EMBARQUE, para o campo não nascer num sábado. O embarque foi
+// apagado do produto na RC-D65 e ela ficou sem chamador; saiu em 2026-07-30.

@@ -26,11 +26,13 @@ export function espelhoSideLabel(side: EspelhoSide | null | undefined): string {
 // com corretagem no lado; o cancelado que respondeu "não cobrar" no washout não emite
 // espelho (RC-D89/D91 — antes era a D145, que decidia isso pelo `type`).
 //
-// 🔴 RC-D111: são DUAS perguntas, e confundi-las é o que fazia a Conferência mandar o
-// usuário para um 409 garantido:
-//   - `espelhoEligibility`     — "este contrato produz ALGUM espelho?" (o botão)
-//   - `espelhoSideEligibility` — "o lado PEDIDO sai?" (o submit), a pergunta do
-//     `assertEspelhoEligible`, gate por gate e na mesma ordem
+// 🔴 RC-D111: eram DUAS perguntas, e confundi-las é o que fazia a Conferência mandar
+// o usuário para um 409 garantido — "este contrato produz ALGUM espelho?" (o botão) ×
+// "o lado PEDIDO sai?" (o submit). 🪦 A primeira (`espelhoEligibility`) saiu em
+// 2026-07-30: a RC-D124 fez a aba renderizar **um bloco por lado**, e cada bloco
+// pergunta pelo SEU lado. Não há mais nenhuma tela que precise da resposta agregada —
+// e é bom que não haja: era ela a pergunta errada. Ficou o `espelhoSideEligibility`,
+// que espelha o `assertEspelhoEligible` gate por gate e na mesma ordem.
 const ESPELHO_ELIGIBLE_STATUSES: SaleContractStatus[] = ['EMITIDO', 'FINALIZADO', 'WASH_OUT'];
 
 type EspelhoEligibilityInput = Pick<
@@ -49,21 +51,6 @@ export function espelhoSides(contract: EspelhoEligibilityInput): EspelhoSide[] {
   if ((contract.sellerBrokeragePct ?? 0) > 0) sides.push('seller');
   if ((contract.buyerBrokeragePct ?? 0) > 0) sides.push('buyer');
   return sides;
-}
-
-export function espelhoEligibility(contract: EspelhoEligibilityInput): {
-  eligible: boolean;
-  reason?: string;
-} {
-  // `!== true` (não `=== false`): washout sem resposta gravada não cobra. Fail-closed,
-  // igual ao `isWashoutNotBillable` do backend — os dois têm que concordar.
-  const notBillable = contract.status === 'WASH_OUT' && contract.washoutBillable !== true;
-  if (notBillable) return { eligible: false, reason: 'Cancelado sem corretagem' };
-  if (!ESPELHO_ELIGIBLE_STATUSES.includes(contract.status)) {
-    return { eligible: false, reason: 'Só confirmados' };
-  }
-  if (espelhoSides(contract).length === 0) return { eligible: false, reason: 'Sem corretagem' };
-  return { eligible: true };
 }
 
 // Nome usável no snapshot congelado da parte. Espelha o `snapshotPartyName` do backend

@@ -468,16 +468,6 @@ export function toSaleContractBrokerView(row) {
 // formatada em pt-BR e quem sabe formatar e o front. O label dos eventos do
 // calendario e a excecao (la o consumidor e um card generico que nada sabe de
 // contrato).
-export const CONTRACT_AGENDA_KINDS = Object.freeze([
-  'cancelado',
-  'finalizado',
-  'aprovacao',
-  'pagamento_vencido',
-  'faturamento',
-  'pagamento',
-  'nenhum',
-]);
-
 function dayKeyOf(value) {
   const iso = toIsoString(value);
   return iso ? iso.slice(0, 10) : null;
