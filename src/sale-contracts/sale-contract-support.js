@@ -1851,6 +1851,15 @@ function timelineActorName(usersById, actorUserId) {
   return user?.fullName ?? user?.username ?? null;
 }
 
+// "a e mais novo que b" pela MESMA regra do sort final desta funcao: data, e no
+// empate o id maior primeiro. Existe para o "corrente" da prateleira nao discordar
+// da ordem em que a prateleira lista.
+function isNewerEspelhoRow(a, b) {
+  const diff = new Date(a.createdAt) - new Date(b.createdAt);
+  if (diff !== 0) return diff > 0;
+  return a.id > b.id;
+}
+
 export function buildContractTimeline({
   contract,
   exports: exportRows = [],
@@ -1926,9 +1935,15 @@ export function buildContractTimeline({
   //                reabre um espelho antigo sem saber que os numeros mudaram.
   const espelhoExpiresAt = espelhoSnapshotExpiresAt(contract, statusLogs);
   const espelhoExpired = espelhoExpiresAt !== null && espelhoExpiresAt.getTime() < now.getTime();
+  // "Mais novo" pelo MESMO critério da ordenação final (data, empate pelo id), e não
+  // pela ordem de chegada da query: dois espelhos do mesmo lado no mesmo milissegundo
+  // deixariam o "corrente" a cargo da ordem que o Postgres devolvesse — a estante
+  // marcaria como substituído justamente o que ela mostra no topo.
   const newestAvailableBySide = new Map();
   for (const row of espelhoLogs) {
-    if (row.snapshot && !espelhoExpired) newestAvailableBySide.set(row.side, row.id);
+    if (!row.snapshot || espelhoExpired) continue;
+    const current = newestAvailableBySide.get(row.side);
+    if (!current || isNewerEspelhoRow(row, current)) newestAvailableBySide.set(row.side, row);
   }
   for (const row of espelhoLogs) {
     const snapshot = row.snapshot ?? null;
@@ -1943,7 +1958,7 @@ export function buildContractTimeline({
       logId: row.id,
       available,
       commission: available ? (decimalToNumber(snapshot.commission) ?? null) : null,
-      superseded: available && newestAvailableBySide.get(row.side) !== row.id,
+      superseded: available && newestAvailableBySide.get(row.side)?.id !== row.id,
       stale:
         available &&
         Number.isInteger(snapshot.contractVersion) &&

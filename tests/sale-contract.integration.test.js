@@ -2701,6 +2701,263 @@ if (!databaseUrl || !databaseReachable) {
     assert.ok(!semLog.items.some((item) => item.kind === 'STATUS'));
   });
 
+  // ── RC-D103..D107: o espelho ENTREGUE fica guardado, e sai 15 dias depois do fim ──
+
+  // Backdata o fim do contrato: o relogio da retencao e DERIVADO do status log (nao
+  // existe `finalizedAt` — RC-D63), entao "terminou ha N dias" se escreve ali.
+  async function backdateEnd(contractId, toStatus, days) {
+    const at = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    await prisma.saleContractStatusLog.updateMany({
+      where: { saleContractId: contractId, toStatus },
+      data: { createdAt: at },
+    });
+    if (toStatus === 'WASH_OUT') {
+      await prisma.saleContract.update({ where: { id: contractId }, data: { washoutAt: at } });
+    }
+    return at;
+  }
+
+  // A entrega concluida (Exportar/Baixar) e o unico ponto que congela o documento.
+  async function deliver(contractId, side) {
+    const { contract } = await saleContractService.getSaleContract(contractId, adminActor);
+    return saleContractService.logEspelhoGenerated(contractId, side, adminActor, {
+      snapshot: buildEspelhoSnapshot(contract, side),
+    });
+  }
+
+  test('RC-D103: a entrega grava o snapshot, e a releitura devolve os MESMOS bytes', async () => {
+    const { contractId } = await setupConfirmedContract({ lotNumber: '26001' });
+    const { id: logId } = await deliver(contractId, 'seller');
+
+    const stored = await saleContractService.getEspelhoSnapshot(contractId, logId, adminActor);
+    assert.equal(stored.side, 'seller');
+    assert.equal(stored.snapshot.commission, 20);
+    assert.equal(stored.snapshot.contractNumber, `0001/${currentYear2}`);
+    assert.ok(stored.generatedAt instanceof Date);
+
+    // 🔴 O ponto da RC-D103: mesmo snapshot + mesma data = MESMO documento. Sem isso
+    // "guardar o espelho" seria guardar uma aproximacao do que o cliente recebeu.
+    const a = await saleContractPdfService.renderEspelhoPdf(stored.snapshot, {
+      issuer: getContractIssuer(),
+      generatedAt: stored.generatedAt,
+    });
+    const b = await saleContractPdfService.renderEspelhoPdf(stored.snapshot, {
+      issuer: getContractIssuer(),
+      generatedAt: stored.generatedAt,
+    });
+    assert.equal(a.checksumSha256, b.checksumSha256);
+  });
+
+  test('RC-D104: o guardado nao muda quando o contrato muda; a linha fica "stale"', async () => {
+    const { contractId } = await setupConfirmedContract({ lotNumber: '26002' });
+    const { id: logId } = await deliver(contractId, 'seller');
+    const before = await saleContractService.getEspelhoSnapshot(contractId, logId, adminActor);
+
+    // Agio de R$ 10/sc: o preco efetivo e a comissao mudam no contrato...
+    const { contract } = await saleContractService.getSaleContract(contractId, adminActor);
+    await saleContractService.applyAgioSaleContract(
+      contractId,
+      { expectedVersion: contract.version, agioDesagioType: 'AGIO', agioDesagioValue: 10 },
+      adminActor
+    );
+    const { contract: after } = await saleContractService.getSaleContract(contractId, adminActor);
+    assert.equal(after.sellerBrokerageValue, 22);
+
+    // ...e o documento entregue NAO. Era exatamente o que se perdia antes.
+    const kept = await saleContractService.getEspelhoSnapshot(contractId, logId, adminActor);
+    assert.deepEqual(kept.snapshot, before.snapshot);
+    assert.equal(kept.snapshot.commission, 20);
+
+    const timeline = await saleContractService.getSaleContractTimeline(contractId, adminActor);
+    const item = timeline.items.find((i) => i.logId === logId);
+    assert.equal(item.available, true);
+    assert.equal(item.stale, true, 'a estante avisa que o contrato mudou depois deste espelho');
+    assert.equal(item.commission, 20);
+  });
+
+  test('RC-D104: 2 entregas do mesmo lado — a mais nova e a corrente', async () => {
+    const { contractId } = await setupConfirmedContract({ lotNumber: '26003' });
+    const first = await deliver(contractId, 'seller');
+    const second = await deliver(contractId, 'seller');
+    const other = await deliver(contractId, 'buyer');
+    // Sem empate de milissegundo: o "corrente" e por DATA, e o teste nao deve depender
+    // do desempate por id.
+    await prisma.saleContractEspelhoLog.update({
+      where: { id: first.id },
+      data: { createdAt: new Date(Date.now() - 60_000) },
+    });
+
+    const timeline = await saleContractService.getSaleContractTimeline(contractId, adminActor);
+    const byId = new Map(timeline.items.filter((i) => i.logId).map((i) => [i.logId, i]));
+    assert.equal(byId.get(first.id).superseded, true);
+    assert.equal(byId.get(second.id).superseded, false);
+    // O lado e independente: o unico espelho do comprador e o corrente dele.
+    assert.equal(byId.get(other.id).superseded, false);
+  });
+
+  test('RC-D105: 16 dias depois de finalizar o espelho sai da estante E da rota', async () => {
+    const { contractId, version } = await setupConfirmedContract({ lotNumber: '26004' });
+    const { id: logId } = await deliver(contractId, 'seller');
+    await saleContractService.finalizeSaleContract(
+      contractId,
+      { expectedVersion: version },
+      adminActor
+    );
+
+    // Dentro do prazo: disponivel, com a data de saida calculada.
+    await backdateEnd(contractId, 'FINALIZADO', 14);
+    const dentro = await saleContractService.getSaleContractTimeline(contractId, adminActor);
+    const itemDentro = dentro.items.find((i) => i.logId === logId);
+    assert.equal(itemDentro.available, true);
+    assert.ok(itemDentro.expiresAt, 'contrato terminado tem prazo');
+    await assert.doesNotReject(() =>
+      saleContractService.getEspelhoSnapshot(contractId, logId, adminActor)
+    );
+
+    // Passado o prazo: 🔴 as DUAS leituras negam. Filtrar so a lista seria cosmetico —
+    // a URL direta com o logId continuaria entregando o documento (licao do EMB31).
+    await backdateEnd(contractId, 'FINALIZADO', 16);
+    const fora = await saleContractService.getSaleContractTimeline(contractId, adminActor);
+    const itemFora = fora.items.find((i) => i.logId === logId);
+    assert.equal(itemFora.available, false);
+    assert.equal(itemFora.expiresAt, null);
+    assert.equal(itemFora.commission, null);
+    await assert.rejects(
+      () => saleContractService.getEspelhoSnapshot(contractId, logId, adminActor),
+      (err) => err.status === 410 && err.details?.code === 'ESPELHO_EXPIRED'
+    );
+    // ...e a LINHA continua no historico: o fato auditado nao expira, o documento sim.
+    assert.equal(itemFora.kind, 'ESPELHO');
+    assert.equal(itemFora.side, 'seller');
+  });
+
+  test('RC-D105: reabrir PARA o relogio — o espelho volta a ficar disponivel', async () => {
+    const { contractId, version } = await setupConfirmedContract({ lotNumber: '26005' });
+    const { id: logId } = await deliver(contractId, 'seller');
+    const fin = await saleContractService.finalizeSaleContract(
+      contractId,
+      { expectedVersion: version },
+      adminActor
+    );
+    await backdateEnd(contractId, 'FINALIZADO', 16);
+    await assert.rejects(
+      () => saleContractService.getEspelhoSnapshot(contractId, logId, adminActor),
+      (err) => err.status === 410
+    );
+
+    // Reabrir grava a volta para EMITIDO em vez de apagar a ida — e sem status
+    // terminal nao ha relogio nenhum.
+    await saleContractService.reopenSaleContract(
+      contractId,
+      { expectedVersion: fin.contract.version },
+      adminActor
+    );
+    const back = await saleContractService.getEspelhoSnapshot(contractId, logId, adminActor);
+    assert.equal(back.snapshot.commission, 20);
+    const timeline = await saleContractService.getSaleContractTimeline(contractId, adminActor);
+    const item = timeline.items.find((i) => i.logId === logId);
+    assert.equal(item.available, true);
+    assert.equal(item.expiresAt, null, 'contrato vivo nao tem prazo');
+  });
+
+  test('RC-D105: washout conta pelo washoutAt (e pelo log, no legado)', async () => {
+    const { contractId, version } = await setupConfirmedContract({ lotNumber: '26006' });
+    const { id: logId } = await deliver(contractId, 'seller');
+    await saleContractService.washoutSaleContract(
+      contractId,
+      { expectedVersion: version, reason: 'Caiu', washoutBillable: true },
+      adminActor
+    );
+    await backdateEnd(contractId, 'WASH_OUT', 16);
+    await assert.rejects(
+      () => saleContractService.getEspelhoSnapshot(contractId, logId, adminActor),
+      (err) => err.status === 410
+    );
+
+    // Linha legada: sem washout_at, o fallback e o status log — a mesma resposta.
+    await prisma.saleContract.update({ where: { id: contractId }, data: { washoutAt: null } });
+    await assert.rejects(
+      () => saleContractService.getEspelhoSnapshot(contractId, logId, adminActor),
+      (err) => err.status === 410
+    );
+  });
+
+  test('RC-D105: a purga ANULA o snapshot e PRESERVA a linha de auditoria', async () => {
+    const vencido = await setupConfirmedContract({ lotNumber: '26007' });
+    const vivo = await setupConfirmedContract({ lotNumber: '26008' });
+    const doVencido = await deliver(vencido.contractId, 'seller');
+    const doVivo = await deliver(vivo.contractId, 'seller');
+    await saleContractService.finalizeSaleContract(
+      vencido.contractId,
+      { expectedVersion: vencido.version },
+      adminActor
+    );
+    await backdateEnd(vencido.contractId, 'FINALIZADO', 20);
+
+    const res = await saleContractService.purgeExpiredEspelhoSnapshots({ force: true });
+    assert.equal(res.purged, 1, 'so o vencido e purgado');
+
+    const rows = await prisma.saleContractEspelhoLog.findMany({
+      where: { id: { in: [doVencido.id, doVivo.id] } },
+      select: { id: true, side: true, snapshot: true, actorUserId: true },
+    });
+    assert.equal(rows.length, 2, 'a purga nao apaga linha');
+    const purgada = rows.find((r) => r.id === doVencido.id);
+    assert.equal(purgada.snapshot, null);
+    assert.equal(purgada.side, 'seller', 'o fato auditado fica inteiro');
+    assert.equal(purgada.actorUserId, adminActor.actorUserId);
+    assert.notEqual(rows.find((r) => r.id === doVivo.id).snapshot, null);
+
+    // O historico do contrato purgado continua mostrando o export.
+    const timeline = await saleContractService.getSaleContractTimeline(
+      vencido.contractId,
+      adminActor
+    );
+    const item = timeline.items.find((i) => i.logId === doVencido.id);
+    assert.ok(item, 'a linha do espelho segue no historico');
+    assert.equal(item.available, false);
+  });
+
+  test('RC-D105: o throttle segura a purga sem `force`', async () => {
+    // A 1a chamada (force) marca o carimbo do modulo; a 2a sem force nao roda.
+    await saleContractService.purgeExpiredEspelhoSnapshots({ force: true });
+    const throttled = await saleContractService.purgeExpiredEspelhoSnapshots();
+    assert.equal(throttled.purged, 0);
+  });
+
+  test('getEspelhoSnapshot: logId de outro contrato nao vaza (404)', async () => {
+    const a = await setupConfirmedContract({ lotNumber: '26009' });
+    const b = await setupConfirmedContract({ lotNumber: '26010' });
+    const { id: logId } = await deliver(a.contractId, 'seller');
+    await assert.rejects(
+      () => saleContractService.getEspelhoSnapshot(b.contractId, logId, adminActor),
+      (err) => err.status === 404 && err.details?.code === 'ESPELHO_NOT_FOUND'
+    );
+    await assert.rejects(
+      () => saleContractService.getEspelhoSnapshot(a.contractId, randomUUID(), adminActor),
+      (err) => err.status === 404 && err.details?.code === 'ESPELHO_NOT_FOUND'
+    );
+  });
+
+  test('RC-D105: export SEM snapshot (linha legada) fica fora da estante, mas no historico', async () => {
+    const { contractId } = await setupConfirmedContract({ lotNumber: '26011' });
+    // Pre-RC-D103: a linha registrava o fato, sem documento.
+    const { id: logId } = await saleContractService.logEspelhoGenerated(
+      contractId,
+      'buyer',
+      adminActor
+    );
+    const timeline = await saleContractService.getSaleContractTimeline(contractId, adminActor);
+    const item = timeline.items.find((i) => i.logId === logId);
+    assert.equal(item.available, false, 'sem snapshot nao ha o que reabrir');
+    assert.equal(item.stale, false);
+    assert.equal(item.superseded, false);
+    await assert.rejects(
+      () => saleContractService.getEspelhoSnapshot(contractId, logId, adminActor),
+      (err) => err.status === 410 && err.details?.code === 'ESPELHO_EXPIRED'
+    );
+  });
+
   test('Fase J: timeline acessível ao COMMERCIAL sem vínculo (escopo aberto)', async () => {
     const { contractId } = await setupConfirmedContract({ lotNumber: '24105' });
     const stranger = { ...commercialActor, actorUserId: randomUUID() };
