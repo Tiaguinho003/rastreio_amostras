@@ -12,6 +12,34 @@ const VALID_PAIRS: ReadonlySet<string> = new Set([
   'mistura->resultado',
 ]);
 
+const ALL_TYPES: readonly PgNodeType[] = ['lote', 'mistura', 'resultado'];
+
+/**
+ * Tipos que podem sair de `source` (PG26 — o menu de compatíveis do arraste
+ * para o vazio e do "+" do coto).
+ *
+ * Existia como uma segunda lista à mão dentro do `PlaygroundCanvas.tsx`
+ * (`COMPATIBLE_TARGETS`), dizendo a mesma coisa que o `VALID_PAIRS` daqui. Duas
+ * listas com a mesma verdade divergem — esta deriva.
+ */
+export function typesAfter(source: PgNodeType): PgNodeType[] {
+  return ALL_TYPES.filter((type) => VALID_PAIRS.has(`${source}->${type}`));
+}
+
+/**
+ * Tipos que cabem ENTRE dois nodes já ligados (PG64): precisam aceitar a saída
+ * de `source` e produzir entrada para `target`.
+ *
+ * No catálogo de hoje a resposta é sempre `['mistura']` — é o único tipo que
+ * tem as duas portas. A função existe mesmo assim porque a alternativa seria
+ * cravar "mistura" no componente, e aí um catálogo novo mentiria em silêncio.
+ */
+export function typesBetween(source: PgNodeType, target: PgNodeType): PgNodeType[] {
+  return ALL_TYPES.filter(
+    (type) => VALID_PAIRS.has(`${source}->${type}`) && VALID_PAIRS.has(`${type}->${target}`)
+  );
+}
+
 /** Nodes de saída aceitam uma única edge de entrada. */
 const SINGLE_INPUT_TYPES: ReadonlySet<PgNodeType> = new Set(['resultado']);
 

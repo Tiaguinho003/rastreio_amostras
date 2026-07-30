@@ -26986,6 +26986,76 @@ body.is-selection-mode .mobile-tabbar {
   box-shadow: 0 0 0 5px color-mix(in srgb, var(--brand-green) 18%, transparent);
 }
 
+/* ── A linha entre dois nodes (PG64) ──
+   Era a edge padrão do React Flow: um traço sem sentido e sem nada para fazer
+   nela. Ganhou SETA (o sentido do fluxo, que numa cascata de misturas era
+   ilegível), área de clique de 40px (`interactionWidth` no componente — os 2px
+   que se veem quase não se acertam) e uma barra no meio, no hover.
+
+   🔴 A cor da seta mora AQUI, não na prop do marker: o React Flow escreve a cor
+   como ATRIBUTO de apresentação, e `var()` não resolve em atributo. Pintando por
+   CSS, o `--pg-edge` segue sendo a fonte única. */
+.pg-host .react-flow__arrowhead polyline {
+  fill: var(--pg-edge);
+  stroke: var(--pg-edge);
+}
+.pg-host .react-flow__edge-path.pg-edge {
+  transition: stroke var(--duration-fast) var(--ease-out);
+}
+.pg-host .react-flow__edge-path.pg-edge.is-hovered {
+  stroke: var(--brand-green);
+}
+
+/* A barra da linha, no molde da barra do node (`.pg-node-tools`). Vive no
+   `EdgeLabelRenderer`, que portala para uma camada acima das edges e por padrão
+   não recebe ponteiro — daí o `pointer-events` explícito. */
+.pg-edge-tools {
+  position: absolute;
+  display: flex;
+  gap: 0.15rem;
+  padding: 0.15rem;
+  background: var(--pg-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-md);
+  pointer-events: all;
+}
+.pg-edge-tools button {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--brand-muted);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform var(--duration-instant) var(--ease-out);
+}
+.pg-edge-tools button svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.pg-edge-tools button:active {
+  transform: scale(0.88);
+}
+@media (hover: hover) {
+  .pg-edge-tools button:hover {
+    background: var(--color-surface-muted);
+    color: var(--color-ink);
+  }
+  .pg-edge-tools button.is-danger:hover {
+    color: var(--color-danger);
+  }
+}
+
 /* ── A linha viva do arrasto (PG63) ──
    Ela só aparece 300ms depois de o gesto começar. Motivo: o "+" fica na ponta
    do mesmo coto que sai da porta, e clicar nele piscava uma linha por um quadro.

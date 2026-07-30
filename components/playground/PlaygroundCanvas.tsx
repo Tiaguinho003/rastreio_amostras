@@ -4,6 +4,7 @@ import {
   Background,
   BackgroundVariant,
   Controls,
+  MarkerType,
   Panel,
   ReactFlow,
   addEdge,
@@ -12,6 +13,7 @@ import {
   useReactFlow,
   type Connection,
   type Edge,
+  type EdgeTypes,
   type Node,
   type NodeTypes,
 } from '@xyflow/react';
@@ -30,6 +32,8 @@ import '@xyflow/react/dist/style.css';
 
 import { playgroundEngine } from '../../lib/playground/engine';
 import {
+  typesAfter,
+  typesBetween,
   validateConnection,
   type ConnectionRejectionReason,
   type ConnectionVerdict,
@@ -43,6 +47,7 @@ import { AddNodeButton } from './AddNodeButton';
 import { ConnectMenu, type ConnectMenuState } from './ConnectMenu';
 import { ExecutePill } from './ExecutePill';
 import { NodePaletteSheet } from './NodePaletteSheet';
+import { PgEdge } from './PgEdge';
 import { ResultDrawer } from './ResultDrawer';
 import {
   PlaygroundCanvasActionsContext,
@@ -54,12 +59,24 @@ import { LoteNode, type LoteNodeData } from './nodes/LoteNode';
 import { MisturaNode } from './nodes/MisturaNode';
 import { ResultadoNode } from './nodes/ResultadoNode';
 
-// Declarado em module scope (regra do React Flow: recriar por render força
-// remount de todos os nodes).
+// Declarados em module scope (regra do React Flow: recriar por render força
+// remount de todos os nodes e de todas as edges).
 const nodeTypes: NodeTypes = {
   lote: LoteNode,
   mistura: MisturaNode,
   resultado: ResultadoNode,
+};
+
+const edgeTypes: EdgeTypes = { pg: PgEdge };
+
+// PG64: toda ligação nova nasce com o nosso tipo e com SETA. A seta diz o
+// sentido do fluxo — sem ela, uma cascata de misturas é um emaranhado sem
+// direção. A COR dela não vem daqui: o React Flow escreve a cor do marker como
+// atributo de apresentação, e `var()` não resolve em atributo; quem pinta é o
+// `.react-flow__arrowhead` no CSS, para o token seguir sendo a fonte única.
+const defaultEdgeOptions = {
+  type: 'pg',
+  markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18 },
 };
 
 const REJECTION_MESSAGES: Record<ConnectionRejectionReason, string> = {
@@ -71,10 +88,13 @@ const REJECTION_MESSAGES: Record<ConnectionRejectionReason, string> = {
   CYCLE: 'Essa conexão criaria um ciclo',
 };
 
-/** Tipos que podem nascer do arrasto de uma porta de saída (PG26). */
-const COMPATIBLE_TARGETS: Partial<Record<PgNodeType, PgNodeType[]>> = {
-  lote: ['mistura'],
-  mistura: ['mistura', 'resultado'],
+// PG64: a lista de compatíveis era escrita à mão AQUI e repetia o `VALID_PAIRS`
+// do `graph.ts` — duas listas com a mesma verdade, livres para divergir. Agora
+// ela deriva do módulo puro, que é quem valida a conexão de fato.
+const COMPATIBLE_TARGETS: Record<PgNodeType, PgNodeType[]> = {
+  lote: typesAfter('lote'),
+  mistura: typesAfter('mistura'),
+  resultado: typesAfter('resultado'),
 };
 
 /**
@@ -328,6 +348,7 @@ export function PlaygroundCanvas({ session }: { session: SessionData }) {
         setConnectMenu({
           sourceId: connectionState.fromNode.id,
           options,
+          title: 'Conectar a…',
           screen: {
             x: point.clientX - (bounds?.left ?? 0),
             y: point.clientY - (bounds?.top ?? 0),
@@ -367,6 +388,7 @@ export function PlaygroundCanvas({ session }: { session: SessionData }) {
       setConnectMenu({
         sourceId,
         options,
+        title: 'Conectar a…',
         screen: {
           x: rect.right - (bounds?.left ?? 0) + 8,
           y: rect.top - (bounds?.top ?? 0),
@@ -378,16 +400,63 @@ export function PlaygroundCanvas({ session }: { session: SessionData }) {
     },
     [nodes, screenToFlowPosition]
   );
-  const canvasActions = useMemo<PlaygroundCanvasActions>(() => ({ addFromNode }), [addFromNode]);
+
+  // PG64: o "+" da barra da linha. Mesmo menu, terceiro caminho — e o único que
+  // desfaz algo: a ligação antiga morre e nascem duas.
+  const insertOnEdge = useCallback(
+    (
+      edgeId: string,
+      sourceId: string,
+      targetId: string,
+      flow: { x: number; y: number },
+      event: ReactMouseEvent<HTMLElement>
+    ) => {
+      const byId = new Map(nodes.map((node) => [node.id, node]));
+      const sourceType = byId.get(sourceId)?.type as PgNodeType | undefined;
+      const targetType = byId.get(targetId)?.type as PgNodeType | undefined;
+      if (!sourceType || !targetType) return;
+      const options = typesBetween(sourceType, targetType);
+      if (options.length === 0) return;
+      const rect = event.currentTarget.getBoundingClientRect();
+      const bounds = hostRef.current?.getBoundingClientRect();
+      setConnectMenu({
+        sourceId,
+        options,
+        title: 'Inserir aqui…',
+        insert: { edgeId, targetId },
+        screen: {
+          x: rect.right - (bounds?.left ?? 0) + 8,
+          y: rect.top - (bounds?.top ?? 0),
+        },
+        // O ponto médio da curva já vem em coordenadas de flow; o −34 alinha o
+        // quadrado pelo centro, como no coto.
+        flow: { x: flow.x - 34, y: flow.y - 34 },
+      });
+    },
+    [nodes]
+  );
+
+  const canvasActions = useMemo<PlaygroundCanvasActions>(
+    () => ({ addFromNode, insertOnEdge }),
+    [addFromNode, insertOnEdge]
+  );
 
   const onPickFromConnectMenu = useCallback(
     (type: PgNodeType) => {
       if (!connectMenu) return;
       const node = createNode(type, connectMenu.flow);
+      const { sourceId, insert } = connectMenu;
       setNodes((current) => [...current, node]);
-      setEdges((current) =>
-        addEdge({ source: connectMenu.sourceId, target: node.id } as Connection, current)
-      );
+      setEdges((current) => {
+        // Inserir no meio: a ligação antiga sai ANTES das duas novas entrarem —
+        // deixá-la viva junto criaria um caminho paralelo que pula o node novo,
+        // e a Mistura de destino contaria a mesma origem duas vezes.
+        const base = insert ? current.filter((edge) => edge.id !== insert.edgeId) : current;
+        const withFirst = addEdge({ source: sourceId, target: node.id } as Connection, base);
+        return insert
+          ? addEdge({ source: node.id, target: insert.targetId } as Connection, withFirst)
+          : withFirst;
+      });
       setConnectMenu(null);
     },
     [connectMenu, createNode, setNodes, setEdges]
@@ -417,6 +486,8 @@ export function PlaygroundCanvas({ session }: { session: SessionData }) {
               nodes={nodes}
               edges={edges}
               nodeTypes={nodeTypes}
+              edgeTypes={edgeTypes}
+              defaultEdgeOptions={defaultEdgeOptions}
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
               onConnect={onConnect}

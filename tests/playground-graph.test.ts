@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { resolveComposition, validateConnection } from '../lib/playground/graph.ts';
+import {
+  resolveComposition,
+  typesAfter,
+  typesBetween,
+  validateConnection,
+} from '../lib/playground/graph.ts';
 import { mockLotIndex } from '../lib/playground/mock-lots.ts';
 import type { PgGraphEdge, PgGraphNode } from '../lib/playground/types.ts';
 
@@ -16,6 +21,20 @@ function node(id: string, type: PgGraphNode['type']): PgGraphNode {
 function edge(source: string, target: string): PgGraphEdge {
   return { source, target };
 }
+
+// PG64: os compatíveis são DERIVADOS do mesmo `VALID_PAIRS` que valida a
+// conexão. O teste existe para prender as duas pontas: se alguém mexer no
+// catálogo de pares, é aqui que a divergência aparece.
+test('typesAfter e typesBetween derivam do catálogo de pares', () => {
+  assert.deepEqual(typesAfter('lote'), ['mistura']);
+  assert.deepEqual(typesAfter('mistura'), ['mistura', 'resultado']);
+  assert.deepEqual(typesAfter('resultado'), []);
+
+  // Só a Mistura tem as duas portas, então é a única que cabe no meio.
+  assert.deepEqual(typesBetween('lote', 'mistura'), ['mistura']);
+  assert.deepEqual(typesBetween('mistura', 'resultado'), ['mistura']);
+  assert.deepEqual(typesBetween('mistura', 'mistura'), ['mistura']);
+});
 
 test('validateConnection aceita os pares válidos do catálogo', () => {
   const nodes: PgGraphNode[] = [

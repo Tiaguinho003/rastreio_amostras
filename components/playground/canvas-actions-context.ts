@@ -17,9 +17,21 @@ export type PlaygroundCanvasActions = {
    * o caminho de quem não quer arrastar.
    */
   addFromNode: (sourceId: string, event: ReactMouseEvent<HTMLElement>) => void;
+  /**
+   * O "+" da barra da linha (PG64): enfia um node no MEIO de uma ligação — a
+   * edge antiga morre e nascem duas. `flow` é o ponto médio da curva, onde o
+   * node novo cai.
+   */
+  insertOnEdge: (
+    edgeId: string,
+    sourceId: string,
+    targetId: string,
+    flow: { x: number; y: number },
+    event: ReactMouseEvent<HTMLElement>
+  ) => void;
 };
 
-const noop: PlaygroundCanvasActions = { addFromNode: () => {} };
+const noop: PlaygroundCanvasActions = { addFromNode: () => {}, insertOnEdge: () => {} };
 
 export const PlaygroundCanvasActionsContext = createContext<PlaygroundCanvasActions>(noop);
 
