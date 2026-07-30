@@ -26798,13 +26798,16 @@ body.is-selection-mode .mobile-tabbar {
   --xy-handle-border-color: var(--pg-surface);
 }
 
-/* Cor por tipo de node (PG34) — o único pedaço dos tokens do canvas que também
-   precisa valer FORA do `.pg-host`. O painel de nodes (PG58) é um `BottomSheet`,
-   e ele portala pro `document.body`: os cartões de lá não herdam nada do host, e
-   um `var()` sem valor faria o acento cair em `currentColor`. Um lugar só para
-   os três, em vez de redeclarar no sheet e deixar dessincronizar. */
-.pg-host,
-.bottom-sheet.pg-nodes-sheet {
+/* Cor por tipo de node (PG34), hoje só do menu de compatíveis do canvas.
+
+   🪦 O seletor era `.pg-host, .bottom-sheet.pg-nodes-sheet`: o painel de nodes
+   portala pro `document.body`, não herdava nada do host, e sem a segunda metade
+   o acento dos cartões caía em `currentColor` (um `var()` sem valor invalida a
+   declaração inteira). Na PG66 as linhas do painel deixaram de ter cor por tipo
+   — a metade do sheet ficou sem consumidor e saiu. Se algum dia um painel
+   portalado voltar a pintar por tipo, é ESTE seletor que precisa crescer de
+   novo. */
+.pg-host {
   --pg-node-lote: var(--brand-green);
   --pg-node-mistura: var(--color-warning);
   --pg-node-resultado: var(--color-info);
@@ -27437,9 +27440,11 @@ body.is-selection-mode .mobile-tabbar {
 }
 
 /* ── Acento por tipo (PG34) ──
-   Pinta a borda esquerda de quem representa um node fora do canvas: os cartões
-   do painel (PG58) e o menu de compatíveis. Sobreviveu à paleta docada, que era
-   o consumidor original. */
+   Pinta a borda esquerda de quem representa um node fora do canvas. Sobrou UM
+   consumidor: o menu de compatíveis (`ConnectMenu`) — a paleta docada, que era
+   a original, morreu na PG58, e as linhas do painel de nodes trocaram a cor por
+   tipo pelo realce de uma cor só na PG66. Ele continua fazendo sentido lá
+   porque as opções aparecem lado a lado, sem glifo para dizer o tipo. */
 .pg-accent-lote {
   border-left-color: var(--pg-node-lote);
 }
@@ -27752,59 +27757,127 @@ body.is-selection-mode .mobile-tabbar {
   color: var(--color-ink);
 }
 
-/* Painel de nodes (PG58): os cartões são o `.fv-choice` do kit, com dois
-   ajustes. Uma COLUNA em vez das duas do genérico — são 3 tipos, e 2 colunas
-   deixariam um órfão na segunda linha; e a borda esquerda engrossada para o
-   acento por tipo (`.pg-accent-*`) aparecer. Os seletores citam as duas classes
-   que estão no elemento: `.fv-choice-group` mora ~3 mil linhas ADIANTE no
-   arquivo e, com especificidade igual, venceria pela ordem. */
-.pg-nodes-picker.fv-choice-group {
-  grid-template-columns: minmax(0, 1fr);
-  gap: 0.6rem;
+/* Painel de nodes (PG58 → PG66): LISTA, não cartões.
+
+   🪦 Saiu a família `.pg-nodes-picker .fv-choice*` inteira — os três tipos eram
+   cartões do kit, cada um com moldura, raio e sombra. Empilhados num painel de
+   420px, o que se via era três molduras; o que distingue as opções é o glifo e
+   o texto. Aqui sobra uma hairline ENTRE as linhas e mais nada.
+
+   A peça é própria e não uma reestilização do `.fv-choice`: do cartão não
+   sobrou borda, raio nem fundo, e uma dúzia de contra-declarações sobre o kit
+   seria pior de ler do que 40 linhas honestas — o kit segue certo onde é usado
+   (`css-architecture` §2). */
+.pg-nodes-list {
+  display: flex;
+  flex-direction: column;
 }
-/* PG62: o cartão virou uma LINHA de três colunas — ícone · (rótulo + dica) ·
-   chevron —, mais alta e com ar. O ícone é o mesmo glifo que o node vai ter no
-   canvas (`NODE_ICONS`), então o cartão é o retrato do que o toque produz e não
-   só o nome dele. O `grid-column: 1` genérico do `.fv-choice` empilharia tudo
-   numa coluna só; por isso cada peça declara a sua. */
-.pg-nodes-picker .fv-choice {
-  border-left-width: 3px;
+.pg-nodes-row {
+  position: relative;
+  display: grid;
   grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 0.85rem;
+  row-gap: 0.12rem;
   align-content: center;
-  column-gap: 0.75rem;
-  min-height: 62px;
-  padding: 0.7rem 0.8rem;
+  width: 100%;
+  min-height: 64px;
+  padding: 0.75rem 0.4rem 0.75rem 0.75rem;
+  border: 0;
+  background: transparent;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 140ms ease,
+    transform 120ms ease;
 }
+/* A hairline mora ENTRE as linhas: acima da primeira ela encostaria no título,
+   abaixo da última não separaria nada. */
+.pg-nodes-row + .pg-nodes-row {
+  border-top: 1px solid var(--fv-line);
+}
+/* O acento (PG34) deixou de ser cor POR TIPO e virou o realce de quem está sob
+   o ponteiro: barra RETA, da altura inteira da opção, uma cor só, invisível em
+   repouso. Cor por tipo aqui disputava com o ícone o mesmo trabalho — e o ícone
+   faz melhor. Ela segue viva no menu de compatíveis do canvas, onde as opções
+   aparecem lado a lado sem glifo.
+
+   É `::before` e não `border-left`: a borda emendaria com a hairline num canto
+   chanfrado, e reservar 2px de borda transparente deslocaria o conteúdo. */
+.pg-nodes-row::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 2px;
+  background: var(--brand-green);
+  opacity: 0;
+  transition: opacity 140ms ease;
+}
+.pg-nodes-row:active::before,
+.pg-nodes-row:focus-visible::before {
+  opacity: 1;
+}
+.pg-nodes-row:focus-visible {
+  outline: none;
+  background: var(--fv-hover);
+}
+/* button-press-effect: profundidade, nunca cor. O scale é menor que o do kit
+   porque a linha ocupa a largura toda — encolher 1,5% aqui seria um solavanco. */
+.pg-nodes-row:active {
+  transform: scale(0.995);
+}
+@media (hover: hover) {
+  .pg-nodes-row:hover {
+    /* Reafirmado por causa do `button:hover { background: transparent }` do
+       reset global, que vence a classe por especificidade. */
+    background: var(--fv-hover);
+  }
+  .pg-nodes-row:hover::before {
+    opacity: 1;
+  }
+  .pg-nodes-row:hover .pg-nodes-row-go {
+    stroke: var(--color-ink);
+  }
+}
+/* O glifo perdeu a plaquinha cinza de 38px que ficava atrás dele (PG62): o
+   fundo era a única mancha sólida da lista e pesava mais que o desenho. Fica o
+   traço, no tamanho do texto. */
 .pg-nodes-icon {
   grid-column: 1;
   grid-row: 1 / -1;
   align-self: center;
   display: grid;
   place-items: center;
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-  background: var(--color-surface-muted);
+  width: 24px;
+  height: 24px;
 }
 .pg-nodes-icon svg {
-  width: 21px;
-  height: 21px;
+  width: 24px;
+  height: 24px;
   fill: none;
   stroke: var(--brand-green);
-  stroke-width: 1.7;
+  stroke-width: 1.6;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
-.pg-nodes-picker .fv-choice-label,
-.pg-nodes-picker .fv-choice-hint {
+.pg-nodes-row-title {
   grid-column: 2;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-ink);
 }
-/* PG60: só o Lote aprofunda (passo 2). O chevron avisa isso ANTES do toque — os
+.pg-nodes-row-hint {
+  grid-column: 2;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: var(--muted);
+}
+/* PG60: só o Lote aprofunda (passo 2). A seta avisa isso ANTES do toque — os
    outros dois resolvem na hora e fecham o painel. */
-.pg-nodes-picker .fv-choice.has-chevron {
+.pg-nodes-row.is-drill {
   grid-template-columns: auto minmax(0, 1fr) auto;
 }
-.pg-nodes-picker .fv-choice.has-chevron > svg {
+.pg-nodes-row-go {
   grid-column: 3;
   grid-row: 1 / -1;
   align-self: center;
@@ -27812,30 +27885,10 @@ body.is-selection-mode .mobile-tabbar {
   height: 18px;
   fill: none;
   stroke: var(--muted);
-  stroke-width: 2;
+  stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
-}
-@media (hover: hover) {
-  .pg-nodes-picker .fv-choice:hover {
-    /* Reafirmado por causa do `button:hover { background: transparent }` do
-       reset global, que vence a classe do kit por especificidade. */
-    background: #ffffff;
-    border-color: var(--brand-green);
-    border-left-color: var(--brand-green);
-    box-shadow: var(--shadow-sm);
-  }
-  /* O acento por tipo (PG34) volta a mandar na borda esquerda no hover — sem
-     isto o `border-color` acima apagaria a única cor do cartão. */
-  .pg-nodes-picker .fv-choice.pg-accent-lote:hover {
-    border-left-color: var(--pg-node-lote);
-  }
-  .pg-nodes-picker .fv-choice.pg-accent-mistura:hover {
-    border-left-color: var(--pg-node-mistura);
-  }
-  .pg-nodes-picker .fv-choice.pg-accent-resultado:hover {
-    border-left-color: var(--pg-node-resultado);
-  }
+  transition: stroke 140ms ease;
 }
 
 /* A trilha de dois passos (PG60), no molde do painel do contrato

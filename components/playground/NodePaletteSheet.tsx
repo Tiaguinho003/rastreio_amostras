@@ -83,29 +83,39 @@ export function NodePaletteSheet({
         {/* O `.fv-panel-sheet` não usa o slot de `title` do BottomSheet, então o
             título mora no corpo — e, sendo do corpo, desliza com o passo. */}
         <h3 className="pg-panel-title">Adicionar node</h3>
-        <div className="fv-choice-group pg-nodes-picker" role="group" aria-label="Tipos de node">
+        {/* PG66: LISTA, não cartões. Três molduras empilhadas num painel de
+            420px eram mais desenho do que informação — o que distingue as
+            opções é o glifo e o texto, e a hairline entre elas basta para
+            separá-las. */}
+        <div className="pg-nodes-list" role="group" aria-label="Tipos de node">
           {PALETTE.map((item) => {
             const drills = item.type === 'lote';
             return (
               <button
                 key={item.type}
                 type="button"
-                className={`fv-choice pg-accent-${item.type}${drills ? ' has-chevron' : ''}`}
+                className={`pg-nodes-row${drills ? ' is-drill' : ''}`}
                 onClick={() => (drills ? setOnLotStep(true) : onPickType(item.type))}
               >
-                {/* PG62: o MESMO glifo que o node vai ter no canvas. O cartão
-                    deixa de ser uma linha de texto e vira o retrato do que o
-                    toque produz. */}
+                {/* PG62: o MESMO glifo que o node vai ter no canvas. A linha
+                    deixa de ser só o nome e vira o retrato do que o toque
+                    produz. */}
                 <span className="pg-nodes-icon" aria-hidden="true">
                   {NODE_ICONS[item.type]}
                 </span>
-                <span className="fv-choice-label">{NODE_LABELS[item.type]}</span>
-                <span className="fv-choice-hint">{item.hint}</span>
-                {/* Só o Lote leva a outro lugar; o chevron é o que avisa antes
-                    do toque qual dos três não resolve na hora. */}
+                <span className="pg-nodes-row-title">{NODE_LABELS[item.type]}</span>
+                <span className="pg-nodes-row-hint">{item.hint}</span>
+                {/* Só o Lote leva a outro lugar; a seta é o que avisa, antes do
+                    toque, qual dos três não resolve na hora. */}
                 {drills ? (
-                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                    <path d="M9 6l6 6-6 6" />
+                  <svg
+                    className="pg-nodes-row-go"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                    focusable="false"
+                  >
+                    <path d="M5 12h13" />
+                    <path d="M12.5 6.5 19 12l-6.5 5.5" />
                   </svg>
                 ) : null}
               </button>
