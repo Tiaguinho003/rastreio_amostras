@@ -26,8 +26,6 @@ import type {
   ClientBankAccountResponse,
   ClientAttachmentListResponse,
   ClientAttachmentResponse,
-  ApprovalFilter,
-  ApprovalListResponse,
   ClientLookupKind,
   ClientLookupResponse,
   ClientPurchasesListResponse,
@@ -1122,28 +1120,6 @@ export function deleteClientAttachment(
 // <a href>, <img src> ou <iframe src>; cookies same-origin acompanham.
 export function clientAttachmentDownloadUrl(clientId: string, attachmentId: string): string {
   return `${API_BASE}/clients/${clientId}/attachments/${attachmentId}`;
-}
-
-// Aprovação (AP25-AP28): worklist paginada. Default 'a_enviar' (o param só vai quando
-// difere do default). Auth-only (todos os não-PROSPECTOR). ⚠️ SEM CONSUMIDOR desde a
-// RC-D2 — a sub-aba que a chamava morreu com a /embarques, e a de embarque que ficava
-// ao lado desta foi apagada de vez na RC-D65. Esta sobreviveu esperando a RC-F3.
-export function listApprovals(
-  session: SessionData,
-  query: { search?: string; limit?: number; cursor?: string; filter?: ApprovalFilter } = {},
-  options: { signal?: AbortSignal } = {}
-) {
-  const params = new URLSearchParams();
-  if (query.search) params.set('search', query.search);
-  if (typeof query.limit === 'number') params.set('limit', String(query.limit));
-  if (query.cursor) params.set('cursor', query.cursor);
-  if (query.filter && query.filter !== 'a_enviar') params.set('filter', query.filter);
-  const suffix = params.size ? `?${params.toString()}` : '';
-  return request<ApprovalListResponse>(`/sale-contracts/approvals${suffix}`, {
-    method: 'GET',
-    session,
-    signal: options.signal,
-  });
 }
 
 export function getUser(session: SessionData, userId: string) {

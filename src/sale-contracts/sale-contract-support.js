@@ -558,69 +558,6 @@ export function finalizeBlockReason({ invoiceDate = null }, todayKey) {
 // Worklist da Aprovacao (AP25-AP28) — a "casa" na sub-aba
 // ------------------------------------------------------------
 
-// Estado derivado (sem enum, AP14/Fase 5): cancelado (WASH_OUT) · enviada (>=1
-// etiqueta, nao washout) · a_enviar (marcado e sem etiqueta).
-// RC-D66: o portao AP18 MORREU — antes "marcado e nao enviado" era impossivel de
-// coexistir com o contrato tendo avancado, porque faturar exigia a etiqueta. Hoje da
-// pra FINALIZAR sem ter enviado: o estado passa a descrever, nao a garantir.
-// `labelCount` vem do approval_label_log (agregado na query da worklist).
-function deriveApprovalState(status, labelCount) {
-  if (status === 'WASH_OUT') return 'cancelado';
-  if (labelCount >= 1) return 'enviada';
-  return 'a_enviar';
-}
-
-// Filtros da worklist (AP28). Default 'a_enviar' (o acionavel em cima).
-const APPROVAL_WL_FILTERS = Object.freeze(['a_enviar', 'enviada', 'cancelado', 'todos']);
-
-export function normalizeApprovalWlFilter(raw) {
-  return typeof raw === 'string' && APPROVAL_WL_FILTERS.includes(raw) ? raw : 'a_enviar';
-}
-
-// Linha da worklist (AP26): chip · nº · comprador · data · sacas · "·N×" (AP24). So
-// dado NAO-sensivel (a aba e visivel a todos os nao-PROSPECTOR — sem financeiro). Data:
-// a_enviar/cancelado -> faturamento planejado (invoiceDate); enviada -> ultimo envio
-// (lastSendAt). `sendCount` alimenta o "·N×" (o front so mostra quando > 1). A linha
-// vem do $queryRaw (colunas ja em camelCase + buyerName/labelCount/lastSendAt).
-export function buildApprovalWorklistView(row, todayKey) {
-  const labelCount = Number(row.labelCount ?? 0);
-  const state = deriveApprovalState(row.status, labelCount);
-  const dateIso = state === 'enviada' ? toIsoString(row.lastSendAt) : toIsoString(row.invoiceDate);
-  return {
-    id: row.id,
-    contractNumber: row.contractNumber,
-    state,
-    status: row.status,
-    buyerName: row.buyerName ?? null,
-    quantitySacks: Number(row.quantitySacks ?? 0),
-    date: dateIso,
-    sendCount: labelCount,
-  };
-}
-
-// Cursor keyset opaco. {g, key, seq}: g = grupo (0 a_enviar / 1 enviada / 2 cancelado);
-// key = invoiceDate 'YYYY-MM-DD' (G0) | lastSendAt ISO COM HORA (G1 — pode haver N
-// envios no mesmo dia, precisa da hora) | null (G2); seq = contractSeq (tiebreak
-// unico). base64url. (Difere do cursor do embarque: o key do G1 leva hora.)
-export function encodeApprovalWlCursor(cursor) {
-  return Buffer.from(JSON.stringify(cursor), 'utf8').toString('base64url');
-}
-
-export function decodeApprovalWlCursor(raw) {
-  if (typeof raw !== 'string' || raw === '') return null;
-  try {
-    const p = JSON.parse(Buffer.from(raw, 'base64url').toString('utf8'));
-    const okKey =
-      p?.key === null || (typeof p?.key === 'string' && !Number.isNaN(new Date(p.key).getTime()));
-    if (p && Number.isInteger(p.g) && p.g >= 0 && p.g <= 2 && Number.isInteger(p.seq) && okKey) {
-      return { g: p.g, key: p.key, seq: p.seq };
-    }
-  } catch {
-    // cursor malformado -> trata como 1a pagina
-  }
-  return null;
-}
-
 // Revisao do Pagamento (FN1): estado da corretagem a receber, derivado (sem enum) —
 // a LENTE do Financeiro. Chip: cancelado (WASH_OUT) · recebida · vencido (paymentDate
 // < hoje BRT) · a_vencer (no prazo ou SEM data).

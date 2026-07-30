@@ -651,34 +651,6 @@ export interface FinanceiroListResponse {
   kpis: Record<FinanceiroPaymentState, FinanceiroKpi>;
 }
 
-// Aprovação (AP26): estado derivado da worklist (chip). Sem enum no banco.
-export type ApprovalState = 'a_enviar' | 'enviada' | 'cancelado';
-
-// Filtro da worklist (AP28, default 'a_enviar' — o acionável em cima).
-export type ApprovalFilter = 'a_enviar' | 'enviada' | 'cancelado' | 'todos';
-
-// Linha da worklist (AP26): só dado NÃO-sensível (a aba é visível a todos os
-// não-PROSPECTOR) — sem preço/corretagem. `date` = faturamento planejado (a_enviar/
-// cancelado) ou último envio (enviada); `sendCount` alimenta o "·N×" (AP24, só >1).
-export interface ApprovalReceivable {
-  id: string;
-  contractNumber: string;
-  state: ApprovalState;
-  status: SaleContractStatus;
-  buyerName: string | null;
-  quantitySacks: number;
-  date: string | null;
-  sendCount: number;
-}
-
-export interface ApprovalListResponse {
-  items: ApprovalReceivable[];
-  // Cursor keyset OPACO (base64url {g,key,seq}); null = última página.
-  nextCursor: string | null;
-  // "N a enviar" (AP25): contagem estável dos pendentes (independe do filtro/cursor).
-  pendingCount: number;
-}
-
 // Fechamento (Fase B.2 Passo 2): listas da etapa 2 + payload de "Emitir".
 export interface ContractLookupItem {
   id: string;
