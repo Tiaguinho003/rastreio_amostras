@@ -17,17 +17,17 @@ O projeto possui skills em `.claude/skills/` que o Claude Code carrega automatic
 
 Cada skill responde UMA pergunta. Comece pela que casa com a sua:
 
-| Pergunta                            | Skill                                                                                                                                |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| Que cor / superficie / tipografia?  | `design-system` — §0 e o kit FV institucional (unico padrao para construcao nova); §L e apendice legado das paginas nao migradas     |
-| Isso abre em que superficie?        | `containers` — arvore de decisao, `BottomSheet`/`DetailOverlay`/`.side-sheet`/painel/modal/dropdown inline, z-index, URL-como-estado |
-| Como e a pagina de lista?           | `data-tables` — page-head, KPI row, toolbar, tabela + colgroup, menu ⋯, modo selecao, filtros, split desktop/mobile                  |
-| Como e o formulario?                | `forms` — kit `.fv-form-*`, campos compostos, `.fv-choice*`, submit, erro no campo, check de sucesso, descarte                       |
-| Como e o modal central por dentro?  | `modals` — `.app-modal.is-themed`: estrutura JSX, variantes, tokens, UX, inventario dos centrais                                     |
-| Onde escrever a regra CSS?          | `css-architecture` — kit vs escopo, `.sdv-*` compartilhado, morto por seletor, neutralizar legado, auditoria                         |
-| Como o layout se adapta ao tamanho? | `responsive` — mobile-first, clamp, safe areas, e quando trocar a ARVORE em vez do CSS (901px)                                       |
-| Toast, banner, mensagem de erro?    | `feedback-messages` — decision tree, copywriting pt-BR, acessibilidade                                                               |
-| Feedback de toque no clicavel?      | `button-press-effect` — sem mudanca de cor, so profundidade (scale)                                                                  |
+| Pergunta                            | Skill                                                                                                                                            |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Que cor / superficie / tipografia?  | `design-system` — §0 e o kit FV institucional (unico padrao para construcao nova); §L e apendice legado das paginas nao migradas                 |
+| Isso abre em que superficie?        | `containers` — arvore de decisao, `BottomSheet`/`DetailOverlay`/`.side-sheet`/painel/modal/dropdown inline, z-index, URL-como-estado             |
+| Como e a pagina de lista?           | `data-tables` — page-head, KPI row, toolbar, tabela + colgroup, menu ⋯, modo selecao, filtros, split desktop/mobile, snapshot + barramento (§10) |
+| Como e o formulario?                | `forms` — kit `.fv-form-*`, campos compostos, `.fv-choice*`, submit, erro no campo, check de sucesso, descarte                                   |
+| Como e o modal central por dentro?  | `modals` — `.app-modal.is-themed`: estrutura JSX, variantes, tokens, UX, inventario dos centrais                                                 |
+| Onde escrever a regra CSS?          | `css-architecture` — kit vs escopo, `.sdv-*` compartilhado, morto por seletor, neutralizar legado, auditoria                                     |
+| Como o layout se adapta ao tamanho? | `responsive` — mobile-first, clamp, safe areas, e quando trocar a ARVORE em vez do CSS (901px)                                                   |
+| Toast, banner, mensagem de erro?    | `feedback-messages` — decision tree, copywriting pt-BR, acessibilidade                                                                           |
+| Feedback de toque no clicavel?      | `button-press-effect` — sem mudanca de cor, so profundidade (scale)                                                                              |
 
 ### Processo
 

@@ -1,12 +1,12 @@
 ---
 name: css-architecture
-description: Use this skill BEFORE writing or editing any rule in app/globals.css. A single 37k-line stylesheet shared by every page — this defines where a new rule goes (generic kit vs page scope vs component), which class prefixes are shared between pages, how to detect rules that are already dead, how to neutralize a legacy rule without a specificity war, and how to audit before touching.
+description: Use this skill BEFORE writing or editing any rule in app/globals.css. A single ~28k-line stylesheet shared by every page — this defines where a new rule goes (generic kit vs page scope vs component), which class prefixes are shared between pages, how to detect rules that are already dead, how to neutralize a legacy rule without a specificity war, and how to audit before touching.
 ---
 
-# CSS — mexer em 37 mil linhas sem quebrar o vizinho
+# CSS — mexer em ~28 mil linhas sem quebrar o vizinho
 
-`app/globals.css` é **um arquivo só**, ~37 mil linhas, ~98 seções, compartilhado por todas as
-páginas. Não há CSS Modules nem escopo por componente. Toda regra que você escreve pode alcançar
+`app/globals.css` é **um arquivo só**, ~28 mil linhas, ~98 seções, compartilhado por todas as
+páginas. _(Eram ~33 mil até a poda de §19 tirar ~4,5 mil e a F3 do ciclo SN levar as 366 do splash.)_ Não há CSS Modules nem escopo por componente. Toda regra que você escreve pode alcançar
 uma tela que você não abriu.
 
 Esta skill é sobre **onde** escrever e **como não quebrar o vizinho**. O que escrever (tokens,

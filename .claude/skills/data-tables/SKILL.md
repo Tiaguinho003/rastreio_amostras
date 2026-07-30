@@ -692,7 +692,86 @@ RC-D69, 2026-07-29 — o lote é um campo do formulário agora.)_ Mudança de vi
 
 ---
 
-## §10 Checklist
+## §10 Voltar para a lista, e a lista se atualizar sozinha
+
+Duas coisas distintas, com primitivos distintos, e nenhuma das duas é opcional numa lista nova:
+
+| Pergunta                                          | Primitivo                            |
+| ------------------------------------------------- | ------------------------------------ |
+| O usuário volta para cá — o que ele vê?           | **snapshot** (`lib/snapshots/`)      |
+| Alguém escreveu esse dado — quem avisa esta tela? | **barramento** (`lib/revalidation/`) |
+
+### O barramento (ciclo SN, F3)
+
+**Ninguém publica na mão.** O `request()` de `lib/api-client.ts` publica sozinho, para todo método
+≠ GET, o assunto derivado do caminho (SN-D14). Uma lista nova só **assina**:
+
+```tsx
+useRevalidate({
+  subjects: ['contratos', 'clientes', 'lotes'], // tudo que a tela EXIBE
+  enabled: Boolean(session),
+  onRevalidate: () => void refresh(), // a recarga que a página já tem
+});
+```
+
+🔴 **O publicador é estreito, o assinante é largo.** O mapa caminho→assunto em
+`lib/revalidation/subjects.ts` **não faz leque**: um caminho, um assunto. Quem exibe cliente e lote
+num card de contrato declara os três aqui — é nesta linha que dá para conferir olhando a tela. Não
+alargue o mapa para "resolver" uma tela que não atualiza; assine o assunto que falta.
+
+O hook cobre `publish`, retorno ao **primeiro plano** e **poll** (60s, throttle 30s). Passe
+`pollMs: null` onde o poll não se paga — os cards do dashboard fazem isso: um request/minuto por
+usuário sai caro em query de banco, e o foreground já cobre o caso real.
+
+### 🔴 Revalidação silenciosa não pisca
+
+Vale para as quatro origens (`publish`, `foreground`, `poll` e **mount restaurado de snapshot**). A
+lista **já está na tela**: cobrir com skeleton para repintar quase o mesmo conteúdo é piora, não
+feedback. Concretamente, a recarga silenciosa **não**:
+
+- acende skeleton (`fetch-initial`) nem limpa o erro visível;
+- rola para o topo;
+- **reanima entrada de item** — foi assim que `/users` recascateava os cards a cada revalidação (o
+  `success-initial` zerava o `firstNewIndex` sempre); hoje o flag `silent` preserva `null`;
+- derruba a lista em caso de falha — o usuário fica com o último dado bom.
+
+Skeleton é para **carga real e troca de filtro**, onde o conteúdo de fato muda.
+
+### O snapshot
+
+Chave **do registro** (`lib/snapshots/registry.ts`), nunca literal solto: é o registro que o logout
+itera, e chave inventada sobrevive à troca de usuário — num PWA, é a lista de outra pessoa na
+primeira pintura. Guarde itens + cursor/página + `scrollTop` + busca + filtros + `savedAt`; TTL
+30min; `writeSnapshot` contínuo com debounce (`SNAPSHOT_WRITE_DEBOUNCE_MS`), porque a saída nem
+sempre passa por um handler seu; `clearSnapshot` ao mudar busca/filtro (o recorte antigo restaurado
+seria o resultado errado).
+
+**Ler no inicializador do `useState` é seguro aqui** — o layout do grupo `(app)` devolve `null` até
+a sessão resolver, então página autenticada **nunca renderiza no servidor** e não há mismatch de
+hidratação. _(A sessão em si é o caso oposto: aquela leitura mora num layout effect.)_
+
+Dois detalhes que já custaram caro:
+
+- **Restaurar scroll usa `restoreListScrollTop`**, que reaplica **a cada frame** até acertar (±2px,
+  ~20 frames). Um `scrollTo` único pega perto do topo: a altura só assenta depois de alguns frames,
+  e o `useIsDesktop()` começa `false` — no desktop o primeiro paint monta a lista **mobile** e o
+  container de scroll é trocado logo em seguida (daí o container vir como _getter_).
+- **A dep do efeito de scroll é um booleano `hasItems`, não `items.length`.** Com o número na dep, o
+  refetch silencioso muda o tamanho da lista, o efeito re-roda e o cleanup **cancela o rAF no meio
+  da restauração**.
+
+**Limite conhecido, aceito de propósito:** a lista restaurada **encolhe para a 1ª página** no
+primeiro refetch, porque a revalidação refaz só a página 1 e o snapshot pode ter 3 acumuladas. É o
+comportamento que `/samples` já tinha; as demais seguem o mesmo precedente. Se um dia mudar, muda o
+molde inteiro — não uma página.
+
+Quem tem: `/samples`, `/cadastros`, `/contratos`, `/financeiro`, `/relatorios`, `/users`. Quem não
+tem, por decisão: `/dashboard` e `/profile` (agregados e dados do próprio usuário — §5.2 do doc
+`Shell-e-Navegacao-Plano-de-Trabalho.md`).
+
+---
+
+## §11 Checklist
 
 - [ ] `<colgroup>` com uma `fv-col-*` por coluna, na ordem do `<thead>`
 - [ ] Uma única coluna elástica; as fixas agrupadas à direita; ações 58px
@@ -712,8 +791,11 @@ RC-D69, 2026-07-29 — o lote é um campo do formulário agora.)_ Mudança de vi
 - [ ] Nada de `position: fixed` dentro do sheet da página (containing block)
 - [ ] Mobile sem faixa travada: KPI e toolbar dentro da rolagem, nos QUATRO ramos
 - [ ] Busca com `flex: 1 1 0` — com base `auto` o funil cai de linha
+- [ ] `useRevalidate` com os assuntos que a tela EXIBE (não os que ela escreve)
+- [ ] Recarga silenciosa sem skeleton, sem scroll ao topo, sem reanimar item
+- [ ] Snapshot com chave do registro; scroll via `restoreListScrollTop`; dep booleana
 
-## §11 Fora do padrão hoje
+## §12 Fora do padrão hoje
 
 Ao tocar nestes pontos, alinhe:
 

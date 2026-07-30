@@ -16,6 +16,8 @@ description: Use this skill when writing or reviewing any code in this project. 
 - `lib/` — tipos TS, schemas de formulario, cliente HTTP, utilitarios UI
 - `lib/offline/` — infra offline da PWA: snapshot local de sessao (session-cache), fila de informes em IndexedDB (visit-outbox) + sync com Idempotency-Key (visit-sync)
 - `lib/navigation/` — `route-history` (rastreador da rota anterior): `RouteHistoryTracker` no layout atualiza em efeito; `getRouteLeftBehind()` lido no render de uma pagina devolve a rota de origem (ex.: Lotes decide preservacao permanente vs com timer ao voltar)
+- `lib/revalidation/` — barramento de invalidacao (ciclo SN, F3): `subjects` (o tipo `RevalidationSubject` + o mapa caminho→assunto), `bus` (pub/sub singleton, sem React, coalescedor de 120ms) e o hook `use-revalidate` (publish + foreground + poll). 🔴 **Quem publica e o `request()` do `api-client`, automatico pra todo metodo ≠ GET** — nenhum ponto de escrita publica na mao (SN-D14). Ver a skill `data-tables` §10 pra ligar uma tela
+- `lib/snapshots/` — primeira pintura das listas (SN-D7/D9): `registry` (as chaves — o logout **itera o registro**, entao chave nasce aqui, nunca literal solto — + TTL + read/write/clear) e `scroll` (ler/aplicar scroll do container e o `restoreListScrollTop`, que reaplica por frame)
 - `src/api/` — API framework-agnostic (backend-api.js)
 - `src/samples/` — dominio de amostras (command + query services)
 - `src/users/`, `src/auth/` — usuarios, sessoes, roles, auditoria
