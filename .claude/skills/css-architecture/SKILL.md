@@ -164,16 +164,17 @@ Duas perguntas, nesta ordem, antes de escrever a regra nova:
 ## §4 🔴 Morto por seletor
 
 Regra que **existe, está bem escrita, e não aplica em lugar nenhum** porque o seletor referencia
-uma classe que saiu do JSX. Caso vivo hoje:
+uma classe que saiu do JSX. O caso que deu nome a esta seção:
 
 ```
-.sdv-page--sample   →   70 ocorrências no CSS, ZERO no TSX
+.sdv-page--sample   →   dezenas de regras no CSS, ZERO no TSX
 ```
 
-São 70 regras que parecem governar o detalhe do lote e não governam nada. O risco não é o peso do
-arquivo — é **você editar uma delas para consertar um bug e concluir que "o CSS não faz efeito"**,
-partindo para `!important` ou para uma regra nova mais específica que briga com a que de fato
-manda.
+Pareciam governar o detalhe do lote e não governavam nada — o `SampleDetailView` renderiza
+`sdv-page` puro. 🪦 **Foram apagadas na poda de 2026-07-30** (57 regras), depois de confirmar que o
+layout desktop VIVO (`.sdv-general`) vinha de outras. O risco não é o peso do arquivo — é **você
+editar uma delas para consertar um bug e concluir que "o CSS não faz efeito"**, partindo para
+`!important` ou para uma regra nova mais específica que briga com a que de fato manda.
 
 **Antes de editar uma regra que parece não funcionar, confirme que ela aplica:**
 
@@ -218,6 +219,44 @@ não pelo diff: o número que importa é "saiu algo que não continha token mort
 > não tem esse problema; um regex sobre o texto inteiro tem. Mesma raiz: **`--token-x` e `.token-x`
 > são nomes diferentes** — os `--pg-node-*` sobreviveram à morte das regras `.pg-node-lote/-mistura/-resultado`
 > porque quem os consome (`.pg-accent-*`) vive em outra tela.
+
+### 🔴 As três coisas que o grep NÃO vê
+
+Medidas na poda de 2026-07-30 (652 regras). Cada uma quase custou regra viva:
+
+**1. `:not(.morta)` não mata o seletor — INVERTE.** A classe morta lá dentro faz a negação virar
+sempre-verdadeira: a regra passa a aplicar MAIS, não menos.
+
+```css
+/* Regra VIVA da /samples. `.informe-commercial-page` morreu; o :not() ficou de
+   propósito, porque tirá-lo baixa a especificidade de (0,2,0) pra (0,1,0). */
+.samples-page-v2:not(.informe-commercial-page) .spv2-card-wrap { … }
+```
+
+Vale igual para `:is()`/`:where()`: só morrem se **todas** as alternativas morrerem. A saída segura é
+não decidir por dentro deles — `sel.replace(/:(?:not|is|where|has)\([^()]*\)/g, '')` antes de extrair
+os candidatos, e só as classes de fora matam.
+
+**2. DOM de biblioteca.** Quem escreve a classe é o pacote; o nosso código nunca a cita, então toda
+regra que a estiliza parece morta. `@xyflow/react` monta `.react-flow__handle-left`,
+`__controls-button`, `__edge-path`… — 21 regras. Antes de podar, cheque os candidatos contra o
+`node_modules` das libs que renderizam DOM:
+
+```bash
+grep -rlF "minha-classe" node_modules/@xyflow node_modules/qr-scanner
+```
+
+**3. Nome montado em runtime.** Não adivinhe a lista — **extraia do código**, procurando o stem antes
+de uma interpolação:
+
+```bash
+grep -rhoE '[A-Za-z][A-Za-z0-9_-]*-\$\{' --include=*.tsx --include=*.ts app components | sort -u
+```
+
+E depois **classifique cada stem**: `` `is-role-${role}` `` e `` `fv-kpi-tone-${tone}` `` são classe;
+`` `skel-${i}` ``, `` `toast-${Date.now()}` ``, `` `boot-${i}` `` e `` `div-${letra}` `` são **`key` de
+React**, e tratá-los como classe deixa lixo de pé. Classe sob um stem de classe é **indecidível**:
+nunca serve de motivo para apagar — mas também não segura a regra, se a âncora dela morreu.
 
 ### 🔴 Regra agrupada: remover o SELETOR, não a regra
 

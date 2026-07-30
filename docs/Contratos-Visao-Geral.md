@@ -24,6 +24,7 @@ Documentos relacionados: `Contratos-Plano-de-Trabalho.md` (backlog, decisões e 
 | 2026-07-30 | —             | 16  | Varredura de alinhamento: docs, skills e comentários conferidos contra o código           |
 | 2026-07-30 | RC-D130       | 17  | As 3 inconsistências corrigidas; o documento vira **página rasterizada**, não `<iframe>`  |
 | 2026-07-30 | —             | 18  | O código morto sai: a worklist de aprovação, o upload de foto por HTTP e 2 blocos de CSS  |
+| 2026-07-30 | —             | 19  | A poda do CSS órfão: 652 regras, ~4500 linhas, 334 classes em 73 famílias                 |
 
 > ⚠️ **O contrato não é livro de status — é agenda** (RC-D62..D68, `Contratos-Plano-de-Trabalho.md` **§6**). Ele guarda só o que é **subproduto de trabalho já feito** (emitir o PDF, imprimir a etiqueta, gerar o espelho, aplicar ágio, cancelar por washout) e deixou de pedir **escrituração** — marcar faturado, marcar pago, confirmar embarque. Sobraram **três situações** (`EMITIDO` · `FINALIZADO` · `WASH_OUT`) e uma **agenda derivada** das datas que o documento já imprime. O **embarque foi apagado inteiro**. Tudo abaixo descreve o **código de hoje**.
 

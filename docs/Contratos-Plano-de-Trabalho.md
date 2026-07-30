@@ -2161,6 +2161,45 @@ errada da RC-D111) · `lastBusinessDayIso` (default do seletor de embarque, RC-D
   **RC-F2**, a próxima fase do roteiro.
 - **`addClassificationPhoto`** — parece morta, é **helper de teste**: 10+ chamadas na integração.
 
+## 19. A poda do CSS órfão (2026-07-30) — sem decisão de produto
+
+Fecha a última pendência da §16.3: as ~350 classes que a §18 deixou para uma rodada própria. Commit
+`41e64c4`. **652 regras, ~4500 linhas, 334 classes** em 73 famílias — mais 5 `@keyframes`, 7 `@media`
+esvaziadas e 80 comentários que passaram a descrever regra nenhuma.
+
+### 19.1 O que importa não é o número, é o método
+
+A varredura **levanta candidato; quem decide é o componente dono.** E a decisão é da **regra**, não da
+classe: uma regra morre quando uma classe _decidível_ do seletor morreu. Modificador (`is-*`) nunca
+decide sozinho — vive ou morre com a âncora.
+
+🔴 **Três coisas que o `grep` não vê, e as três quase custaram regra viva:**
+
+| Caso                        | O que aconteceu                                                                                                                                                                                                                                                                                   |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`:not(.morta)`**          | **Não mata — INVERTE.** `.samples-page-v2:not(.informe-commercial-page)` é regra VIVA com classe morta dentro; apagá-la despintaria a /samples. O próprio CSS já explicava que o qualificador ficou por causa da especificidade. `:is()`/`:where()`: só morre se TUDO dentro morrer               |
+| **DOM de biblioteca**       | `.react-flow__handle-left`, `__controls-button`, `__edge-path` — quem escreve é o `@xyflow/react`. 8 classes, 21 regras que pareciam mortas                                                                                                                                                       |
+| **Nome montado em runtime** | `` `is-${...}` ``, `is-role-`, `fv-kpi-tone-`, `pg-accent-`, `user-avatar--`, `app-toast--`, `page-transition-enter--`, `pzv-toast-`, `login-bean-`. A lista saiu de varrer o código atrás de `` `algo-${ `` — e de descartar `skel-`/`toast-`/`boot-`/`div-`, que são `key` de React, não classe |
+
+### 19.2 A conferência final, que é o que autoriza o commit
+
+Das 334 classes, **três** aparecem no código. Nenhuma é regressão:
+
+- `sdv-blend-compromised` e `sdv-cls-blk--defeitos` — todas as regras delas viviam sob
+  **`.sdv-page--sample`**, classe com **zero** ocorrências no TSX (o `SampleDetailView` renderiza
+  `sdv-page` puro). São 57 regras que nunca aplicaram: é o caso "morto por seletor" que a skill
+  `css-architecture` §4 já usava como exemplo, agora executado.
+- `is-pf` — a única regra era `.cv2-card-type.is-pf`, âncora morta. O `is-pf` do `ClientLookupField`
+  nunca foi pintado por ela.
+
+O layout desktop **vivo** do detalhe da amostra não foi tocado: `.sdv-general` caiu de 28 para 17
+menções, e as 11 que saíram eram todas prefixadas pela classe inerte.
+
+### 19.3 Fora desta passada
+
+`.pg-*` (o simulador estava sendo editado na mesma hora — classe morta há dez minutos pode estar viva
+no próximo save) e três `@keyframes` que já eram órfãos antes da poda.
+
 ## Apêndice A — Ledger de decisões (condensado)
 
 > Resolução final de cada decisão; as **superadas** apontam para o que as substituiu. O histórico completo (Contexto→Opções→Proposta + sessões) está no Git.
