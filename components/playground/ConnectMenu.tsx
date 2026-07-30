@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 
 import type { PgNodeType } from '../../lib/playground/types';
-import { NODE_LABELS } from './NodePalette';
+import { NODE_LABELS } from './NodePaletteSheet';
 
 export type ConnectMenuState = {
   sourceId: string;

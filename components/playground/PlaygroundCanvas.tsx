@@ -4,6 +4,7 @@ import {
   Background,
   BackgroundVariant,
   Controls,
+  Panel,
   ReactFlow,
   addEdge,
   useEdgesState,
@@ -14,7 +15,16 @@ import {
   type Node,
   type NodeTypes,
 } from '@xyflow/react';
-import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
+// `MouseEvent` do React entra APELIDADO: sem o alias ele sombreia o
+// `MouseEvent` global do DOM, que é o que o `onConnectEnd` do React Flow tipa.
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+} from 'react';
 
 import '@xyflow/react/dist/style.css';
 
@@ -29,9 +39,10 @@ import { runSimulation } from '../../lib/playground/simulation';
 import type { PgGraphEdge, PgGraphNode, PgNodeType } from '../../lib/playground/types';
 import { useToast } from '../../lib/toast/ToastProvider';
 import type { SampleSnapshot, SessionData } from '../../lib/types';
+import { AddNodeButton } from './AddNodeButton';
 import { ConnectMenu, type ConnectMenuState } from './ConnectMenu';
 import { ExecutePill } from './ExecutePill';
-import { NodePalette } from './NodePalette';
+import { NodePaletteSheet } from './NodePaletteSheet';
 import { ResultDrawer } from './ResultDrawer';
 import { PlaygroundLotsContext, type PlaygroundLots } from './lots-context';
 import { PlaygroundResultsContext, type PlaygroundResults } from './results-context';
@@ -106,6 +117,13 @@ export function PlaygroundCanvas({ session }: { session: SessionData }) {
   const toast = useToast();
   const hostRef = useRef<HTMLDivElement | null>(null);
   const [connectMenu, setConnectMenu] = useState<ConnectMenuState | null>(null);
+  // Painel de nodes (PG58): a paleta docada virou `.side-sheet`, aberto pelo "+"
+  // do canto ou pelo "+" central do canvas vazio (PG59). Guardar QUAL dos dois
+  // abriu é o que permite devolver o foco ao trigger no fechamento (containers
+  // §6); o `isConnected` cobre o trigger que não existe mais — escolher o
+  // primeiro node desmonta justamente o "+" central.
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const paletteTriggerRef = useRef<HTMLButtonElement | null>(null);
   // Último veredito negativo do isValidConnection — o React Flow só devolve
   // boolean; o motivo (pra toast do PG32) fica guardado aqui.
   const lastRejectionRef = useRef<ConnectionVerdict | null>(null);
@@ -181,15 +199,47 @@ export function PlaygroundCanvas({ session }: { session: SessionData }) {
     (type: PgNodeType) => {
       const bounds = hostRef.current?.getBoundingClientRect();
       if (!bounds) return;
-      // Stagger leve pra nodes consecutivos não nascerem empilhados.
-      const offset = (nodeIdCounter % 5) * 28;
+      // Stagger leve pra nodes consecutivos não nascerem empilhados. Conta o que
+      // ESTÁ no canvas, não o contador global de ids: o "+" central (PG59) é o
+      // único ato possível no canvas vazio, e o node que ele cria tem que cair
+      // no centro exato — sob o próprio botão que foi tocado.
+      const offset = (nodes.length % 5) * 28;
       const position = screenToFlowPosition({
         x: bounds.left + bounds.width / 2 + offset,
         y: bounds.top + bounds.height / 2 + offset,
       });
       setNodes((current) => [...current, createNode(type, position)]);
     },
-    [createNode, screenToFlowPosition, setNodes]
+    [createNode, nodes.length, screenToFlowPosition, setNodes]
+  );
+
+  const openPalette = useCallback((event: ReactMouseEvent<HTMLButtonElement>) => {
+    paletteTriggerRef.current = event.currentTarget;
+    // A faixa direita hospeda UM painel. A ficha é mais estreita (420px) e
+    // cobre o "+" do canto, então na prática não há como chegar aqui com ela
+    // aberta — mas dois `.side-sheet` no mesmo tier, no mesmo lugar, é a
+    // espécie de bug que não se quer descobrir depois.
+    setDrawerResultId(null);
+    setPaletteOpen(true);
+  }, []);
+
+  const closePalette = useCallback(() => {
+    setPaletteOpen(false);
+    // `setTimeout(0)`: o sheet ainda anima a saída com o focus-trap ativo, e
+    // focar no mesmo tick seria roubado de volta (containers §6).
+    const trigger = paletteTriggerRef.current;
+    paletteTriggerRef.current = null;
+    window.setTimeout(() => {
+      if (trigger?.isConnected) trigger.focus();
+    }, 0);
+  }, []);
+
+  const onPickNode = useCallback(
+    (type: PgNodeType) => {
+      addNodeAtCenter(type);
+      closePalette();
+    },
+    [addNodeAtCenter, closePalette]
   );
 
   const isValidConnection = useCallback(
@@ -272,12 +322,6 @@ export function PlaygroundCanvas({ session }: { session: SessionData }) {
     [connectMenu, createNode, setNodes, setEdges]
   );
 
-  const onDragOver = useCallback((event: DragEvent) => {
-    if (!event.dataTransfer.types.includes('application/pg-node')) return;
-    event.preventDefault();
-    event.dataTransfer.dropEffect = 'move';
-  }, []);
-
   // PG53: o node de Resultado virou só um check — o alvo de clique passou a
   // ser o node inteiro. `onNodeClick` do React Flow, e não um onClick no
   // node, porque ele só dispara em clique de verdade: arrastar o node pelo
@@ -289,21 +333,14 @@ export function PlaygroundCanvas({ session }: { session: SessionData }) {
     [setDrawerResultId]
   );
 
-  const onDrop = useCallback(
-    (event: DragEvent) => {
-      const type = event.dataTransfer.getData('application/pg-node') as PgNodeType | '';
-      if (!type) return;
-      event.preventDefault();
-      const position = screenToFlowPosition({ x: event.clientX, y: event.clientY });
-      setNodes((current) => [...current, createNode(type, position)]);
-    },
-    [createNode, screenToFlowPosition, setNodes]
-  );
+  // O par `onDragOver`/`onDrop` morreu com a paleta docada (PG58): o único
+  // produtor do `application/pg-node` era o item arrastável dela, e o backdrop
+  // do painel interceptaria o drop de qualquer jeito.
 
   return (
     <PlaygroundLotsContext.Provider value={lotsValue}>
       <PlaygroundResultsContext.Provider value={resultsValue}>
-        <div className="pg-canvas-wrap" ref={hostRef} onDragOver={onDragOver} onDrop={onDrop}>
+        <div className="pg-canvas-wrap" ref={hostRef}>
           <ReactFlow
             nodes={nodes}
             edges={edges}
@@ -324,9 +361,19 @@ export function PlaygroundCanvas({ session }: { session: SessionData }) {
             <Background variant={BackgroundVariant.Dots} gap={22} size={1.5} />
             <Controls showInteractive={false} />
             <ExecutePill onExecute={onExecute} disabled={nodes.length === 0} />
+            {/* PG58: o "+" do canto. Dentro de um `Panel` porque é a peça do
+                React Flow que já resolve ancorar sobre o canvas. */}
+            <Panel position="top-right">
+              <AddNodeButton variant="corner" onOpen={openPalette} />
+            </Panel>
           </ReactFlow>
-          {/* PG54: o canvas vazio fica vazio mesmo — a dica central saiu. */}
-          <NodePalette onAdd={addNodeAtCenter} />
+          {/* PG59: o "+" central existe só enquanto o canvas está vazio. Fora do
+              `<ReactFlow>` porque o `Panel` não tem posição central — e aqui o
+              contexto de posicionamento é o `.pg-canvas-wrap`, como era a
+              paleta. A PG54 segue valendo no que ela disse: nada de FRASE no
+              vazio. */}
+          {nodes.length === 0 ? <AddNodeButton variant="center" onOpen={openPalette} /> : null}
+          <NodePaletteSheet open={paletteOpen} onClose={closePalette} onPick={onPickNode} />
           {connectMenu ? (
             <ConnectMenu
               state={connectMenu}

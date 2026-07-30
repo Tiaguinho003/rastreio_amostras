@@ -29159,10 +29159,11 @@ body.is-selection-mode .mobile-tabbar {
    Borda a borda (pedido do Flavio): sem margem, sem raio e sem sombra. O
    canvas nao e um cartao dentro da pagina, ele E a pagina.
 
-   Pill/paleta/menu de conexao ancoram como position:absolute NESTE contexto —
-   nunca position:fixed (PageTransition tem will-change: transform, precedente
-   do MobileTabbar). A ficha e a excecao e nao mora aqui: virou BottomSheet
-   (PG52), que faz portal pro body e escapa do contexto por construcao. */
+   Pill/"+" central/menu de conexao ancoram como position:absolute NESTE
+   contexto — nunca position:fixed (PageTransition tem will-change: transform,
+   precedente do MobileTabbar). Os PAINEIS sao a excecao e nao moram aqui: a
+   ficha (PG52) e o painel de nodes (PG58) sao BottomSheet, que faz portal pro
+   body e escapa do contexto por construcao. */
 .pg-host {
   position: relative;
   flex: 1;
@@ -29177,7 +29178,7 @@ body.is-selection-mode .mobile-tabbar {
   background: var(--pg-canvas-bg);
 }
 
-/* Wrapper interno do canvas (preenche o host; recebe drop da paleta). */
+/* Wrapper interno do canvas (preenche o host; ancora o "+" central da PG59). */
 .pg-canvas-wrap {
   position: absolute;
   inset: 0;
@@ -29202,14 +29203,23 @@ body.is-selection-mode .mobile-tabbar {
      alfa, em vez de um hex solto — o ponto acompanha a paleta. */
   --pg-dot: color-mix(in srgb, var(--brand-green) 38%, transparent);
   --pg-edge: #9aa8a0;
-  --pg-node-lote: var(--brand-green);
-  --pg-node-mistura: var(--color-warning);
-  --pg-node-resultado: var(--color-info);
   --xy-background-pattern-color: var(--pg-dot);
   --xy-edge-stroke: var(--pg-edge);
   --xy-edge-stroke-selected: var(--brand-green-soft);
   --xy-handle-background-color: var(--brand-green-soft);
   --xy-handle-border-color: var(--pg-surface);
+}
+
+/* Cor por tipo de node (PG34) — o único pedaço dos tokens do canvas que também
+   precisa valer FORA do `.pg-host`. O painel de nodes (PG58) é um `BottomSheet`,
+   e ele portala pro `document.body`: os cartões de lá não herdam nada do host, e
+   um `var()` sem valor faria o acento cair em `currentColor`. Um lugar só para
+   os três, em vez de redeclarar no sheet e deixar dessincronizar. */
+.pg-host,
+.bottom-sheet.pg-nodes-sheet {
+  --pg-node-lote: var(--brand-green);
+  --pg-node-mistura: var(--color-warning);
+  --pg-node-resultado: var(--color-info);
 }
 
 /* ── Nodes (PG29/PG34) ── */
@@ -29386,82 +29396,10 @@ body.is-selection-mode .mobile-tabbar {
   color: var(--color-danger);
 }
 
-/* ── Paleta (PG26/PG34) ── */
-.pg-palette {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  width: 200px;
-  background: var(--pg-surface);
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-md);
-  overflow: hidden;
-  z-index: var(--z-dropdown);
-}
-.pg-palette.is-collapsed {
-  width: auto;
-}
-.pg-palette-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  width: 100%;
-  padding: 0.5rem 0.7rem;
-  border: 0;
-  background: transparent;
-  font: inherit;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--color-ink);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: transform var(--duration-instant) var(--ease-out);
-}
-.pg-palette-toggle:active {
-  transform: scale(0.97);
-}
-.pg-palette-toggle svg {
-  width: 16px;
-  height: 16px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-.pg-palette ul {
-  list-style: none;
-  margin: 0;
-  padding: 0.25rem;
-}
-.pg-palette-item {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.05rem;
-  width: 100%;
-  padding: 0.45rem 0.6rem;
-  border: 0;
-  border-left: 3px solid transparent;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  font: inherit;
-  text-align: left;
-  cursor: grab;
-  -webkit-tap-highlight-color: transparent;
-  transition: transform var(--duration-instant) var(--ease-out);
-}
-.pg-palette-item:active {
-  transform: scale(0.97);
-  cursor: grabbing;
-}
-@media (hover: hover) {
-  .pg-palette-item:hover {
-    background: var(--color-surface-muted);
-  }
-}
+/* ── Acento por tipo (PG34) ──
+   Pinta a borda esquerda de quem representa um node fora do canvas: os cartões
+   do painel (PG58) e o menu de compatíveis. Sobreviveu à paleta docada, que era
+   o consumidor original. */
 .pg-accent-lote {
   border-left-color: var(--pg-node-lote);
 }
@@ -29471,14 +29409,75 @@ body.is-selection-mode .mobile-tabbar {
 .pg-accent-resultado {
   border-left-color: var(--pg-node-resultado);
 }
-.pg-palette-label {
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: var(--color-ink);
+
+/* ── Os dois "+" que abrem o painel de nodes (PG58/PG59) ──
+   Substituem a paleta docada na esquerda (`.pg-palette*`, apagada junto com o
+   arraste que ela servia).
+
+   Por que os dois não são iguais: o do canto divide o topo do canvas com o
+   "▶ Executar" e com os Controls, então usa a pele dos flutuantes (papel branco,
+   hairline, sombra) pra não disputar a atenção com a ação principal. O do centro
+   é a ÚNICA coisa clicável num canvas vazio — ali não há com quem competir, e um
+   círculo branco sobre papel branco não se ofereceria. */
+.pg-add-node {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform var(--duration-fast) var(--ease-out);
 }
-.pg-palette-hint {
-  font-size: 0.72rem;
-  color: var(--brand-muted);
+.pg-add-node svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.pg-add-node.is-corner {
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--color-line);
+  background: var(--pg-surface);
+  color: var(--brand-green);
+  box-shadow: var(--shadow-md);
+}
+.pg-add-node.is-corner svg {
+  width: 18px;
+  height: 18px;
+  stroke-width: 2;
+}
+.pg-add-node.is-corner:active {
+  transform: scale(0.92);
+}
+.pg-add-node.is-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  /* O do canto herda z-index do `.react-flow__panel` (5); este está FORA do
+     `<ReactFlow>` e precisa do próprio. O `.react-flow` não declara position nem
+     z-index, então não abre contexto de empilhamento: o `.react-flow__pane`
+     (z-index 1) e este botão disputam o MESMO contexto, o do `.pg-canvas-wrap`.
+     Sem o token o pane ganharia e comeria o clique — o botão apareceria (o pane
+     é transparente) e não responderia. Mesmo token que a paleta docada usava. */
+  z-index: var(--z-dropdown);
+  /* O `translate` fica NO transform base porque o :active o reescreve inteiro —
+     um `scale` sozinho ali jogaria o botão pro canto de baixo à direita. */
+  transform: translate(-50%, -50%);
+  width: 64px;
+  height: 64px;
+  border: 0;
+  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
+  color: var(--pg-surface);
+  box-shadow: var(--shadow-lg);
+}
+.pg-add-node.is-center svg {
+  width: 30px;
+  height: 30px;
+  stroke-width: 1.9;
+}
+.pg-add-node.is-center:active {
+  transform: translate(-50%, -50%) scale(0.94);
 }
 
 /* ── Menu de compatíveis (PG26) ── */
@@ -29649,13 +29648,15 @@ body.is-selection-mode .mobile-tabbar {
   transform: scale(0.88);
 }
 
-/* ── Ficha estimada (PG18/PG27, recontêinerizada na PG52) ──
-   A casca caseira (`.pg-drawer` absoluto + keyframes + header + botão ×) foi
-   embora: o painel agora é `BottomSheet` + `.fv-panel-sheet.side-sheet`, que
-   já traz geometria, animação, seta edge-back e chrome institucional. Sobrou
-   daqui o MIOLO da ficha — os `.pg-drawer-*` de conteúdo, que continuam
-   valendo dentro do sheet. */
-.pg-ficha-title {
+/* ── Painéis laterais do Simulador (PG52/PG58) ──
+   Dois hoje: a ficha estimada e o painel de nodes. Nos dois a casca é do kit
+   (`BottomSheet` + `.fv-panel-sheet.side-sheet`), que já traz geometria,
+   animação, seta edge-back e chrome institucional; daqui sai só o miolo.
+
+   O título é dos DOIS — o `.fv-panel-sheet` não usa o slot de `title` do
+   BottomSheet, então ele mora no corpo. Era `.pg-ficha-title` enquanto a ficha
+   era o único painel. */
+.pg-panel-title {
   display: flex;
   align-items: center;
   gap: 0.45rem;
@@ -29664,22 +29665,44 @@ body.is-selection-mode .mobile-tabbar {
   color: var(--color-ink);
 }
 
+/* Painel de nodes (PG58): os cartões são o `.fv-choice` do kit, com dois
+   ajustes. Uma COLUNA em vez das duas do genérico — são 3 tipos, e 2 colunas
+   deixariam um órfão na segunda linha; e a borda esquerda engrossada para o
+   acento por tipo (`.pg-accent-*`) aparecer. Os seletores citam as duas classes
+   que estão no elemento: `.fv-choice-group` mora ~3 mil linhas ADIANTE no
+   arquivo e, com especificidade igual, venceria pela ordem. */
+.pg-nodes-picker.fv-choice-group {
+  grid-template-columns: minmax(0, 1fr);
+}
+.pg-nodes-picker .fv-choice {
+  border-left-width: 3px;
+}
+
 @media (min-width: 901px) {
   /* PG52: EXCEÇÃO ao `.side-sheet`, que por padrão escurece e bloqueia o que
      está atrás (criação tem estado sujo). A ficha não cria nada: é leitura, e
      a PG14 recalcula ao vivo. O ponto de abrir a ficha e mexer nas sacas é
      ver o número mudar — backdrop bloqueante mataria exatamente isso.
      `display: none` não serve: o sheet é FILHO do backdrop e sumiria junto.
-     Mesmo mecanismo do peek `.detail-overlay` da "lista viva" (RD4). */
+     Mesmo mecanismo do peek `.detail-overlay` da "lista viva" (RD4).
+
+     O painel de NODES fica de fora desta exceção de propósito (PG58): escolher
+     o node encerra o gesto, então não há nada atrás que precise seguir
+     clicável, e o backdrop bloqueante é o padrão do kit. */
   .bottom-sheet-backdrop:has(> .bottom-sheet.pg-ficha-sheet) {
     background: rgba(0, 0, 0, 0);
     pointer-events: none;
   }
 
-  /* Mais estreita que os 620px do kit, pelo mesmo motivo: quanto mais canvas
-     sobra visível, mais serve a edição ao vivo ao lado da ficha. */
+  /* Os dois mais estreitos que os 620px do kit, pelo mesmo motivo: o canvas é o
+     objeto de trabalho, e quanto mais dele sobra visível, melhor — na ficha para
+     a edição ao vivo ao lado dela; no painel de nodes para não perder de vista
+     onde o node vai cair. */
   .bottom-sheet.pg-ficha-sheet {
     pointer-events: auto;
+    width: min(420px, 92vw);
+  }
+  .bottom-sheet.pg-nodes-sheet {
     width: min(420px, 92vw);
   }
 }

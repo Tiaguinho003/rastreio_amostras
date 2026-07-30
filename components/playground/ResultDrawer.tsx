@@ -108,7 +108,7 @@ export function ResultDrawer({
       {/* O `.fv-panel-sheet` não usa o slot de `title` do BottomSheet (a seta
           edge-back se alinha ao topo contando com isso), então o título mora
           no corpo — mesma escolha dos painéis de /users e /relatorios. */}
-      <h3 className="pg-ficha-title">
+      <h3 className="pg-panel-title">
         Ficha estimada <span className="pg-node-badge">estimativa</span>
       </h3>
 
