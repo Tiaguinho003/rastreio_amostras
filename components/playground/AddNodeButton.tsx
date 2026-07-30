@@ -22,15 +22,19 @@ export function AddNodeButton({
   variant,
   onOpen,
   label = 'Adicionar node',
+  tabIndex,
 }: {
   variant: 'corner' | 'center' | 'stub';
   onOpen: (event: ReactMouseEvent<HTMLButtonElement>) => void;
   label?: string;
+  /** O coto fica montado mesmo escondido (PG63) — quem some tira-se do tab order. */
+  tabIndex?: number;
 }) {
   const isStub = variant === 'stub';
   return (
     <button
       type="button"
+      tabIndex={tabIndex}
       // `nodrag`/`nopan`: o coto mora DENTRO do node, e sem isso o mousedown no
       // "+" começaria a arrastar o node em vez de abrir o menu.
       className={`pg-add-node is-${variant}${isStub ? ' nodrag nopan' : ''}`}

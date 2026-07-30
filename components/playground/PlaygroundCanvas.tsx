@@ -292,6 +292,16 @@ export function PlaygroundCanvas({ session }: { session: SessionData }) {
     [setEdges]
   );
 
+  // PG63: enquanto um arrasto de conexão está em curso, os cotos com "+" de
+  // TODOS os nodes viram ruído e alvo falso — somem, e voltam ao soltar.
+  //
+  // A classe vai direto no DOM, sem `useState`: guardar isso em estado
+  // re-renderizaria o canvas inteiro no meio de um gesto de arrasto, que é o
+  // pior momento possível para isso acontecer.
+  const setConnecting = useCallback((on: boolean) => {
+    hostRef.current?.classList.toggle('is-connecting', on);
+  }, []);
+
   const onConnectEnd = useCallback(
     (
       event: MouseEvent | TouchEvent,
@@ -302,6 +312,7 @@ export function PlaygroundCanvas({ session }: { session: SessionData }) {
         fromHandle: { type: string | null } | null;
       }
     ) => {
+      setConnecting(false);
       // Soltou no VAZIO a partir de uma porta de saída → menu de compatíveis
       // no ponto, criando o node já conectado (PG26, gesto do n8n).
       if (
@@ -334,7 +345,7 @@ export function PlaygroundCanvas({ session }: { session: SessionData }) {
         lastRejectionRef.current = null;
       }
     },
-    [screenToFlowPosition, toast]
+    [screenToFlowPosition, setConnecting, toast]
   );
 
   // PG62: o "+" do coto de um node. Abre o MESMO menu de compatíveis do
@@ -409,10 +420,25 @@ export function PlaygroundCanvas({ session }: { session: SessionData }) {
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
               onConnect={onConnect}
+              onConnectStart={() => setConnecting(true)}
               onConnectEnd={onConnectEnd}
               isValidConnection={isValidConnection}
+              // PG63: tolerância de SOLTAR a conexão (o padrão é 20). Errar a
+              // porta por 30px desfaz o gesto inteiro — é o erro mais frequente
+              // e mais caro do canvas. 60 é o número do n8n.
+              connectionRadius={60}
               onPaneClick={() => setConnectMenu(null)}
               onNodeClick={onNodeClick}
+              // PG63: o chrome pequeno (coto e portas) mantém tamanho de TELA em
+              // qualquer zoom. A variável vai no DOM por ref, fora do React: o
+              // `onMove` dispara a cada quadro do pan/zoom, e passar isso por
+              // estado re-renderizaria o canvas inteiro em cada um deles.
+              onMove={(_event, viewport) =>
+                hostRef.current?.style.setProperty(
+                  '--pg-zoom-comp',
+                  String(Math.min(2.5, Math.max(0.4, 1 / viewport.zoom)))
+                )
+              }
               deleteKeyCode={['Backspace', 'Delete']}
               minZoom={0.3}
               maxZoom={2}

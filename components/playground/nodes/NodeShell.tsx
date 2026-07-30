@@ -66,7 +66,9 @@ export function NodeShell({
   // para onde ir — sobra a linha da edge, saindo do círculo.
   const hasOutgoing = useStore((store) => store.edges.some((edge) => edge.source === id));
 
-  const [hovered, setHovered] = useState(false);
+  // PG63: o mesmo estado serve ao mouse E ao teclado. Antes só o hover abria a
+  // barra, e quem navega por Tab não tinha como chegar em deletar/desativar.
+  const [toolsOpen, setToolsOpen] = useState(false);
   const leaveTimer = useRef<number | null>(null);
 
   const clearLeave = () => {
@@ -76,12 +78,21 @@ export function NodeShell({
   };
   const show = useCallback(() => {
     clearLeave();
-    setHovered(true);
+    setToolsOpen(true);
   }, []);
   const hide = useCallback(() => {
     clearLeave();
-    leaveTimer.current = window.setTimeout(() => setHovered(false), HOVER_GRACE_MS);
-  }, []);
+    leaveTimer.current = window.setTimeout(() => {
+      // 🔴 A checagem é no documento, não no `.pg-node`: o `NodeToolbar`
+      // PORTALA os botões para fora da árvore DOM do node. Sem ela, dar Tab
+      // para o primeiro botão dispararia o blur do node, a barra fecharia e o
+      // foco iria junto — a barra seria inalcançável pelo teclado.
+      const active = document.activeElement;
+      const owner = active instanceof HTMLElement ? active.closest('.pg-node-tools') : null;
+      if (owner instanceof HTMLElement && owner.dataset.nodeId === id) return;
+      setToolsOpen(false);
+    }, HOVER_GRACE_MS);
+  }, [id]);
   useEffect(() => clearLeave, []);
 
   const variantClass = variant === 'error' ? ' has-error' : variant ? ` is-${variant}` : '';
@@ -91,13 +102,23 @@ export function NodeShell({
   const triggerClass = target ? '' : ' is-trigger';
 
   return (
-    <div className="pg-node" onMouseEnter={show} onMouseLeave={hide}>
+    <div
+      className="pg-node"
+      onMouseEnter={show}
+      onMouseLeave={hide}
+      // `onFocus`/`onBlur` do React são focusin/focusout: BORBULHAM, e borbulham
+      // pela árvore do REACT — então o foco nos botões da barra, que estão
+      // portalados, chega aqui também.
+      onFocus={show}
+      onBlur={hide}
+    >
       {/* `NodeToolbar` do React Flow: portala, acompanha o node no pan/zoom e
           não é recortado por nada. Fazer à mão custaria as três coisas. */}
       <NodeToolbar
-        isVisible={hovered}
+        isVisible={toolsOpen}
         position={Position.Top}
         offset={8}
+        data-node-id={id}
         className="pg-node-tools nodrag nopan"
         onMouseEnter={show}
         onMouseLeave={hide}
@@ -149,11 +170,18 @@ export function NodeShell({
             ERA a porta, e por isso não podia sumir: a âncora da edge saltaria
             de volta para a borda do quadrado. */}
         {source ? <Handle type="source" position={Position.Right} /> : null}
-        {source && !hasOutgoing ? (
-          <span className="pg-node-stub">
+        {/* PG63: o coto fica SEMPRE montado e o que muda é a classe. Animar a
+            saída com montagem/desmontagem exigiria maquinário de exit-animation;
+            com a classe, a transição CSS cobre os dois sentidos de graça — ele
+            cresce a partir da borda do quadrado e encolhe de volta pra lá. */}
+        {source ? (
+          <span className={`pg-node-stub${hasOutgoing ? ' is-hidden' : ''}`}>
             <AddNodeButton
               variant="stub"
               label="Conectar a um node novo"
+              // O `tabIndex` acompanha a visibilidade: coto escondido não pode
+              // continuar no tab order só porque continua montado.
+              tabIndex={hasOutgoing ? -1 : 0}
               onOpen={(event) => addFromNode(id, event)}
             />
           </span>
