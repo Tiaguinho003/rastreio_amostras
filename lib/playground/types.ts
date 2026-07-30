@@ -10,8 +10,17 @@ export type PgNodeType = 'lote' | 'mistura' | 'resultado';
 export type PgGraphNode = {
   id: string;
   type: PgNodeType;
-  /** Só nodes 'lote' carregam configuração (null enquanto não escolhido). */
-  data?: { sampleId?: string | null; sacks?: number | null };
+  data?: {
+    /** Só nodes 'lote' carregam configuração (null enquanto não escolhido). */
+    sampleId?: string | null;
+    sacks?: number | null;
+    /**
+     * PG65: node desativado. Vale para os TRÊS tipos — o node continua no
+     * canvas e com as ligações intactas, e o que muda é que ele sai do
+     * cálculo. Ver a regra única em `isActive`, no `graph.ts`.
+     */
+    disabled?: boolean;
+  };
 };
 
 export type PgGraphEdge = { source: string; target: string };

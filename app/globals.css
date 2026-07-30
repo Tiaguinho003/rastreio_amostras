@@ -26855,6 +26855,48 @@ body.is-selection-mode .mobile-tabbar {
 .pg-node-box.has-error {
   border-color: var(--color-danger);
 }
+/* ── Node desativado (PG65) ──
+   Está no canvas, com as ligações intactas, e não entra na conta. A moldura
+   apaga e um RISCO atravessa o quadrado — o desenho do n8n, que diz "está aqui,
+   mas não conta" sem precisar de legenda.
+
+   `is-disabled` VENCE os outros estados (o JSX nem monta os outros): um node
+   fora da conta não tem por que anunciar que está incompleto ou com erro, já
+   que a conta em que ele estaria errado não é feita. */
+.pg-node-box.is-disabled {
+  border-color: var(--color-line);
+  box-shadow: var(--shadow-sm);
+}
+.pg-node-box.is-disabled .pg-node-icon svg {
+  stroke: var(--brand-muted);
+}
+.pg-node-box.is-disabled .react-flow__handle {
+  border-color: var(--color-line);
+}
+/* Passa de ponta a ponta e sobra dos dois lados — cortando o quadrado, não
+   morando dentro dele. `pointer-events: none` porque o risco fica POR CIMA do
+   miolo e engoliria o clique do node. */
+.pg-node-strike {
+  position: absolute;
+  top: 50%;
+  left: -6px;
+  width: calc(100% + 12px);
+  height: 2px;
+  background: var(--brand-muted);
+  border-radius: 1px;
+  pointer-events: none;
+}
+.pg-node.is-disabled .pg-node-name,
+.pg-node.is-disabled .pg-sacks {
+  opacity: 0.5;
+}
+/* O botão da barra fica ACESO enquanto o node está desativado: é um toggle, e
+   sem estado ligado ele não diria em qual dos dois lados está. */
+.pg-node-tools button.is-on {
+  background: var(--color-surface-muted);
+  color: var(--color-ink);
+}
+
 /* Só o Resultado usa `is-ready`, e nele o quadrado inteiro abre a ficha
    (`onNodeClick` do canvas) — daí o cursor. */
 .pg-node-box.is-ready {

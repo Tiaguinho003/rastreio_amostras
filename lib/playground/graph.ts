@@ -57,6 +57,24 @@ function indexNodes(nodes: PgGraphNode[]): Map<string, PgGraphNode> {
   return new Map(nodes.map((node) => [node.id, node]));
 }
 
+/**
+ * PG65 — a regra inteira do node desativado, numa frase:
+ *
+ * > **Uma edge cuja ORIGEM está desativada não existe para o cálculo**; e um
+ * > Resultado desativado não produz estimativa.
+ *
+ * Ela sozinha cobre os três tipos. Lote desativado não contribui e pode deixar
+ * a Mistura abaixo de 2 entradas ATIVAS (que é o que se quer dizer). Mistura
+ * desativada não contribui, e se era a única entrada do Resultado ele cai em
+ * `NO_MIX`. Resultado desativado é tratado no `runSimulation`.
+ *
+ * O que ela NÃO faz: religar por cima (bypass). Desativar tira o node da
+ * conta, não do desenho — as ligações ficam, e reativar devolve tudo.
+ */
+export function isActive(node: PgGraphNode | undefined): boolean {
+  return Boolean(node) && !node?.data?.disabled;
+}
+
 /** O alvo alcança a origem seguindo edges de saída? (detecção de ciclo) */
 function reaches(edges: PgGraphEdge[], from: string, to: string): boolean {
   const stack = [from];
@@ -136,8 +154,13 @@ export function resolveComposition(
   lotsById: ReadonlyMap<string, SampleSnapshot>
 ): CompositionResult {
   const byId = indexNodes(nodes);
+  // PG65: a Mistura desativada não alimenta o Resultado — se era a única, ele
+  // fica sem entrada, que é exatamente o `NO_MIX`.
   const mixEdge = edges.find(
-    (edge) => edge.target === resultNodeId && byId.get(edge.source)?.type === 'mistura'
+    (edge) =>
+      edge.target === resultNodeId &&
+      byId.get(edge.source)?.type === 'mistura' &&
+      isActive(byId.get(edge.source))
   );
   if (!mixEdge) return { ok: false, reason: 'NO_MIX', nodeId: resultNodeId };
 
@@ -149,7 +172,11 @@ export function resolveComposition(
     // infinito caso um grafo inválido chegue aqui por outra via.
     if (visited.has(mixId)) return null;
     visited.add(mixId);
-    const inputs = edges.filter((edge) => edge.target === mixId);
+    // PG65: entrada de origem desativada não conta. Como o filtro vem ANTES da
+    // contagem, o "≥ 2 entradas" passa a ser sobre as entradas ATIVAS — desativar
+    // um lote de uma mistura de dois deixa a mistura incompleta, que é a leitura
+    // certa e a que o canvas mostra.
+    const inputs = edges.filter((edge) => edge.target === mixId && isActive(byId.get(edge.source)));
     if (inputs.length < 2) return { ok: false, reason: 'MIX_NEEDS_TWO_INPUTS', nodeId: mixId };
     for (const edge of inputs) {
       const source = byId.get(edge.source);

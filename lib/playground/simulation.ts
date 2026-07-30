@@ -2,7 +2,7 @@ import type { SampleSnapshot } from '../types';
 import type { LigaEstimate, PlaygroundEngine } from './engine';
 // Import COM extensão .ts: é um import de VALOR entre módulos de lib/ e o
 // runner de teste (node --experimental-strip-types) não resolve extensionless.
-import { resolveComposition } from './graph.ts';
+import { isActive, resolveComposition } from './graph.ts';
 import type { PgGraphEdge, PgGraphNode } from './types';
 
 // Execução da simulação (puro, testável): para cada node Resultado do canvas,
@@ -43,7 +43,10 @@ function collectFeedingLotNodes(
     for (const edge of edges) {
       if (edge.target !== current) continue;
       const source = byId.get(edge.source);
-      if (!source) continue;
+      // PG65: origem desativada não alimenta nada — e por isso não pode ser
+      // cobrada pelo teto de saldo. Sem isto, um lote desativado acima do saldo
+      // travaria uma estimativa da qual ele nem participa.
+      if (!isActive(source) || !source) continue;
       if (source.type === 'lote') lots.push(source);
       else if (source.type === 'mistura') stack.push(source.id);
     }
@@ -90,7 +93,9 @@ export function runSimulation(
 ): Map<string, SimulationOutcome> {
   const outcomes = new Map<string, SimulationOutcome>();
   for (const node of nodes) {
-    if (node.type !== 'resultado') continue;
+    // PG65: Resultado desativado não calcula. Sai do Map inteiro, e não como
+    // erro — o node desativado não tem nada de errado, ele está fora da conta.
+    if (node.type !== 'resultado' || !isActive(node)) continue;
     outcomes.set(node.id, resolveOutcome(nodes, edges, node.id, lotsById, engine));
   }
   return outcomes;

@@ -19,6 +19,8 @@ export type LoteNodeData = {
   sampleId: string;
   sacks: number;
   sample: SampleSnapshot;
+  /** PG65: fora da conta, com as ligações intactas. Ausente = ativo. */
+  disabled?: boolean;
 };
 
 // Node Lote (PG29/PG30 → PG60 → PG61): o quadrado carrega só o ícone; o número
@@ -32,7 +34,7 @@ export type LoteNodeData = {
 // começa.
 export function LoteNode({ id, data }: NodeProps) {
   const { updateNodeData } = useReactFlow();
-  const { sample, sacks } = data as LoteNodeData;
+  const { sample, sacks, disabled } = data as LoteNodeData;
   const available = sample.availableSacks ?? 0;
 
   const [editing, setEditing] = useState(false);
@@ -70,6 +72,7 @@ export function LoteNode({ id, data }: NodeProps) {
     <NodeShell
       id={id}
       icon={NODE_ICONS.lote}
+      disabled={Boolean(disabled)}
       source
       name={
         <>

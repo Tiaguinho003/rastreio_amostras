@@ -31,19 +31,37 @@ function errorMessage(outcome: Extract<SimulationOutcome, { kind: 'error' }>): s
 // O ERRO segue no node de propósito: é sobre o desenho do fluxo, que é
 // justamente o que está na tela, e some sozinho quando o usuário corrige. O que
 // mudou na PG61 é o LUGAR — embaixo do nome, porque o quadrado só tem o ícone.
-export function ResultadoNode({ id }: NodeProps) {
+export function ResultadoNode({ id, data }: NodeProps) {
   const { outcomes, openDrawer } = usePlaygroundResults();
   const outcome = outcomes?.get(id) ?? null;
+  // PG65: desativado, ele some do `Map` de outcomes — e o `!outcome` abaixo o
+  // pegaria como "incompleto". O `disabled` do `NodeShell` vence os estados,
+  // então o caminho é o mesmo dos outros dois: passar a bandeira e sair.
+  const disabled = Boolean(data?.disabled);
 
   if (!outcome) {
     return (
-      <NodeShell id={id} icon={NODE_ICONS.resultado} name="Resultado" variant="incomplete" target />
+      <NodeShell
+        id={id}
+        icon={NODE_ICONS.resultado}
+        name="Resultado"
+        variant="incomplete"
+        disabled={disabled}
+        target
+      />
     );
   }
 
   if (outcome.kind === 'error') {
     return (
-      <NodeShell id={id} icon={NODE_ICONS.resultado} name="Resultado" variant="error" target>
+      <NodeShell
+        id={id}
+        icon={NODE_ICONS.resultado}
+        name="Resultado"
+        variant="error"
+        disabled={disabled}
+        target
+      >
         <p className="pg-node-error" role="alert">
           {errorMessage(outcome)}
         </p>
@@ -57,6 +75,7 @@ export function ResultadoNode({ id }: NodeProps) {
       icon={NODE_ICONS.resultado}
       name="Resultado"
       variant="ready"
+      disabled={disabled}
       target
       corner={
         // O check é um botão de verdade, não enfeite: o node inteiro abre a

@@ -33,6 +33,7 @@ export function NodeShell({
   icon,
   name,
   variant,
+  disabled = false,
   target = false,
   source = false,
   corner,
@@ -42,6 +43,8 @@ export function NodeShell({
   icon: ReactNode;
   name: ReactNode;
   variant?: NodeShellVariant;
+  /** PG65: node fora do cálculo — riscado, ligações intactas, reversível. */
+  disabled?: boolean;
   /** Porta de entrada, à esquerda. Sem ela o quadrado vira "gatilho" (PG62). */
   target?: boolean;
   /** Porta de saída, à direita. */
@@ -51,19 +54,19 @@ export function NodeShell({
   /** Vai ABAIXO do nome (sacas do Lote, mensagem de erro). */
   children?: ReactNode;
 }) {
-  const { deleteElements, setEdges } = useReactFlow();
+  const { deleteElements, updateNodeData } = useReactFlow();
   const { addFromNode } = usePlaygroundCanvasActions();
-  // Dois seletores de valor PRIMITIVO em vez de um objeto com os dois: o
-  // `useStore` compara o retorno por identidade, e um objeto novo a cada
-  // chamada re-renderizaria o node a cada tique do canvas.
+  // Seletor de valor PRIMITIVO: o `useStore` compara o retorno por identidade,
+  // e um objeto novo a cada chamada re-renderizaria o node a cada tique do
+  // canvas.
   //
-  // "Desativar" só existe com o que desativar — item ausente quando não cabe,
-  // nunca desabilitado (mesma regra do menu ⋯ das listas).
-  const connected = useStore((store) =>
-    store.edges.some((edge) => edge.source === id || edge.target === id)
-  );
   // PG62: o coto com "+" é a OFERTA de conectar, e some quando a saída já tem
   // para onde ir — sobra a linha da edge, saindo do círculo.
+  //
+  // 🪦 Aqui havia um segundo seletor, `connected`, que decidia se "desativar"
+  // aparecia: enquanto desativar SOLTAVA as ligações (PG61), sem ligação não
+  // havia o que desativar. Na PG65 desativar deixou de mexer nelas, e o botão
+  // passou a valer sempre.
   const hasOutgoing = useStore((store) => store.edges.some((edge) => edge.source === id));
 
   // PG63: o mesmo estado serve ao mouse E ao teclado. Antes só o hover abria a
@@ -95,7 +98,16 @@ export function NodeShell({
   }, [id]);
   useEffect(() => clearLeave, []);
 
-  const variantClass = variant === 'error' ? ' has-error' : variant ? ` is-${variant}` : '';
+  // Desativado VENCE os estados: um node fora da conta não tem por que anunciar
+  // que está incompleto ou com erro — a conta em que ele estaria errado não é
+  // feita.
+  const variantClass = disabled
+    ? ' is-disabled'
+    : variant === 'error'
+      ? ' has-error'
+      : variant
+        ? ` is-${variant}`
+        : '';
   // Sem porta de entrada, o node é uma FONTE: nada chega nele, e o lado esquerdo
   // arredondado diz isso de longe — a forma faz o trabalho que uma legenda faria
   // (é o desenho do node-gatilho do n8n). Hoje só o Lote cai aqui.
@@ -103,7 +115,7 @@ export function NodeShell({
 
   return (
     <div
-      className="pg-node"
+      className={disabled ? 'pg-node is-disabled' : 'pg-node'}
       onMouseEnter={show}
       onMouseLeave={hide}
       // `onFocus`/`onBlur` do React são focusin/focusout: BORBULHAM, e borbulham
@@ -123,24 +135,24 @@ export function NodeShell({
         onMouseEnter={show}
         onMouseLeave={hide}
       >
-        {connected ? (
-          <button
-            type="button"
-            aria-label="Desativar node"
-            title="Desativar — solta o node do fluxo"
-            onClick={() =>
-              setEdges((current) =>
-                current.filter((edge) => edge.source !== id && edge.target !== id)
-              )
-            }
-          >
-            {/* Elo partido: as duas metades sem o meio. */}
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path d="M9 17H7A5 5 0 0 1 7 7h2" />
-              <path d="M15 7h2a5 5 0 0 1 0 10h-2" />
-            </svg>
-          </button>
-        ) : null}
+        {/* PG65: TOGGLE, não uma faca. Desativar tira o node da conta e o
+            risca; as ligações ficam e reativar devolve tudo. Antes ele soltava
+            as edges, e religar era trabalho manual — o desenho do fluxo se
+            perdia por um clique de "e se sem este lote?". */}
+        <button
+          type="button"
+          className={disabled ? 'is-on' : undefined}
+          aria-pressed={disabled}
+          aria-label={disabled ? 'Reativar node' : 'Desativar node'}
+          title={disabled ? 'Reativar — volta para a conta' : 'Desativar — sai da conta'}
+          onClick={() => updateNodeData(id, { disabled: !disabled })}
+        >
+          {/* Botão de energia: o arco aberto e o traço. */}
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M7.5 6.5a7 7 0 1 0 9 0" />
+            <path d="M12 3v8" />
+          </svg>
+        </button>
         <button
           type="button"
           className="is-danger"
@@ -162,6 +174,9 @@ export function NodeShell({
         <span className="pg-node-icon" aria-hidden="true">
           {icon}
         </span>
+        {/* O risco atravessando o quadrado — o desenho do n8n. É o que diz
+            "está aqui, mas não conta" sem precisar de legenda. */}
+        {disabled ? <span className="pg-node-strike" aria-hidden="true" /> : null}
         {corner}
         {/* PG62: a porta de saída é o CÍRCULO na borda, e ele fica SEMPRE — é
             dali que a edge nasce e é de onde se puxa a próxima, porque um node
