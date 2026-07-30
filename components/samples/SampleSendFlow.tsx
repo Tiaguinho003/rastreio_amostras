@@ -17,9 +17,11 @@
 // decisoes pra uma acao que o operador ja tem inteira na cabeca quando clica
 // em "Enviar". Agora o tipo e um campo do proprio painel, e destinatarios
 // valem pros dois tipos — trocar de tipo nao perde o que ja foi escolhido.
-// A confirmacao de cancelamento continua central, com `.fv-panel-scrim`,
-// via createPortal(document.body): a lista tem ancestral com transform
-// (PageTransition) e position:fixed precisa escapar pra o body.
+// A confirmacao de cancelamento continua central, com `.fv-panel-scrim`, via
+// createPortal(document.body) — o padrao de todo modal central (skill `modals`).
+// (O motivo citado antes era o transform do `<PageTransition>`; ele morreu na
+// F2 do ciclo SN, mas o portal fica: e a garantia de que o `position: fixed`
+// do scrim escapa de qualquer stacking context de ancestral.)
 
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';

@@ -38,7 +38,7 @@ Frente de UI (o kit FV se espalha por varias skills — conferir a dona da peca 
 | `app/globals.css` — bloco `.fv-form-*`/`.fv-choice*`                                      | forms                                                              |
 | `app/globals.css` — tiers de z-index, scrim, `.side-sheet`, `.fv-panel-*`                 | containers                                                         |
 | `components/BottomSheet.tsx`, `components/DetailOverlay.tsx`                              | containers                                                         |
-| `app/samples/page.tsx`, `components/clients/ClientsBrowser.tsx`                           | data-tables                                                        |
+| `app/(app)/samples/page.tsx`, `components/clients/ClientsBrowser.tsx`                     | data-tables                                                        |
 | `components/SuccessCheckOverlay.tsx`, `ClientLookupField.tsx`, `ChipMultiSelectField.tsx` | forms                                                              |
 | `lib/use-desktop.ts`                                                                      | responsive, data-tables                                            |
 | `components/**` (visual)                                                                  | design-system, responsive, button-press-effect                     |

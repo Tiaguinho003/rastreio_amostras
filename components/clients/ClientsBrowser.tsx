@@ -232,8 +232,9 @@ function clientsListReducer(state: ClientsListState, action: ClientsListAction):
 }
 
 export interface ClientsBrowserProps {
-  // A pagina faz o guard (useRequireAuth) e so monta o browser com sessao
-  // pronta — por isso session e sempre nao-nulo aqui.
+  // O layout do route group (app) autentica e a pagina faz o guard de papel
+  // (useRequireRole); o browser so monta com sessao pronta — por isso session
+  // e sempre nao-nulo aqui.
   session: SessionData;
   // Chave do snapshot em sessionStorage. Distinta por contexto: /clients usa a
   // default; a aba Clientes de /cadastros passa uma propria (nao colidem).

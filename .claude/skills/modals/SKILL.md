@@ -398,7 +398,14 @@ return createPortal(
 );
 ```
 
-**Por que e obrigatorio:** todas as rotas da app sao envolvidas por `<PageTransition>` (`components/PageTransition.tsx`), que aplica `transform: scale(...)` + `will-change: transform, opacity` no wrapper `.page-transition-content` durante navegacoes. Qualquer `transform != none` em ancestral cria stacking context que captura o `position: fixed` do `.app-modal-backdrop` — o modal acaba abaixo da topbar, do pseudo `mobile-edge-shell-auth::after` (z-index 9999) e de qualquer outro elemento com z-index alto em irmaos do wrapper. Sintoma classico: "modal abre atras da pagina".
+**Por que e obrigatorio:** qualquer `transform`/`filter`/`backdrop-filter` (ou `will-change` de um deles) em ancestral vira o **containing block** do `position: fixed` do `.app-modal-backdrop` — o modal acaba abaixo da topbar, do pseudo `mobile-edge-shell-auth::after` (z-index 9999) e de qualquer outro elemento com z-index alto em irmaos do wrapper. Sintoma classico: **"modal abre atras da pagina"**.
+
+E isso acontece de verdade nesta base, por dois caminhos vivos:
+
+- **`.bottom-sheet` tem `transform` permanente.** Todo conteudo montado dentro de um `BottomSheet`/`DetailOverlay` esta sob um transform — e qualquer view pode acabar dentro de um sheet no futuro (foi o que aconteceu com o detalhe do cliente, ver "Sem excecoes vivas" abaixo).
+- **Paginas com animacao de entrada propria** (`nsv2`, `dashboard-sheet-rise`, `samples-sheet-in`) usam `translateY`.
+
+> ⚠️ **Motivo revogado (F2 do ciclo SN, 2026-07-30):** ate esta data a justificativa registrada aqui era o `<PageTransition>`, que envolvia todas as rotas e aplicava `transform: scale(...)` + `will-change` durante a navegacao. **Esse componente foi apagado** — a transicao virou animacao de **opacidade pura** na `.app-shell-page-content` (SN-D5'), que nao cria containing block. A regra do portal **continua obrigatoria** pelos motivos acima; o que mudou e que ela nao depende mais da transicao.
 
 Portal pra `document.body` escapa qualquer stacking context ancestral, agora e no futuro — robusto contra qualquer novo `transform`/`filter`/`backdrop-filter` em ancestral.
 
@@ -556,7 +563,7 @@ Estes usam `.app-modal` simples (430px max, fundo glass) ou variante `cdm-modal`
 - `InactivateUserModal` → `InactivateConfirmDialog` em `/users` — inativar com motivo **continua
   central** (RD11). _(`CancelInactivationDialog` não existe; a reatribuição forçada de clientes saiu
   do fluxo e o componente foi junto.)_
-- `SampleLookupResultModal` — usa `.app-modal-lookup-result` legacy mas **ja renderiza via portal pra body** (fix pra bug de stacking sob `<PageTransition>` no dashboard).
+- `SampleLookupResultModal` — usa `.app-modal-lookup-result` legacy mas **ja renderiza via portal pra body** (fix pra bug de stacking no dashboard; o ancestral culpado na epoca era o `<PageTransition>`, ja apagado).
 
 > Refatorar pra `.is-themed` somente quando tiver outro motivo pra mexer no modal — nao e prioridade visual hoje.
 
@@ -664,7 +671,7 @@ Ao construir ou revisar um modal:
 - [ ] Close button com `aria-label="Fechar"` e `<span aria-hidden>×</span>`
 - [ ] Reset de form em `useEffect(() => { if (open) setForm(EMPTY); }, [open])`
 - [ ] Backdrop fecha por click (default) — `onClick={onClose}` no backdrop, `onClick={stopPropagation}` no section
-- [ ] `createPortal(..., document.body)` no return — **obrigatorio** pra todo modal central (escapa stacking context do `<PageTransition>` que envolve todas as rotas)
+- [ ] `createPortal(..., document.body)` no return — **obrigatorio** pra todo modal central (escapa stacking context de ancestral com `transform`/`filter`, e o `.bottom-sheet` tem um permanente)
 - [ ] Textos em pt-BR (titulo, labels, botoes, mensagens)
 - [ ] Sem cores inventadas — apenas tokens da paleta (`design-system` §2)
 - [ ] Sem botao verde no `:active` transitorio (apenas `.app-modal-submit` que ja e verde por design) — ver skill `button-press-effect` pra receita completa de tap feedback

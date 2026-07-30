@@ -78,9 +78,9 @@ export default function LoginPage() {
       setForgotPasswordOpen(true);
     }
 
-    // ?reason= (session-expired | session-ended): produzido pelo useRequireAuth
-    // e pelo AppShell/perfil ao expulsar a sessão — vira aviso informativo
-    // acima do formulário e sai da URL depois de lido.
+    // ?reason= (session-expired | session-ended): produzido pelo AuthProvider
+    // (lib/auth/AuthProvider.tsx) e pelo AppShell/perfil ao expulsar a sessão
+    // — vira aviso informativo acima do formulário e sai da URL depois de lido.
     const reason = params.get('reason');
     if (reason === 'session-expired') {
       setSessionNotice('Sua sessão expirou. Entre novamente.');

@@ -50,12 +50,12 @@ Documentos relacionados: `docs/SECURITY.md`, `docs/SECURITY-audit.md`
 
 ### 4. XSS
 
-| Ameaca                         | Mitigacao                                            | Status       | Risco residual |
-| ------------------------------ | ---------------------------------------------------- | ------------ | -------------- |
-| XSS via user input renderizado | React auto-escape; zero dangerouslySetInnerHTML      | Mitigado     | -              |
-| XSS via email template         | escapeHtml() em todos os campos user-provided        | Mitigado     | -              |
-| XSS via PDF                    | pdf-lib drawText literal (nao interpreta HTML/JS)    | Mitigado     | -              |
-| innerHTML em PageTransition    | Captura DOM ja renderizado pelo React (pre-escapado) | Nota tecnica | Risco minimo   |
+| Ameaca                         | Mitigacao                                             | Status    | Risco residual |
+| ------------------------------ | ----------------------------------------------------- | --------- | -------------- |
+| XSS via user input renderizado | React auto-escape; zero dangerouslySetInnerHTML       | Mitigado  | -              |
+| XSS via email template         | escapeHtml() em todos os campos user-provided         | Mitigado  | -              |
+| XSS via PDF                    | pdf-lib drawText literal (nao interpreta HTML/JS)     | Mitigado  | -              |
+| innerHTML em PageTransition    | Superficie **eliminada** (F2 do ciclo SN, 2026-07-30) | Eliminado | -              |
 
 ### 5. Headers HTTP
 

@@ -332,7 +332,7 @@ Ao escrever ou revisar uma mensagem, valide:
 
 Pontos atuais que **já seguem** o padrão (use como referência):
 
-- `app/samples/page.tsx` — toast.info pra reconciliação otimista (~linha 1098), toast.error pra falha de listSamples pra liga (~linha 1120), toast.info pra `showIneligibleReason` (~linha 1382). Pattern title + description curto.
+- `app/(app)/samples/page.tsx` — toast.info pra reconciliação otimista (~linha 1098), toast.error pra falha de listSamples pra liga (~linha 1120), toast.info pra `showIneligibleReason` (~linha 1382). Pattern title + description curto.
 - `lib/toast/ToastProvider.tsx` — implementação canônica do toast viewport com ARIA correto.
 - `components/NewSampleModal.tsx` — inline errors por campo + banner topo de form (`.nsv2-inline-error`).
 - `components/samples/ClassificationReviewSheetBody.tsx` — erro inline de lote obrigatório no review da classificação: placeholder vermelho suave (`Obrigatório`) + `.review-field-input.has-error` + `aria-invalid`, validado **primeiro** no Avançar e com foco no campo. Erros assíncronos (resolve do lote) seguem em banner no topo (`flowError`).

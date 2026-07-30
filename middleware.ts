@@ -15,8 +15,9 @@ import { NextResponse, type NextRequest } from 'next/server';
  * - APIs nao passam por aqui (se autodefendem no gate central de papel —
  *   ver src/auth/prospector-access.js);
  * - navegacoes servidas do cache do service worker (PWA offline) NAO
- *   passam pelo middleware — os guards de pagina via useRequireAuth
- *   (allowedRoles: NON_PROSPECTOR_ROLES) cobrem esse caminho;
+ *   passam pelo middleware — os guards de pagina via useRequireRole
+ *   (lib/auth/AuthProvider.tsx, allowedRoles: NON_PROSPECTOR_ROLES)
+ *   cobrem esse caminho;
  * - /dashboard nunca e redirecionado (evita loop) e o deep link
  *   `/dashboard?informe=novo` do lembrete push passa intacto.
  */

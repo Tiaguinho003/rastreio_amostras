@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from 'next';
 import { Inter, Poppins } from 'next/font/google';
 
 import { LoadingProvider } from '../components/LoadingProvider';
-import { PageTransition } from '../components/PageTransition';
 import { PwaRegistration } from '../components/PwaRegistration';
 import { RouteHistoryTracker } from '../components/RouteHistoryTracker';
 import { ViewportDebugOverlay } from '../components/ViewportDebugOverlay';
@@ -74,9 +73,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ToastProvider>
           <DirtyStateProvider>
             <ScannerBridge>
-              <LoadingProvider>
-                <PageTransition>{children}</PageTransition>
-              </LoadingProvider>
+              {/* F2 do ciclo SN: o <PageTransition> saiu daqui. A transicao
+                  entre rotas agora e CSS puro na `.app-shell-page-content` do
+                  AppShell (SN-D5'), que so existe dentro do route group (app)
+                  — o layout raiz nao anima mais nada. */}
+              <LoadingProvider>{children}</LoadingProvider>
             </ScannerBridge>
           </DirtyStateProvider>
         </ToastProvider>

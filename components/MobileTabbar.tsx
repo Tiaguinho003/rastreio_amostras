@@ -16,21 +16,26 @@ interface MobileTabbarProps {
 }
 
 // Renderiza a barra de navegacao inferior via React Portal direto no
-// document.body, fora da arvore do AppShell e do PageTransition.
+// document.body, fora da arvore do AppShell.
 //
-// Motivo (Q.mobile.tabbar fix): durante navegacao, o
-// .page-transition-content recebe `will-change: transform, opacity`
-// (CSS animation pt-enter-*) por 300ms. CSS spec diz que qualquer
-// ancestor com will-change:transform vira o containing block de
-// position:fixed descendentes — entao a tabbar dentro do AppShell
-// ficava fixed em relacao ao .page-transition-content (menor que o
-// viewport), nao em relacao ao viewport. Em PWA standalone iOS/Android,
-// essa diferenca aparece como "tabbar levantada" — ela fica acima da
-// edge inferior por nao cobrir o area do home indicator.
+// Motivo ORIGINAL (Q.mobile.tabbar fix), hoje historico: durante a navegacao o
+// `.page-transition-content` do antigo `<PageTransition>` recebia
+// `will-change: transform, opacity` por 300ms, e pela spec do CSS qualquer
+// ancestral com will-change:transform vira o containing block dos descendentes
+// `position: fixed`. A tabbar dentro do AppShell ficava fixed em relacao a
+// esse wrapper (menor que o viewport), nao ao viewport — em PWA standalone
+// iOS/Android isso aparecia como "tabbar levantada", acima da edge inferior,
+// sem cobrir a area do home indicator.
 //
-// Renderizando via Portal no body, a tabbar nunca tem
-// .page-transition-content (nem qualquer outro wrapper com transform)
-// como ancestor. Sempre fixed em relacao ao viewport.
+// A F2 do ciclo SN (SN-D5') apagou o PageTransition: a transicao virou
+// animacao de OPACIDADE na propria `.app-shell-page-content`, sem transform e
+// sem will-change — a causa original nao existe mais.
+//
+// O portal FICA assim mesmo, e de proposito: (a) a tabbar e chrome do shell,
+// nao conteudo da pagina, e o body e o unico ancestral que garante `fixed`
+// contra o viewport independente do que qualquer pagina faca com transform;
+// (b) trazer ela de volta pra arvore reabriria o bug em toda pagina que use
+// transform num ancestral. Ver skill `modals` §"Portal".
 export function MobileTabbar({ items, isActive }: MobileTabbarProps) {
   const [mounted, setMounted] = useState(false);
 

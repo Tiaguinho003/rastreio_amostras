@@ -49,7 +49,8 @@ no 7B+7C), 1 OUT_OF_SCOPE (LGPD, debito documentado).
 - dangerouslySetInnerHTML: OK (zero ocorrencias)
 - Email templates: OK (escapeHtml em todos os campos user-provided)
 - PDF reports: OK (pdf-lib drawText literal)
-- PageTransition innerHTML: NOTA (conteudo React pre-escapado, risco minimo)
+- PageTransition innerHTML: ELIMINADO — o componente foi apagado na F2 do ciclo SN
+  (2026-07-30). Nao ha mais nenhuma atribuicao a `innerHTML` no codigo.
 
 ### 5. Headers HTTP
 

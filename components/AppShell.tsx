@@ -1019,7 +1019,13 @@ export function AppShell({
         ) : null}
 
         <main className={`app-shell-main${isLayeredRoute ? ' is-dashboard-route' : ''}`}>
-          <div className="app-shell-page-content">{children}</div>
+          {/* SN-D5': o `key` por pathname reinicia a animacao de entrada
+              (`app-page-enter`, so opacidade) a cada troca de ROTA. Query
+              (?lote=, ?cliente=, ?details=) nao entra no pathname, entao
+              overlay de URL nao repinta a pagina. */}
+          <div key={pathname} className="app-shell-page-content">
+            {children}
+          </div>
         </main>
       </CameraSheetProvider>
 

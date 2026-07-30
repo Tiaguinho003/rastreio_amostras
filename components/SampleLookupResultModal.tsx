@@ -80,11 +80,11 @@ export function SampleLookupResultModal({
   })();
 
   // Render via portal pra body: o modal e renderizado dentro de
-  // SampleSearchField, que vive em paginas envolvidas por <PageTransition>.
-  // Durante a transicao de pagina, .page-transition-content recebe
-  // `transform`+`will-change`, criando stacking context que prende o
-  // `position: fixed` do backdrop. Portal pra body escapa qualquer
-  // stacking context ancestral. Ver skill `modals` §9 "Portal".
+  // SampleSearchField, fundo na arvore da pagina, e o `position: fixed` do
+  // backdrop precisa escapar de qualquer stacking context de ancestral.
+  // (O gatilho original era o `transform` do `<PageTransition>`, morto na F2
+  // do ciclo SN; o portal fica — e o padrao de todo modal central.)
+  // Ver skill `modals` §9 "Portal".
   return createPortal(
     <div className="app-modal-backdrop" onClick={onClose}>
       <section

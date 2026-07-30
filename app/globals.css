@@ -29,8 +29,9 @@
         `__edge-path`… quem escreve é o `@xyflow/react`; nosso código não cita.
       • **Nome montado em runtime.** `` `is-role-${role}` ``, `fv-kpi-tone-${tone}`,
         `pg-accent-${type}`, `user-avatar--${size}`, `app-toast--${kind}`,
-        `page-transition-enter--${dir}`, `pzv-toast-${kind}`, `login-bean-${n}`.
-        A lista saiu de varrer o próprio código atrás de `` `algo-${ ``.
+        `pzv-toast-${kind}`, `login-bean-${n}`. A lista saiu de varrer o próprio
+        código atrás de `` `algo-${ ``. (`page-transition-enter--${dir}` estava
+        aqui até a F2 do ciclo SN apagar o componente que a montava.)
    4. Fora desta passada, de propósito: `.pg-*` (o simulador estava sendo
       editado na mesma hora) e o que sobrou é de família viva.
 
@@ -2232,7 +2233,6 @@ button:disabled {
 }
 
 @media (max-width: 900px) {
-
   .sample-classification-step-body {
     padding-right: 0;
     padding-bottom: 0.3rem;
@@ -11458,7 +11458,6 @@ select.samples-filter-field-input {
 }
 
 @media (max-width: 900px) {
-
   html {
     font-size: 110%;
   }
@@ -12553,7 +12552,6 @@ select.samples-filter-field-input {
 }
 
 @media (max-width: 900px) {
-
   .camera-hub-overlay::before {
     inset: 14% 9% 27%;
     border-radius: clamp(16px, 5.5vw, 22px);
@@ -14056,97 +14054,45 @@ select.samples-filter-field-input {
 }
 
 /* ================================================================
-   Page Transition — Fade + Scale cross-fade between routes
+   Transicao de pagina — cross-fade so na ENTRADA (SN-D5')
    ================================================================ */
 
-.page-transition-root {
-  position: relative;
-  width: 100%;
-  min-height: 100%;
+/* F2 do ciclo SN: o `<PageTransition>` morreu. Ele clonava o innerHTML inteiro
+   da pagina anterior num overlay `position: fixed` pra fazer o cross-fade —
+   caro por navegacao e, pior, o `transform` + `will-change: transform` da
+   camada de entrada tornava o wrapper CONTAINING BLOCK de todo descendente
+   `position: fixed`. Era essa a razao original de MobileTabbar, modais centrais
+   e ResultDrawer terem de escapar por portal no body.
+
+   Agora a animacao mora na propria `.app-shell-page-content` — NENHUM no novo
+   na arvore, entao os seletores de filho direto e os `:has()` do shell
+   continuam valendo — e e reiniciada pelo `key={pathname}` do AppShell.
+   So OPACIDADE: sem transform, sem will-change, nada de containing block. A
+   pagina que sai simplesmente some; sem clone, sem overlay, sem snapshot.
+
+   O `key` usa pathname, entao overlay de query (?lote=, ?cliente=, ?details=)
+   NAO reinicia a animacao — muda a URL, nao a pagina.
+
+   Diferenca de comportamento aceita: a animacao tambem roda na PRIMEIRA
+   pintura (o PageTransition so animava a partir da 2a rota), e /login,
+   /offline e /maintenance ficam sem transicao — elas nunca estiveram dentro
+   do shell. */
+.app-shell-page-content {
+  animation: app-page-enter 300ms var(--ease-out) backwards;
 }
 
-.page-transition-content {
-  position: relative;
-  width: 100%;
-}
-
-.page-transition-exit {
-  position: fixed;
-  inset: 0;
-  z-index: 9000;
-  pointer-events: none;
-  will-change: transform, opacity;
-  overflow: hidden;
-}
-
-.page-transition-exit-inner {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-}
-
-.page-transition-exit--forward {
-  animation: pt-exit-forward 300ms var(--ease-out) forwards;
-}
-
-.page-transition-exit--back {
-  animation: pt-exit-back 300ms var(--ease-out) forwards;
-}
-
-.page-transition-enter.page-transition-enter--forward {
-  will-change: transform, opacity;
-  pointer-events: none;
-  animation: pt-enter-forward 300ms var(--ease-out) backwards;
-}
-
-.page-transition-enter.page-transition-enter--back {
-  will-change: transform, opacity;
-  pointer-events: none;
-  animation: pt-enter-back 300ms var(--ease-out) backwards;
-}
-
-@keyframes pt-exit-forward {
-  from {
-    opacity: 1;
-    transform: scale(1);
-  }
-  to {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-}
-
-@keyframes pt-enter-forward {
+@keyframes app-page-enter {
   from {
     opacity: 0;
-    transform: scale(1.03);
   }
   to {
     opacity: 1;
-    transform: scale(1);
   }
 }
 
-@keyframes pt-exit-back {
-  from {
-    opacity: 1;
-    transform: scale(1);
-  }
-  to {
-    opacity: 0;
-    transform: scale(1.03);
-  }
-}
-
-@keyframes pt-enter-back {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
+@media (prefers-reduced-motion: reduce) {
+  .app-shell-page-content {
+    animation: none;
   }
 }
 
@@ -19610,7 +19556,10 @@ body.is-selection-mode .mobile-tabbar {
      no topo (as hairlines emendam). Esquerda: titulo da secao ativa
      (ex-.app-page-title do DSB-D17). Direita: sino (inerte) + perfil
      nome+papel+chevron com dropdown do ProfileMenuCard. Sticky como o resto
-     do chrome (nunca fixed — PageTransition aplica transform). */
+     do chrome — `sticky` e o certo aqui (ele acompanha o scroll do contêiner
+     de conteúdo, não do viewport). O motivo registrado antes era outro: o
+     `transform` do `<PageTransition>` quebrava `fixed`. Esse motivo morreu na
+     F2 do ciclo SN; a escolha por `sticky` não. */
 
   .app-topbar {
     display: flex;
@@ -22219,8 +22168,10 @@ body.is-selection-mode .mobile-tabbar {
    canvas nao e um cartao dentro da pagina, ele E a pagina.
 
    Pill/"+" central/menu de conexao ancoram como position:absolute NESTE
-   contexto — nunca position:fixed (PageTransition tem will-change: transform,
-   precedente do MobileTabbar). Os PAINEIS sao a excecao e nao moram aqui: a
+   contexto — nunca position:fixed. Eles sao peças DO CANVAS e tem de seguir a
+   caixa dele, não o viewport. (O motivo registrado antes era o will-change do
+   `PageTransition`, morto na F2 do ciclo SN; a ancoragem no canvas não.) Os
+   PAINEIS sao a excecao e nao moram aqui: a
    ficha (PG52) e o painel de nodes (PG58) sao BottomSheet, que faz portal pro
    body e escapa do contexto por construcao. */
 .pg-host {

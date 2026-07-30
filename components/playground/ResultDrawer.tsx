@@ -78,8 +78,9 @@ function collectExclusions(estimate: LigaEstimate): ExclusionNote[] {
 // Android, focus trap, animação de entrada/saída e a seta `edge-back`.
 //
 // O `BottomSheet` faz `createPortal` pro `document.body`, então o `fixed` dele
-// não é capturado pelo `will-change: transform` do `PageTransition` — a razão
-// original do `absolute` some junto com o drawer.
+// não é capturado por transform de ancestral — a razão original do `absolute`
+// some junto com o drawer. (O ancestral em questão era o `PageTransition`,
+// apagado na F2 do ciclo SN; o portal do BottomSheet independe disso.)
 //
 // Uma coisa NÃO é padrão e está no CSS: o backdrop deste sheet é atravessável.
 // A PG14 recalcula ao vivo, e o ponto de editar sacas COM a ficha aberta é ver

@@ -16,7 +16,7 @@ const REFETCH_THROTTLE_MS = 30_000;
 // (senão o card ficava travado no skeleton — nada disparava o fetch). Genérico
 // por `T` (o item) + `errorMessage` (default = envios; o Avisos passa a sua).
 export function useRecentSendsFeed<T>(
-  // `null` enquanto a sessão carrega (useRequireAuth) — não busca nada.
+  // `null` enquanto a sessão carrega (AuthProvider) — não busca nada.
   session: SessionData | null,
   fetcher: (session: SessionData) => Promise<{ items: T[] }>,
   errorMessage = 'Não foi possível carregar os envios.'
