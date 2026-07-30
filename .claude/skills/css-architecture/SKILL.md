@@ -51,6 +51,30 @@ O alias fica assim, e é assim que se lê um no arquivo:
 .client-details-overlay .fv-cd-add-btn { … }
 ```
 
+### 🔴 SVG gerado por biblioteca: a cor vai no CSS, não na prop
+
+Bibliotecas que desenham SVG (React Flow, gráficos) aceitam cor por prop e a escrevem como
+**atributo de apresentação** (`fill="…"` no elemento). `var(--token)` **não resolve em atributo** —
+sai a cor literal ou nada, e o token deixa de ser a fonte única.
+
+A saída é passar só a forma pela prop e pintar por CSS, que **vence** o atributo de apresentação
+(qualquer declaração de folha de estilo ganha dele na cascata):
+
+```tsx
+defaultEdgeOptions={{ markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18 } }}
+```
+
+```css
+/* A seta do React Flow vira um <marker> com <polyline> — a cor mora AQUI. */
+.pg-host .react-flow__arrowhead polyline {
+  fill: var(--pg-edge);
+  stroke: var(--pg-edge);
+}
+```
+
+Vale para qualquer `fill`/`stroke` que a biblioteca ofereça como opção: a prop define geometria, o
+CSS define cor.
+
 ---
 
 ## §3 🔴 Os prefixos são compartilhados

@@ -397,9 +397,51 @@ atravessa esse vão para chegar lá — o `mouseleave` do objeto dispara no cami
 antes de ser clicável. ~140ms de `setTimeout`, cancelado pelo `mouseenter` da própria barra (que
 por isso também precisa dos dois handlers), resolve. Limpe o timer no unmount.
 
-As mesmas regras do `⋯` valem: **item ausente quando não cabe, nunca desabilitado** (no Simulador,
-"desativar" só existe se o node tem alguma ligação), e a lista não pode divergir da que o teclado
-ou outro breakpoint oferece.
+🔴 **Só hover deixa a barra inalcançável pelo teclado.** O mesmo estado tem que atender aos dois —
+`onFocus`/`onBlur` no objeto abrem e fecham junto com o mouse. Mas a checagem de "ainda estou na
+barra?" é **no documento**, não no objeto: o `NodeToolbar` **portala** os botões para fora da
+árvore DOM, então dar Tab para o primeiro botão dispara o blur do objeto. Sem a checagem a barra
+fecharia com o foco dentro dela.
+
+```tsx
+// No timer de saída, antes de fechar:
+const owner = document.activeElement?.closest?.('.pg-node-tools');
+if (owner?.dataset.nodeId === id) return; // o foco está na MINHA barra
+```
+
+(Os `onFocus`/`onBlur` do React são focusin/focusout e borbulham pela árvore do **React**, então o
+foco no botão portalado chega ao wrapper — o que falha é só a leitura por DOM.)
+
+As mesmas regras do `⋯` valem: **item ausente quando não cabe, nunca desabilitado**, e a lista não
+pode divergir da que o teclado ou outro breakpoint oferece.
+
+**O ato destrutivo do objeto é deletar. O resto é reversível** (PG65). "Desativar" já foi soltar as
+ligações do node — um clique de "e se sem este lote?" apagava o desenho do fluxo e religar era
+manual. Virou um **toggle** (`aria-pressed`, rótulo que alterna): o objeto fica riscado e apagado,
+**as ligações ficam**, e quem o ignora é o cálculo. A regra do que "ignorar" significa mora nos
+módulos puros, em uma frase, não espalhada pela UI.
+
+### Barra no hover de uma LINHA (edge)
+
+A ligação também é um objeto com atos próprios — deletar e inserir algo no meio. Sem barra, a única
+saída é selecionar e apertar `Delete`, que ninguém descobre.
+
+Três diferenças em relação à barra do node:
+
+1. **A linha é fina demais para o mouse.** `interactionWidth={40}` no `<BaseEdge />` dá um caminho
+   invisível de 40px que recebe os eventos; o traço visível continua de 2px.
+2. **O estado de hover mora no PRÓPRIO edge**, não no canvas. Um `hoveredEdgeId` no componente do
+   canvas re-renderizaria **todas** as edges a cada passagem do mouse. Um `<g onMouseEnter
+onMouseLeave>` em volta do `BaseEdge` + `useState` local re-renderiza uma só.
+3. **A carência é maior — ~600ms.** Não há `offset` fixo: a barra fica no meio da curva
+   (`labelX/labelY` que o `getBezierPath` devolve) e o mouse viaja pela linha até lá. 140ms fecha na
+   cara de quem se aproxima devagar.
+
+A barra vai no **`<EdgeLabelRenderer>`** (fora do SVG, então é HTML normal), posicionada por
+`transform: translate(-50%,-50%) translate(${labelX}px, ${labelY}px)`, com `nodrag nopan` e
+`pointer-events: all` — o container do EdgeLabelRenderer tem `pointer-events: none`.
+
+Exemplo vivo: `components/playground/PgEdge.tsx` (PG64).
 
 ---
 
@@ -716,7 +758,8 @@ muda) · **🔜 ciclo** migra quando o redesenho chegar na página — nada de c
 | Simulador               | Ficha de resultado (`.pg-ficha-sheet`, backdrop atravessável); connect menu                                                | painel lateral                                 | ✅ (PG52)                                                 |
 | Simulador               | Tipo de node → qual lote (`.pg-nodes-sheet`, backdrop **padrão**) — menu que aprofunda, §1-A                               | painel de **dois passos**                      | ✅ (PG58/PG60)                                            |
 | Simulador               | Editar as sacas de um node de Lote                                                                                         | **dropdown inline no node**                    | ✅ (PG60)                                                 |
-| Simulador               | Deletar / desativar um node                                                                                                | **barra no hover** (`NodeToolbar`), acima dele | ✅ (PG61)                                                 |
+| Simulador               | Deletar node / desativar (toggle reversível)                                                                               | **barra no hover** (`NodeToolbar`), acima dele | ✅ (PG61/PG65)                                            |
+| Simulador               | Deletar uma ligação / inserir node no meio dela                                                                            | **barra no hover** da LINHA (`PgEdge`)         | ✅ (PG64)                                                 |
 
 **A migração acontece PÁGINA A PÁGINA**, dentro do redesenho completo de cada página: os
 contêineres dela realinham na mesma passada, junto com estrutura, cards e tipografia. Cada página é

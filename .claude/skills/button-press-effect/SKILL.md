@@ -130,6 +130,40 @@ Combinacoes permitidas (so propriedades de **profundidade**, nunca cor):
 }
 ```
 
+### ❌❌ Botao com fundo proprio SEM reafirmar o `background` no hover
+
+Ha uma regra GLOBAL em `globals.css` (~linha 2123) que apaga o fundo de
+**qualquer** botao no hover — e a especificidade dela (0,1,1) vence a da
+classe (0,1,0):
+
+```css
+@media (hover: hover) {
+  button:hover {
+    background: transparent;
+  }
+}
+```
+
+Ela existe pra impedir o hover-de-cor acidental (`feedback_no_green_buttons`),
+mas ela nao distingue "botao sem fundo" de "botao com fundo de marca". O botao
+verde do Simulador "ficava branco ao passar o mouse" por isso — nao era desenho,
+era a global.
+
+**Todo botao com `background` proprio reafirma o fundo no hover**, e o `:hover`
+com classe (0,2,0) ganha:
+
+```css
+@media (hover: hover) {
+  .pg-execute-pill:hover {
+    background: linear-gradient(...); /* o MESMO fundo do idle */
+    transform: scale(1.05); /* o hover de verdade e o tamanho */
+  }
+}
+```
+
+Sintoma pra reconhecer: "o botao perde a cor no hover" e voce nao escreveu
+nenhuma regra de hover. Nao invente especificidade nem `!important` — reafirme.
+
 ### ❌ `-webkit-tap-highlight-color` omitido
 
 ```css
@@ -246,6 +280,7 @@ Se algum desses falhar: aplicar a receita §3.
 - [ ] `-webkit-tap-highlight-color: transparent`
 - [ ] `:active` aplica APENAS `transform` (scale e/ou translateY)
 - [ ] Todo `:hover { background/color/box-shadow }` esta dentro de `@media (hover: hover)`
+- [ ] Se o botao tem `background` proprio: ele e REAFIRMADO no `:hover` (senao a global o apaga)
 - [ ] `transition` lista apenas `transform`, `box-shadow` (cores nao), opacity se aplicavel
 - [ ] `:focus-visible` aplica apenas outline neutro (se aplicar) — sem mudar fundo
 - [ ] Em mobile: ao tocar, ZERO flash de cor — apenas o "scale down" momentaneo
