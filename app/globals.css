@@ -23258,9 +23258,7 @@ body.is-selection-mode .mobile-tabbar {
   font-family: inherit;
   text-align: left;
   cursor: pointer;
-  transition:
-    background 140ms ease,
-    transform 120ms ease;
+  transition: transform 120ms ease;
 }
 /* A hairline mora ENTRE as linhas: acima da primeira ela encostaria no título,
    abaixo da última não separaria nada. */
@@ -23288,9 +23286,13 @@ body.is-selection-mode .mobile-tabbar {
 .pg-nodes-row:focus-visible::before {
   opacity: 1;
 }
+/* 🔴 A BARRA É O REALCE INTEIRO — não há lavagem de fundo (nem no hover, nem no
+   foco). A linha tinha `background: var(--fv-hover)` junto com a barra e as duas
+   diziam a mesma coisa; numa lista de três itens, a mancha esverdeada é a única
+   cor da tela e chama mais atenção que o conteúdo. Como a barra é o indicador de
+   foco, o `outline: none` continua honesto. */
 .pg-nodes-row:focus-visible {
   outline: none;
-  background: var(--fv-hover);
 }
 /* button-press-effect: profundidade, nunca cor. O scale é menor que o do kit
    porque a linha ocupa a largura toda — encolher 1,5% aqui seria um solavanco. */
@@ -23298,11 +23300,6 @@ body.is-selection-mode .mobile-tabbar {
   transform: scale(0.995);
 }
 @media (hover: hover) {
-  .pg-nodes-row:hover {
-    /* Reafirmado por causa do `button:hover { background: transparent }` do
-       reset global, que vence a classe por especificidade. */
-    background: var(--fv-hover);
-  }
   .pg-nodes-row:hover::before {
     opacity: 1;
   }
