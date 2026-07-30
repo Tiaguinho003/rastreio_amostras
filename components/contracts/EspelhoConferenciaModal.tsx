@@ -5,13 +5,15 @@ import { createPortal } from 'react-dom';
 
 import { getSaleContract } from '../../lib/api-client';
 import {
-  espelhoEligibility,
+  espelhoSideEligibility,
   espelhoSideLabel,
   espelhoSides,
   type EspelhoSide,
 } from '../../lib/espelho';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import type { SaleContract, SaleContractDetail, SessionData } from '../../lib/types';
+
+import { snapshotName } from './SaleContractCard';
 
 // Re-export p/ compatibilidade (o ContratosPanel importa daqui).
 export type { EspelhoSide };
@@ -28,12 +30,6 @@ type EspelhoConferenciaModalProps = {
 };
 
 const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
-
-function snapshotName(snap: Record<string, unknown> | null): string {
-  if (!snap) return '—';
-  const value = (snap.displayName ?? snap.legalName ?? snap.fullName) as string | undefined;
-  return value && value.trim() ? value : '—';
-}
 
 function money(value: number | null): string {
   return value != null ? BRL.format(value) : '—';
@@ -70,8 +66,11 @@ export function EspelhoConferenciaModal({
   // inelegível (perdeu corretagem / virou washout à-vista entre a lista e a abertura), a
   // tela avisa e bloqueia "Gerar espelho" em vez de mandar pra um 409 garantido na prévia.
   const availableSides = espelhoSides(view);
-  const ineligible = !espelhoEligibility(view).eligible;
   const [side, setSide] = useState<EspelhoSide>(() => availableSides[0] ?? 'seller');
+  // RC-D111: quem decide o submit é a elegibilidade DO LADO — os mesmos 4 gates do
+  // `assertEspelhoEligible`. A pergunta "algum lado sai" não serve aqui: um contrato
+  // elegível pelo comprador liberava "Gerar espelho" com o vendedor escolhido.
+  const sideCheck = espelhoSideEligibility(view, side);
 
   useEffect(() => {
     let aborted = false;
@@ -100,6 +99,17 @@ export function EspelhoConferenciaModal({
 
   const clientName = snapshotName(side === 'seller' ? view.sellerSnapshot : view.buyerSnapshot);
   const commission = side === 'seller' ? view.sellerBrokerageValue : view.buyerBrokerageValue;
+
+  // RC-D110: o espelho do vendedor imprime o nome CONGELADO na emissão, e o dono do
+  // lote pode ter mudado desde então (RC-D37). Avisa, não bloqueia: quem cobra é quem
+  // vendeu, e trocar o dono do lote depois não muda de quem é a corretagem — mas o
+  // operador precisa saber que o nome do papel não é o dono de hoje.
+  const ownerDiverged =
+    side === 'seller' &&
+    detail?.sampleOwner != null &&
+    view.sellerClientId != null &&
+    detail.sampleOwner.clientId !== view.sellerClientId;
+  const currentOwnerName = detail?.sampleOwner?.displayName ?? null;
 
   // Espelha os valores que o PDF imprime (D131–D133): Data = data de GERAÇÃO
   // (hoje); Preço = EFETIVO (cru ± ágio/deságio por saca).
@@ -193,11 +203,16 @@ export function EspelhoConferenciaModal({
             ) : null}
           </div>
 
-          {ineligible ? (
-            <p className="sdv-modal-error">
-              Este contrato não está mais elegível para o Espelho (sem corretagem ou cancelado à
-              vista). Recarregue a lista.
+          {ownerDiverged ? (
+            <p className="ctr-doc-warning">
+              O dono do lote mudou desde a emissão
+              {currentOwnerName ? ` (hoje é ${currentOwnerName})` : ''}. O espelho imprime o
+              vendedor do contrato, que é quem vendeu — confira se a cobrança é mesmo dele.
             </p>
+          ) : null}
+
+          {!sideCheck.eligible ? (
+            <p className="sdv-modal-error">{sideCheck.reason}</p>
           ) : (
             <p className="ctr-espelho-conf-hint">
               Confira os dados acima. Para corrigir alguma informação, abra os detalhes do contrato.
@@ -216,7 +231,7 @@ export function EspelhoConferenciaModal({
             type="button"
             className="app-modal-submit"
             onClick={() => onConfirm(side)}
-            disabled={ineligible}
+            disabled={!sideCheck.eligible}
           >
             Gerar espelho
           </button>

@@ -841,11 +841,16 @@ model SaleContract {
   agioDesagioValue     Decimal?         @map("agio_desagio_value") @db.Decimal(12, 2)
   totalValue           Decimal          @map("total_value") @db.Decimal(14, 2)
   weightKg             Decimal?         @map("weight_kg") @db.Decimal(10, 2)
-  // Corretagem por lado (D44/D55): pct + valor snapshot (= total_value x pct). D145:
-  // num washout A VISTA a corretagem NAO e cobravel, mas os *_value NAO sao zerados
-  // (seguem snapshot). Toda soma/agregacao de corretagem sobre WASH_OUT deve filtrar
-  // por WASHOUT_BILLABLE / isSpotWashout (so o FUTURO cobra) — ver listBrokerReceivables;
-  // o RECEIVABLE_VIEW_SELECT carrega `type` pra re-derivar isso.
+  // Corretagem por lado (D44/D55): pct + valor snapshot (= total_value x pct). Num
+  // washout a corretagem pode nao ser cobravel, mas os *_value NAO sao zerados (seguem
+  // snapshot). Toda soma/agregacao de corretagem sobre WASH_OUT tem que filtrar pela
+  // RESPOSTA gravada no cancelamento — `washoutBillable`, via isWashoutNotBillable():
+  // ver listBrokerReceivables e o assertEspelhoEligible.
+  //
+  // 🪦 RC-D89/D91 (2026-07-29) revogaram a D145, que decidia a billabilidade pela
+  // MODALIDADE (`type`: "so o FUTURO cobra") atraves de um `isSpotWashout` que nao
+  // existe mais. Quem responde e o operador, no washout. O RECEIVABLE_VIEW_SELECT
+  // ainda carrega `type`, mas para EXIBIR a modalidade — nao para re-derivar isto.
   sellerBrokeragePct   Decimal          @default(0) @map("seller_brokerage_pct") @db.Decimal(5, 2)
   sellerBrokerageValue Decimal          @default(0) @map("seller_brokerage_value") @db.Decimal(12, 2)
   buyerBrokeragePct    Decimal          @default(0) @map("buyer_brokerage_pct") @db.Decimal(5, 2)

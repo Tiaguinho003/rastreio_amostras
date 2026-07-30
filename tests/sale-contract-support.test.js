@@ -1256,8 +1256,15 @@ test('isWashoutNotBillable: segue a resposta do washout, não o tipo (RC-D89)', 
   assert.equal(isWashoutNotBillable(null), false);
 });
 
-test('assertEspelhoEligible: valida os 3 gates ESPELHO_* (D105/RC-D91/S74)', () => {
-  const base = { status: 'EMITIDO', type: 'FUTURO', sellerBrokeragePct: 2, buyerBrokeragePct: 0 };
+test('assertEspelhoEligible: valida os 4 gates ESPELHO_* (D105/RC-D91/S74/RC-D110)', () => {
+  const base = {
+    status: 'EMITIDO',
+    type: 'FUTURO',
+    sellerBrokeragePct: 2,
+    buyerBrokeragePct: 0,
+    sellerSnapshot: { displayName: 'Fazenda Boa Vista' },
+    buyerSnapshot: { displayName: 'Exportadora XY' },
+  };
   // Lado com corretagem → elegível (não lança).
   assert.doesNotThrow(() => assertEspelhoEligible(base, 'seller'));
   // Lado SEM corretagem → ESPELHO_NO_BROKERAGE.
@@ -1292,6 +1299,39 @@ test('assertEspelhoEligible: valida os 3 gates ESPELHO_* (D105/RC-D91/S74)', () 
   assert.throws(
     () => assertEspelhoEligible({ ...base, status: 'RASCUNHO' }, 'seller'),
     (err) => err.status === 409 && err.details?.code === 'ESPELHO_NOT_ELIGIBLE'
+  );
+});
+
+// 🔴 RC-D110: com corretagem > 0 e o snapshot da parte vazio, o papel saía com o TOTAL
+// real e "CLIENTE: —" — uma cobrança sem destinatário, entregue e auditada como
+// documento válido. O gate é do LADO pedido: o outro lado estar cadastrado não salva.
+test('assertEspelhoEligible: sem parte no lado pedido → ESPELHO_NO_PARTY (RC-D110)', () => {
+  const base = {
+    status: 'EMITIDO',
+    type: 'FUTURO',
+    sellerBrokeragePct: 2,
+    buyerBrokeragePct: 2,
+    sellerSnapshot: { displayName: 'Fazenda Boa Vista' },
+    buyerSnapshot: { displayName: 'Exportadora XY' },
+  };
+  const noParty = (err) => err.status === 409 && err.details?.code === 'ESPELHO_NO_PARTY';
+
+  assert.throws(() => assertEspelhoEligible({ ...base, buyerSnapshot: null }, 'buyer'), noParty);
+  assert.throws(() => assertEspelhoEligible({ ...base, sellerSnapshot: null }, 'seller'), noParty);
+  // Snapshot que EXISTE mas não tem nome usável conta como ausente — é o caso real
+  // (buildPartySnapshot devolve o objeto com os campos vazios), e é justamente o que a
+  // cópia do PDF não tratava.
+  assert.throws(() => assertEspelhoEligible({ ...base, buyerSnapshot: {} }, 'buyer'), noParty);
+  assert.throws(
+    () => assertEspelhoEligible({ ...base, buyerSnapshot: { displayName: '   ' } }, 'buyer'),
+    noParty
+  );
+  // O lado cadastrado segue saindo, mesmo com o outro vazio.
+  assert.doesNotThrow(() => assertEspelhoEligible({ ...base, buyerSnapshot: null }, 'seller'));
+  // O gate é o ÚLTIMO: sem corretagem no lado, a recusa é a de corretagem.
+  assert.throws(
+    () => assertEspelhoEligible({ ...base, buyerBrokeragePct: 0, buyerSnapshot: null }, 'buyer'),
+    (err) => err.details?.code === 'ESPELHO_NO_BROKERAGE'
   );
 });
 
@@ -1864,4 +1904,54 @@ test('finalizeBlockReason: o dia em que libera e ANTES do ponto do faturamento a
   assert.equal(finalizeBlockReason(row, '2026-07-12'), null);
   assert.equal(phaseStates(row, '2026-07-12')[3], 'pendente');
   assert.equal(phaseStates({ ...row, status: 'FINALIZADO' }, '2026-07-12')[3], 'feito');
+});
+
+// ── RC-D111: o front pergunta a MESMA coisa que o backend ────────────────────
+// A Conferência habilita "Gerar espelho" pela `espelhoSideEligibility`; o servidor
+// decide pelo `assertEspelhoEligible`. Se as duas divergirem, o operador ou clica num
+// botão que responde 409, ou vê um botão apagado num espelho que sairia. Antes o front
+// só perguntava "algum lado sai" — e não conhecia o gate da parte.
+test('espelhoSideEligibility: paridade com assertEspelhoEligible, gate a gate', async () => {
+  const { espelhoSideEligibility } = await import('../lib/espelho.ts');
+  const withName = { displayName: 'Fazenda Boa Vista' };
+  const contracts = [];
+  for (const status of ['RASCUNHO', 'EMITIDO', 'FINALIZADO', 'WASH_OUT']) {
+    for (const washoutBillable of [true, false, null]) {
+      for (const sellerBrokeragePct of [0, 2]) {
+        for (const buyerBrokeragePct of [0, 1.5]) {
+          for (const sellerSnapshot of [withName, null, {}]) {
+            contracts.push({
+              status,
+              washoutBillable,
+              sellerBrokeragePct,
+              buyerBrokeragePct,
+              sellerSnapshot,
+              buyerSnapshot: withName,
+            });
+          }
+        }
+      }
+    }
+  }
+  let allowed = 0;
+  for (const contract of contracts) {
+    for (const side of ['seller', 'buyer']) {
+      let backendOk = true;
+      try {
+        assertEspelhoEligible(contract, side);
+      } catch {
+        backendOk = false;
+      }
+      const frontOk = espelhoSideEligibility(contract, side).eligible;
+      assert.equal(
+        frontOk,
+        backendOk,
+        `divergiu em ${side} de ${JSON.stringify(contract)}: front=${frontOk} back=${backendOk}`
+      );
+      if (backendOk) allowed += 1;
+    }
+  }
+  // Sanidade da varredura: a paridade seria trivial se nada passasse.
+  assert.ok(allowed > 0, 'a varredura não cobriu nenhum caso elegível');
+  assert.ok(allowed < contracts.length * 2, 'a varredura não cobriu nenhum caso recusado');
 });

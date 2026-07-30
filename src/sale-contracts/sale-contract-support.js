@@ -784,8 +784,9 @@ export function isEspelhoSnapshotAvailable(row, contract, statusLogs = [], now =
   return expiresAt === null || expiresAt.getTime() >= now.getTime();
 }
 
-// Elegibilidade do Espelho de Corretagem (D105/D145/S74): status congelado
-// (SALE_CONTRACT_STATUSES), NAO spot-washout (D145) e corretagem > 0 no lado pedido.
+// Elegibilidade do Espelho de Corretagem: status congelado (SALE_CONTRACT_STATUSES),
+// washout que respondeu "cobrar" (RC-D89/D91), corretagem > 0 no lado pedido (S74) e
+// parte cadastrada nesse lado (RC-D110).
 // Lanca HttpError com o ESPELHO_* certo. Reusada pelo exportEspelhoPdf E pelo
 // logEspelhoExport (o endpoint de log tambem valida — nao grava export impossivel).
 export function assertEspelhoEligible(contract, side) {
@@ -804,6 +805,20 @@ export function assertEspelhoEligible(contract, side) {
     throw new HttpError(409, 'O Espelho de Corretagem exige corretagem neste lado do contrato', {
       code: 'ESPELHO_NO_BROKERAGE',
     });
+  }
+  // 🔴 RC-D110: o espelho e uma COBRANCA — sem destinatario ele nao existe. Com
+  // corretagem > 0 e o snapshot da parte vazio, o papel saia com o TOTAL real e
+  // "CLIENTE: —", entregue e auditado como documento valido. Acontece em contrato
+  // de liga/futuro cujo lado nao tem cliente cadastrado.
+  const partySnap = side === 'seller' ? contract.sellerSnapshot : contract.buyerSnapshot;
+  if (!snapshotPartyName(partySnap)) {
+    throw new HttpError(
+      409,
+      side === 'seller'
+        ? 'O contrato não tem vendedor cadastrado — o espelho sairia sem destinatário'
+        : 'O contrato não tem comprador cadastrado — o espelho sairia sem destinatário',
+      { code: 'ESPELHO_NO_PARTY' }
+    );
   }
 }
 
