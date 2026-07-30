@@ -4,9 +4,10 @@ import Image from 'next/image';
 
 interface SplashVisualProps {
   /**
-   * `false` (default) = splash de boot (animações lentas e contemplativas).
-   * `true` = loader de página lenta (`.is-page-loader`): aparece mais rápido,
-   * z-index logo abaixo do boot e a barra para em ~88% (indeterminado).
+   * `true` = loader de página lenta (`.is-page-loader`): aparece mais rápido e
+   * a barra para em ~88% (indeterminado). É o ÚNICO valor usado desde a F1 do
+   * ciclo SN — o `false` (variante de boot, animações lentas) ficou sem
+   * chamador quando o `SplashScreen` foi apagado.
    */
   pageLoader?: boolean;
   /** Dispara a animação de saída (`splash-exit`) antes de desmontar. */
@@ -16,9 +17,11 @@ interface SplashVisualProps {
 }
 
 /**
- * Visual compartilhado do carregamento da marca: partículas (bolinhas), logo
- * SAFRAS com glow, barra de progresso e status. Usado pelo `SplashScreen`
- * (boot) e pelo loader global de página lenta (`LoadingProvider`).
+ * Visual do carregamento da marca: partículas (bolinhas), logo SAFRAS com
+ * glow, barra de progresso e status. Único consumidor desde a F1 do ciclo SN:
+ * o loader global de página lenta (`LoadingProvider`) — o `SplashScreen` de
+ * boot foi apagado. Ambos morrem na F3 (ver
+ * `docs/Shell-e-Navegacao-Plano-de-Trabalho.md` §6).
  */
 export function SplashVisual({
   pageLoader = false,

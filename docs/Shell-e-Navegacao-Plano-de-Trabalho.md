@@ -1,6 +1,6 @@
 # Shell, Navegação e Carregamento — Plano de Trabalho
 
-Status: **8 decisões TRAVADAS (2026-07-30)** — pronto para implementar a partir da F1 (estrutura aprovada 2026-07-24)
+Status: **8 decisões TRAVADAS · F1 IMPLEMENTADA (2026-07-30)** — próxima é a F2 (estrutura aprovada 2026-07-24)
 Escopo (1 linha): remover a atual "página de carregamento verde", tornar o **navbar/shell persistente** (nunca desmonta), fazer a transição entre páginas **sem loader full-screen** (só o conteúdo carrega), e definir a **política de cache/estado/atualização por página**.
 Prefixo de decisões: **SN** (Shell & Navegação)
 Documentos relacionados: `Redesign-Plano-de-Trabalho.md` (redesign visual página-a-página), `Dashboard-Visao-Geral.md`, `Lotes-Visao-Geral.md`, `Auditoria-Navegacao-por-Papel.md`, skill `page-redesign-cycle`.
@@ -17,6 +17,8 @@ Este doc tem **duas metades**:
 - **Metade B — Decisões evolutivas (§4–§8):** o ledger de decisões, o mapa de páginas, a política de estado, o faseamento. **É onde o trabalho acontece.**
 
 **Estado em 2026-07-30:** a reconciliação da Metade A com o código entregue pelo ciclo de redesign **foi feita** (§2 inteira re-verificada), a varredura encontrou **7 fatos que não estavam no doc** (§2.4, §2.7, §2.8) e **8 decisões foram travadas** (§4.1). Restam **2 em aberto** (SN-D2, SN-D11) e **3 derivadas a confirmar** (SN-D6, SN-D9, SN-D12).
+
+**A F1 foi implementada no mesmo dia** — o boot splash não existe mais. As marcas 🪦 na Metade A indicam o que caiu com ela; o texto do "antes" fica porque é ele que explica **por que** as decisões seguintes são como são. **Próxima fase: F2** (§6).
 
 Fluxo para uma sessão futura: ler §1–§3 → conferir §4.1 (travadas × abertas) → se for implementar, entrar pela fase correspondente no §6 → registrar no ledger o que mudar de plano.
 
@@ -62,25 +64,25 @@ Quando se vê "uma tela de carregamento", é **uma destas**:
 | #   | Camada                                                                      | z-index         | Quando aparece                                                                                        |
 | --- | --------------------------------------------------------------------------- | --------------- | ----------------------------------------------------------------------------------------------------- |
 | 0   | **Splash nativo do SO** (PWA instalado)                                     | — (antes do JS) | Cold launch do app instalado. Vem de `manifest.background_color: #1f5d43`. **Independente do React.** |
-| 1   | **Boot splash** (`SplashScreen` + `SplashVisual`)                           | **99999**       | 1ª carga por sessão de aba · volta de background ≥30min.                                              |
+| 1   | 🪦 **Boot splash** (`SplashScreen` + `SplashVisual`) — **APAGADA na F1**    | ~~99999~~       | ~~1ª carga por sessão de aba · volta de background ≥30min.~~ Não existe mais.                         |
 | 2   | **Page loader** (`SplashVisual` com `pageLoader`, classe `.is-page-loader`) | **99998**       | Refetch de sessão de página autenticada que passa de **480ms**.                                       |
 | 3   | **Telas dedicadas** `/offline` e `/maintenance`                             | página          | Sem rede · modo manutenção (não-ADMIN). UI própria — **não** é o splash.                              |
 | 4   | **Loading in-page** (skeletons / spinners / "Carregando…")                  | conteúdo        | Cada fetch de dados de lista/modal/select.                                                            |
 
 O alvo original eram as camadas **1 e 2** (e a **0** como decisão à parte). A camada 3 fica. **A camada 4 entrou no escopo em 2026-07-30 (SN-D10)** — não porque falte, mas porque **não é sistema** (§2.8).
 
-### 2.2 A máquina do splash — "um visual, dois controladores"
+### 2.2 A máquina do splash — de "dois controladores" para um
 
-Um único componente visual reutilizado por dois controladores independentes, coordenados só pelo z-index. **Verificada intacta em 2026-07-30.**
+Era um único componente visual reutilizado por **dois** controladores independentes, coordenados só pelo z-index. **Desde a F1 (2026-07-30) sobrou um:** o `LoadingProvider` (page loader). O `SplashVisual` continua de pé **só** por causa dele — por isso nem o visual, nem o CSS, nem o logo saíram na F1 (§2.6).
 
-| Peça                                       | Arquivo                                     | Papel                                                                                                                                             |
-| ------------------------------------------ | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `SplashVisual`                             | `components/SplashVisual.tsx`               | Visual puro (logo `/logo-safras-branco.png` + halo + 14 partículas + barra + "Carregando…"). `aria-hidden`. Prop `pageLoader` alterna a variante. |
-| `SplashScreen`                             | `components/SplashScreen.tsx:70`            | Controlador de **boot** (máquina de estado). Montado em `app/layout.tsx:75`, **fora de todos os providers**. z 99999.                             |
-| `LoadingProvider` + `GlobalLoadingOverlay` | `components/LoadingProvider.tsx:21` / `:35` | Controlador do **page loader**. Portal p/ `document.body` (`:94`). Montado `app/layout.tsx:79`. z 99998.                                          |
-| `useGlobalLoading` / `LoadingContext`      | `lib/loading/loading-context.ts:20` / `:10` | Ponte contador↔overlay (ref-counted `begin`/`end`).                                                                                               |
+| Peça                                       | Arquivo                                     | Papel                                                                                                                                               |
+| ------------------------------------------ | ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SplashVisual`                             | `components/SplashVisual.tsx`               | Visual puro (logo `/logo-safras-branco.png` + halo + 14 partículas + barra + "Carregando…"). `aria-hidden`. Prop `pageLoader` alterna a variante.   |
+| 🪦 `SplashScreen`                          | ~~`components/SplashScreen.tsx`~~           | **APAGADO na F1 (2026-07-30).** Era o controlador de **boot** (máquina de estado), montado no `app/layout.tsx` fora de todos os providers, z 99999. |
+| `LoadingProvider` + `GlobalLoadingOverlay` | `components/LoadingProvider.tsx:21` / `:35` | Controlador do **page loader**. Portal p/ `document.body` (`:94`). Montado `app/layout.tsx:79`. z 99998.                                            |
+| `useGlobalLoading` / `LoadingContext`      | `lib/loading/loading-context.ts:20` / `:10` | Ponte contador↔overlay (ref-counted `begin`/`end`).                                                                                                 |
 
-**Timings:** boot = `MIN_SPLASH_MS 1200` (`SplashScreen.tsx:13`) + `EXIT_ANIMATION_MS 700` (`:14`) ≈ **1,9s de piso — atraso artificial, não espera real**. Page loader = `SHOW_DELAY_MS 480` (`LoadingProvider.tsx:11`) + `EXIT_MS 700` (`:13`); barra **para em 88%** (indeterminada).
+**Timings:** 🪦 boot = `MIN_SPLASH_MS 1200` + `EXIT_ANIMATION_MS 700` ≈ **1,9s de piso — atraso artificial, não espera real**; **morreu na F1**, e é o maior ganho isolado do ciclo. Page loader (vivo) = `SHOW_DELAY_MS 480` (`LoadingProvider.tsx:11`) + `EXIT_MS 700` (`:13`); barra **para em 88%** (indeterminada).
 
 **Gatilho único do page loader:** o hook `useGlobalLoading` só tem **um consumidor** no app inteiro — `useRequireAuth` (`lib/use-auth.ts:151`), com `loading` = _"o `GET /auth/session` desta página está em voo"_.
 
@@ -132,27 +134,39 @@ Como **cada página monta o seu próprio `useRequireAuth`**, **toda navegação 
 
 **Consequência para o ledger:** a SN-D5 estava mal formulada. A pergunta nunca foi "manter a animação de 300ms" — é **"manter o clone do DOM"**. Reformulada como **SN-D5'** (§4.1).
 
-### 2.5 Comportamentos "load-bearing" do `SplashScreen` (não são só visuais)
+### 2.5 🪦 Comportamentos "load-bearing" do `SplashScreen` — **todos caíram na F1**
 
-`resolveDestination()` (`SplashScreen.tsx:55-68`): offline→`/offline`, sessão ok→`/dashboard`, 401→`/login`. No `mode==='initial'` **sempre** faz `router.replace`.
+> **Histórico, mantido de propósito.** O componente não existe mais desde 2026-07-30; esta seção fica porque descreve **o que mudou de comportamento** para quem for validar no device, e porque é a justificativa da SN-D3.
 
-- **Deep-link a frio → `/dashboard`** (descarta o deep-link no 1º load da sessão). É um **defeito**, não um recurso: um link salvo aberto a frio cai no Início.
-- **Boot offline → `/offline`** (proativo, antes da API). O SW só leva a `/offline` para documento **não** cacheado.
-- **Resume após background** (`visibilitychange`, `:140-161`): re-checa sessão >30min (`BACKGROUND_COOLDOWN_MS`, `:15`), força `/dashboard` >60min (`DASHBOARD_REDIRECT_AFTER_MS`, `:16`).
-- **Flags** `splash-shown-this-session` (sessionStorage) e `splash-last-background` (localStorage).
+`resolveDestination()`: offline→`/offline`, sessão ok→`/dashboard`, 401→`/login`. No `mode==='initial'` **sempre** fazia `router.replace`.
 
-→ Destino dos três: **SN-D3, travada** — nenhum sobrevive (§4.1).
+| Comportamento de antes                                                                                 | O que acontece agora                                                                                                    |
+| ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| **Deep-link a frio → `/dashboard`** (descartava o deep-link no 1º load) — era **defeito**, não recurso | ✅ **O deep-link ABRE a rota pedida.** É a correção mais visível da F1                                                  |
+| **Boot offline → `/offline`** (proativo, antes da API)                                                 | O app abre normal com a sessão em cache; o SW leva a `/offline` só se o documento não estiver cacheado                  |
+| **Resume após background**: re-checava sessão >30min, forçava `/dashboard` >60min                      | Nada acontece — o usuário volta onde estava. A frescura fica com a revalidação por foreground (F3)                      |
+| **Flags** `splash-shown-this-session` (sessionStorage) · `splash-last-background` (localStorage)       | Ninguém mais escreve nem lê. As chaves antigas ficam órfãs nos aparelhos e são inofensivas — nenhuma limpeza necessária |
+
+→ **SN-D3, travada e implementada na F1** — nenhum dos três sobreviveu (§4.1).
 
 ### 2.6 Grafo de deleção (o que sai / edita / vira morto)
 
-**Remover (100% órfão):** `components/SplashScreen.tsx`, `components/SplashVisual.tsx`, `components/LoadingProvider.tsx`, `lib/loading/loading-context.ts` (+ pasta). CSS `app/globals.css:13692–14056` (~**365 linhas**, contíguas, splash-exclusivas — de `.splash-screen` até o fim de `@keyframes splash-dots-pulse`; o bloco `.page-transition-*` começa logo depois, em `:14058`).
+**Remover — mas em DUAS fases, não numa:**
 
-> **Corrigido em 2026-07-30:** a faixa anterior registrada (`20411–20798`) está obsoleta — a poda de CSS da §19 do ciclo RC encurtou `globals.css` para **28.116 linhas** e deslocou o bloco. `.splash-title` e `@keyframes splash-title-in`, antes registrados como "já mortos", **já não existem** (saíram na poda).
+| O quê                                                                                                         | Fase            | Por quê                                                                                          |
+| ------------------------------------------------------------------------------------------------------------- | --------------- | ------------------------------------------------------------------------------------------------ |
+| `components/SplashScreen.tsx`                                                                                 | **F1 ✅ feito** | Controlador de boot; nada mais o referencia                                                      |
+| `components/SplashVisual.tsx` · `components/LoadingProvider.tsx` · `lib/loading/loading-context.ts` (+ pasta) | **F3**          | O `LoadingProvider` (page loader, camada 2) **segue vivo até a F3** e renderiza o `SplashVisual` |
+| CSS `app/globals.css:13692–14056` (~**365 linhas**)                                                           | **F3**          | **Bloco inteiramente COMPARTILHADO** — ver abaixo                                                |
+
+> **🔴 Erro corrigido em 2026-07-30, durante a F1:** o registro anterior dizia "Remover (100% órfão)" para os 4 arquivos e punha o CSS na F1. **Errado.** As 5 regras `.is-page-loader` (`:13715`, `:13719`, `:13723`, `:13727`, `:13731`) são **overrides sobre a mesma base** — o page loader renderiza o mesmo `SplashVisual` e precisa de `.splash-screen`, `.splash-particles`, `.splash-particle:nth-child(1..14)`, `.splash-center`, `.splash-logo-glow`, `.splash-logo`, `.splash-footer`, `.splash-progress-*`, `.splash-status`, `.splash-dots` e os 10 `@keyframes`. **Zero linha de CSS sai na F1.** O bloco morre inteiro na F3, quando o `LoadingProvider` morrer.
+
+> **Corrigido em 2026-07-30:** a faixa anterior registrada (`20411–20798`) está obsoleta — a poda de CSS da §19 do ciclo RC encurtou `globals.css` para **28.116 linhas** e deslocou o bloco. `.splash-title` e `@keyframes splash-title-in`, antes registrados como "já mortos", **já não existem** (saíram na poda). O bloco é contíguo, de `.splash-screen` até o fim de `@keyframes splash-dots-pulse`; o bloco `.page-transition-*` começa em `:14058`.
 
 **Editar:** `app/layout.tsx` (tira 2 mounts, `:75` e `:79`), `lib/use-auth.ts` (tira import `:7` + `useGlobalLoading(loading)` `:151`), skill `.claude/skills/design-system/SKILL.md` §loader (skill-maintenance).
 **Não tocar (independentes, apesar de "verdes"):** `app/manifest.ts` `background_color/theme_color: #1f5d43` (splash nativo do SO) e `app/layout.tsx:60` `themeColor` (barra de status) — só mudam se for decisão explícita (SN-D2). `app/page.tsx` `redirect('/dashboard')` e os guards de `useRequireAuth` cobrem os redirects que o splash duplicava.
 **Testes:** **0** referenciam a máquina — a suíte não quebra.
-**Asset:** `logo-safras-branco.png` (**90KB**) fica sem consumidor React; está no `STATIC_PATHS` do SW (`public/sw.js:12`), então apagá-lo do `public/` exige bumpar `CACHE_NAME` (`:11`).
+**🔴 Asset — erro corrigido em 2026-07-30, durante a F1:** o registro anterior dizia que `logo-safras-branco.png` "fica sem consumidor React (só o `SplashVisual` usava via `next/image`)". **É FALSO e apagá-lo quebraria o app.** Ele tem **6 outros consumidores**: `app/login/page.tsx:189`, `app/maintenance/page.tsx:43`, `components/AppShell.tsx:694` e `:941`, `lib/informativos/story-draw.ts:13` (`LOGO_SRC`) e `lib/informativos/story-layout.ts:45`. **O arquivo FICA, em todas as fases.** Segue no `STATIC_PATHS` do SW (`public/sw.js:12`) e não há `CACHE_NAME` para bumpar por causa dele.
 
 **Os 8 gates `null`** (o principal impacto visual — hoje cobertos pelo page loader): linhas na tabela do §2.3. Sem o loader e sem outra solução, esse instante vira **tela branca** — é o que a SN-D8 + SN-D1 resolvem.
 
@@ -378,14 +392,16 @@ A ordem combinada em 2026-07-24 era **D4 → D6 → D1 → D3** (D5/D2 por últi
 > **🔴 Alerta de sequência 1 (tela branca):** NÃO apagar o **page loader** (camada 2) antes de F2+F3 — sem o shell persistente e a sessão do cache, a navegação vira **tela branca**. O **boot splash** (camada 1) pode sair antes.
 >
 > **🔴 Alerta de sequência 2 (dado velho) — acrescentado 2026-07-30:** NÃO entregar a F2 sem o barramento da F3. Hoje é a remontagem a cada navegação que disfarça a obsolescência (§2.7); o shell persistente a remove. Sem invalidação, a F2 sozinha **piora** o sintoma que o Flavio já percebe.
+>
+> **🔴 Lição da F1 (2026-07-30):** o grafo de deleção do §2.6 é o total do ciclo, **não a lista de uma fase**. Antes de apagar qualquer peça numa fase, conferir **quem mais a consome** — na F1, três das quatro "órfãs" ainda tinham dono (o page loader), e o logo tinha **seis**. Apagar pela lista teria quebrado login, manutenção, o shell e o canvas dos informativos.
 
-| Fase            | Objetivo                                                       | Entra                                                                                                                            | NÃO tocar                                | Risco                                                                     | Pronto quando                                                                                      |
-| --------------- | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| **F1**          | Remover o **boot splash** e sua lógica                         | `SplashScreen`, `SplashVisual`, storage keys, resume; CSS `13692–14056`                                                          | page loader ainda vive; manifest (SN-D2) | deep-link e offline mudam de comportamento (SN-D3, intencional)           | app entra sem a tela verde; deep-link a frio **funciona**; gates verdes; device                    |
-| **F2**          | **Shell persistente** no route group                           | mover 8 dirs p/ `app/(app)/`, ajustar 87 imports, shell + provider de sessão no layout; `PageTransition` perde o clone (SN-D5')  | dados por página                         | perda de estado, hidratação                                               | navbar não pisca ao navegar; sem regressão visual nas 8                                            |
-| **F3**          | **Sessão do cache + invalidação + fim do page loader**         | init síncrono via `readCachedSession`; **barramento (SN-D13)**; snapshots (SN-D7); registro de chaves; deletar `LoadingProvider` | —                                        | tela branca se F2 incompleta; dado velho se o barramento ficar incompleto | navegação instantânea, sem verde nem branco; **ação numa página reflete em outra sem sair da aba** |
-| **F4**          | **Camada 4 vira sistema** (SN-D10)                             | primitivo único de skeleton (absorve as 6 famílias); vocabulário de "Carregando"; SN-D11                                         | arquitetura da F3                        | —                                                                         | um kit, um vocabulário; skill `design-system` atualizada                                           |
-| **F5** (futura) | **Nova splash de entrada** (nome do app, só após X tempo fora) | novo componente; SN-D2 (verde nativo)                                                                                            | —                                        | —                                                                         | especificado em doc próprio ou §3.5 expandido                                                      |
+| Fase            | Objetivo                                                       | Entra                                                                                                                            | NÃO tocar                                                                                | Risco                                                                     | Pronto quando                                                                                      |
+| --------------- | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| **F1** ✅       | Remover o **boot splash** e sua lógica                         | **só** `SplashScreen.tsx` + os 2 pontos no `app/layout.tsx`                                                                      | `SplashVisual`, `LoadingProvider`, o CSS e o logo — **todos compartilhados**, saem na F3 | deep-link e offline mudam de comportamento (SN-D3, intencional)           | **código feito e gates verdes 2026-07-30; falta o 🖥️/📱 do Flavio**                                |
+| **F2**          | **Shell persistente** no route group                           | mover 8 dirs p/ `app/(app)/`, ajustar 87 imports, shell + provider de sessão no layout; `PageTransition` perde o clone (SN-D5')  | dados por página                                                                         | perda de estado, hidratação                                               | navbar não pisca ao navegar; sem regressão visual nas 8                                            |
+| **F3**          | **Sessão do cache + invalidação + fim do page loader**         | init síncrono via `readCachedSession`; **barramento (SN-D13)**; snapshots (SN-D7); registro de chaves; deletar `LoadingProvider` | —                                                                                        | tela branca se F2 incompleta; dado velho se o barramento ficar incompleto | navegação instantânea, sem verde nem branco; **ação numa página reflete em outra sem sair da aba** |
+| **F4**          | **Camada 4 vira sistema** (SN-D10)                             | primitivo único de skeleton (absorve as 6 famílias); vocabulário de "Carregando"; SN-D11                                         | arquitetura da F3                                                                        | —                                                                         | um kit, um vocabulário; skill `design-system` atualizada                                           |
+| **F5** (futura) | **Nova splash de entrada** (nome do app, só após X tempo fora) | novo componente; SN-D2 (verde nativo)                                                                                            | —                                                                                        | —                                                                         | especificado em doc próprio ou §3.5 expandido                                                      |
 
 ## §7. Riscos & questões abertas
 
@@ -416,7 +432,7 @@ Gates padrão (`lint` + `format:check` + `typecheck` + `build` + `test:unit`) + 
 ## §9. Glossário & referências
 
 - **Shell / app shell:** navbar + chrome persistentes que envolvem o conteúdo da rota.
-- **Boot splash:** camada 1 (`SplashScreen`), tela verde na entrada.
+- **Boot splash:** camada 1 (`SplashScreen`), a tela verde na entrada — 🪦 **apagada na F1**.
 - **Page loader:** camada 2 (`is-page-loader`), overlay verde na navegação.
 - **SWR / stale-while-revalidate:** renderizar do cache e revalidar em background.
 - **Staleness:** por quanto tempo um dado cacheado é considerado "fresco" antes de revalidar.
@@ -426,7 +442,9 @@ Gates padrão (`lint` + `format:check` + `typecheck` + `build` + `test:unit`) + 
 
 **Arquivos-chave:**
 
-- Sai: `components/{SplashScreen,SplashVisual,LoadingProvider}.tsx`, `lib/loading/`, `app/globals.css:13692–14056`
+- Já saiu (F1): `components/SplashScreen.tsx`
+- Sai na F3: `components/{SplashVisual,LoadingProvider}.tsx`, `lib/loading/`, `app/globals.css:13692–14056` — **nada disso podia sair antes**, ver §2.6
+- **Fica sempre:** `public/logo-safras-branco.png` (6 consumidores fora do splash — §2.6)
 - Muda: `app/layout.tsx`, `components/{AppShell,PageTransition,MobileTabbar}.tsx`, `lib/use-auth.ts`, as 8 páginas (movem p/ `app/(app)/`)
 - **Reusar, não recriar:** `lib/offline/session-cache.ts` (`readCachedSession` é **síncrono** — é o que torna a SN-D8 sem flash), `lib/use-list-revalidation.ts` (o barramento o absorve), `app/samples/page.tsx:429-495` (o molde do snapshot)
 - Não tocar: `middleware.ts`, `src/auth/*`, `app/manifest.ts`, `public/sw.js` (salvo bump de `CACHE_NAME` se o logo sair)

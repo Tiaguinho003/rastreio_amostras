@@ -7,7 +7,6 @@ import { PwaRegistration } from '../components/PwaRegistration';
 import { RouteHistoryTracker } from '../components/RouteHistoryTracker';
 import { ViewportDebugOverlay } from '../components/ViewportDebugOverlay';
 import { ViewportSync } from '../components/ViewportSync';
-import { SplashScreen } from '../components/SplashScreen';
 import { DirtyStateProvider } from '../lib/dirty-state/DirtyStateProvider';
 import { ScannerBridge } from '../lib/scanner/ScannerBridge';
 import { ToastProvider } from '../lib/toast/ToastProvider';
@@ -72,7 +71,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <RouteHistoryTracker />
         <ViewportSync />
         <ViewportDebugOverlay />
-        <SplashScreen />
         <ToastProvider>
           <DirtyStateProvider>
             <ScannerBridge>

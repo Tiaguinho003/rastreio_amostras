@@ -380,9 +380,11 @@ Existem dois padroes em uso (ambos validos — usar conforme o contexto do card)
 
 ### Loader de pagina lenta (branded)
 
-- Quando **uma pagina inteira** demora (sessao/auth ou dados), aparece o visual da marca (logo + barra + bolinhas) — o mesmo do splash de boot — em vez de texto verde.
-- Componente reusavel: `components/SplashVisual.tsx` (variante `pageLoader`); `SplashScreen` (boot) e o loader de pagina compartilham esse visual.
-- Arquitetura: `LoadingProvider` (`app/layout.tsx`, em volta do `PageTransition`) conta fontes de carregamento e so mostra o overlay apos ~480ms (loads rapidos nao piscam), portado ao `body`, z-index 99998 (abaixo do splash de boot 99999, pra handoff sem glitch no startup).
+> ⚠️ **Esta secao tem prazo de validade.** O ciclo SN vai apagar este loader na **F3** (`docs/Shell-e-Navegacao-Plano-de-Trabalho.md` §6). A F1 ja apagou o splash de **boot** em 2026-07-30. Nao construir nada novo em cima dele — para pagina inteira que ainda espera, o alvo e **shell + skeleton por area** (SN-D1), nao overlay.
+
+- Quando **uma pagina inteira** demora (sessao/auth ou dados), aparece o visual da marca (logo + barra + bolinhas) em vez de texto verde.
+- Componente: `components/SplashVisual.tsx` (variante `pageLoader`). Desde a F1 do ciclo SN ele tem **um unico consumidor**, o loader de pagina — o `SplashScreen` de boot foi apagado e a variante sem `pageLoader` ficou sem chamador.
+- Arquitetura: `LoadingProvider` (`app/layout.tsx`, em volta do `PageTransition`) conta fontes de carregamento e so mostra o overlay apos ~480ms (loads rapidos nao piscam), portado ao `body`, z-index 99998.
 - Registrar uma fase async lenta: hook `useGlobalLoading(active)` (`lib/loading/loading-context.ts`). Ja vem ligado no `useRequireAuth` (cobre auth de toda pagina autenticada); paginas de detalhe ligam tambem o load dos dados (`useGlobalLoading(loadingDetail)`).
 - **Evitar o "shell vazio" no 1o load:** a pagina de detalhe deve dar `return null` enquanto os dados ainda nao chegaram (`if (loadingDetail && !detail) return null` / `if (loadingPage && !client) return null`), em vez de renderizar `AppShell`/`.sdv-page` sem conteudo — o loader da marca cobre a tela e a pagina aparece de uma vez. So no 1o load (dado ainda `null`); refetch mantem o dado e nao pisca. Aplicado em `/samples/[sampleId]` e `/clients/[clientId]`.
 
