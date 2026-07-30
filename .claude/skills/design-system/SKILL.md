@@ -141,7 +141,8 @@ Ao construir ou revisar qualquer superficie de pagina ja migrada:
 - [ ] Botao de adicionar **nomeado** ("+ Adicionar filial"), nunca "+" solto
 - [ ] Pecas genericas em vez de alias de pagina (`.fv-tabs`, `.fv-iconbtn`, `.fv-more-*`,
       `.fv-add-btn`) — ver `css-architecture` §8
-- [ ] Skeleton no formato do componente final, nunca "Carregando…"
+- [ ] Skeleton pelo kit (`components/Skeleton.tsx`), altura escopada na pagina; nunca "Carregando…" em area grande
+- [ ] Lista com rolagem infinita tem `<LoadingLive />`
 - [ ] Textos em pt-BR
 
 ---
@@ -263,7 +264,7 @@ Overrides escopados sob `.dashboard-mobile` em `app/globals.css` (bloco "Dashboa
 - **Cards de envio (`RecentSendsCard`): APAGADOS de vez em 2026-07-27 (RC-D26).** O componente, as classes **`.sends-*`** (17 classes, ~198 linhas de CSS) e a rota `GET /sale-contracts/approvals/recent-sends` sairam do repo. Historico: os dois cards ja tinham saido do dashboard no DSB-D14 (2026-07-14) — "Amostras enviadas" saiu do produto na RD15-F1 (`d136bfc`) e "Aprovacoes enviadas" foi pro topo da sub-aba Aprovacoes de `/embarques`, que morreu na RC-F4 levando o ultimo consumidor junto. **Nao ha mais card de feed de envios em lugar nenhum.** O que sobrou com essa natureza e o **card de Avisos** (`components/dashboard/AvisosCard.tsx`, classes `.dd-avisos-*`), que usa o MESMO hook `lib/use-recent-sends-feed.ts` com outro endpoint — o hook **nao** morreu com o card. _(F3 do ciclo SN: ele foi reescrito por cima do `useRevalidate` e ganhou um 4o parametro, os **assuntos** que o assinam; do que era proprio dele so ficou o gate `matchMedia` 901px. O card de Avisos assina `lotes`+`contratos`+`relatorios` com `pollMs: null` — o poll de 1 request/minuto nao se paga num agregado, e o foreground cobre o caso real.)_ A rota `GET /samples/recent-sends` tambem ficou de pe (tem suite propria), sem consumidor de UI.
 - **Card "Eventos"** (`components/dashboard/EventsCalendarCard.tsx`, desktop-only; detalhe em `docs/Dashboard-Visao-Geral.md` §7.3): **DSB-D18 (2026-07-14)** — calendario **MENSAL** (grade `.dd-events-grid` **7 colunas × N linhas** domingo-first, N=4/5/6 semanas via `grid-auto-rows: minmax(0,1fr)`), com **TODOS os dias**: sab/dom **esmaecidos** (`.dd-events-day.is-weekend`, fundo `#f4f6f4` + numero muted — o negocio nao agenda acoes neles; evento ali e legado/borda no **dia REAL**, o roll `rollWeekendToWeekday` do backend foi REMOVIDO) e pontas dos meses vizinhos esmaecidas COM eventos (`.is-outside`, fundo transparente + numero muted w500). Helpers date-only BRT em `lib/dashboard-calendar.ts`: `computeMonthStart`/`addMonths`/`buildMonthGrid`/`formatMonthLabel` (+`computeWeekStart` como ancora das linhas; NAO unificar com o weekly-report segunda-based). Header = titulo + rotulo "julho de 2026" + nav ◀ `Hoje` ▶ (passo de **1 mes**, passado/futuro livres; deslize horizontal 200ms `dd-events-slide-*`, coberto no reduced-motion). Cabecalho de colunas `D S T Q Q S S` (7). Cada celula (`.dd-events-day`, container `<div>`) = numero no topo (`.dd-events-day-number`; "1 ago" no dia 1) + **`.dd-events-day-list`** (`flex:1; overflow-y:auto` — **rola POR DENTRO** quando o dia tem muitos eventos; decisao do usuario no DSB-D18, sem popover). **Sem painel** de dia selecionado e **sem dots**. Cada evento = **`.dd-events-chip`** (Link ou span): borda-esquerda colorida por **ESTADO** (var `--chip-color` via `data-state`, DSB-D10) + rotulo truncado; **navegacao PURA** → **sempre o proprio contrato** (`/contratos?details={contractId}&highlight={contractId}`) desde a **RC-D23** (2026-07-27): `navTabForEvent`, `ALL_CONTRACT_TABS` e a prop `navigableTabs` foram APAGADOS com as sub-abas, e a DSB-D11 (chip inerte quando o papel nao abre a aba-dona) perdeu o objeto — os 5 papeis nao-PROSPECTOR abrem qualquer contrato. `eventHref` so devolve `null` quando o evento nao tem `contractId`; ai o chip e so-rotulo (span). O card de **Avisos** (`AvisosCard`) segue o mesmo alvo. **Cores por estado** (DSB-D10 — 3 cores; o **nome do tipo** no rotulo `tipo · nº · comprador` diferencia): azul `#2563eb` previsto / vermelho `#dc2626` atrasado / verde `#15803d` realizado; vars `--state-*` no `.dd-events-card`; **legenda** `.dd-events-legend`; estado tambem no `aria-label`/`title` (a11y). Hoje = anel `inset var(--brand-green)` + fundo `#f2f8f4` + `aria-current="date"`. **3 feeds mesclados no `DashboardDesktop`** via `onWindowChange` (janela = **grade inteira do mes**, 28–42 dias): pagamento (`/dashboard/payment-events`, `FINANCEIRO_ROLES` = todos os não-PROSPECTOR desde 2026-07-15 — era ADMIN+COMMERCIAL; flag `canPay`) + embarque (`/dashboard/shipment-events`, auth-only) + faturamento (`/dashboard/invoice-events`, auth-only; DSB-D11 — chip → aba Contratos, pisca via `useContractHighlight`). _(Feed de aprovacao removido em DSB-D9.)_ A prop `events` = `Record<'YYYY-MM-DD', DashboardCalendarEvent[]>`. Card **desktop-only** (o `DashboardMobile` nao o renderiza). Piso do `.dd-content-grid` = 420px (6 semanas).
 - **Modal "Lotes pendentes" (`OperationModal`): REMOVIDO em 2026-07-12 (DSB-D2)** junto com os cards de pendencia. O CSS `.bottom-sheet.is-operations` + `.spv2-card-classify-arrow` foi **MANTIDO** (sera reusado quando o fluxo de classificar-a-partir-da-fila for reconstruido na pagina de Lotes). Ver `docs/Dashboard-Plano-de-Trabalho.md` (DSB-D2).
-- **CSS orfao legado: LIMPO na revisao DSH (2026-07-07).** O cluster de classes mortas do dashboard antigo (`.dashboard-secondary-grid`, `-section-column*/-link/-subtitle`, `-secondary-panel*`, `-operations-panel`, `-search-section`, `-op-print/-progress*`, `-mobile-hero*/-welcome*`, `-total-today*`, `-view-all-link`, `-action-link*/-icon/-label`, `-empty-state`, `-muted-text`, skeleton `-md/-lg/-full/-xs`+`circle`/`content`, `.sales-total-number`) foi removido classe-a-classe com grep. Continuam VIVAS: `.dashboard-section-heading/-title`, `.dashboard-operations-grid`/`.dashboard-operation-card*`/`.dashboard-operation-badge` (PROSPECTOR), `.dashboard-skeleton-line`/`-sm`/`-card`/`-icon-wrap`. A regra segue valendo pra limpezas futuras: **so classe-a-classe com grep antes** — delecao por faixa de linha QUEBRA o prospector. Novidade da mesma revisao: `.dashboard-error-banner` (banner de erro de carregamento, ver skill `feedback-messages` §4). **DSB-D2 (2026-07-12):** removidas tambem `.dd-summary-row` + `.dd-stat-*` (com o `StatCard`); `.bottom-sheet.is-operations` e `.spv2-card-classify-arrow` ficaram SEM uso mas foram MANTIDAS (rebuild do fluxo de classificar na pagina de Lotes). Novo: `.spv2-pending-stat*` (card so-visualizacao "Classificacao pendente" em `/samples`).
+- **CSS orfao legado: LIMPO na revisao DSH (2026-07-07).** O cluster de classes mortas do dashboard antigo (`.dashboard-secondary-grid`, `-section-column*/-link/-subtitle`, `-secondary-panel*`, `-operations-panel`, `-search-section`, `-op-print/-progress*`, `-mobile-hero*/-welcome*`, `-total-today*`, `-view-all-link`, `-action-link*/-icon/-label`, `-empty-state`, `-muted-text`, skeleton `-md/-lg/-full/-xs`+`circle`/`content`, `.sales-total-number`) foi removido classe-a-classe com grep. Continuam VIVAS: `.dashboard-section-heading/-title`, `.dashboard-operations-grid`/`.dashboard-operation-card*`/`.dashboard-operation-badge` (PROSPECTOR). _(As 4 `.dashboard-skeleton-*` que ficaram vivas nesta limpeza morreram depois, na F4 do ciclo SN — viraram o kit `.fv-skel-*`.)_ A regra segue valendo pra limpezas futuras: **so classe-a-classe com grep antes** — delecao por faixa de linha QUEBRA o prospector. Novidade da mesma revisao: `.dashboard-error-banner` (banner de erro de carregamento, ver skill `feedback-messages` §4). **DSB-D2 (2026-07-12):** removidas tambem `.dd-summary-row` + `.dd-stat-*` (com o `StatCard`); `.bottom-sheet.is-operations` e `.spv2-card-classify-arrow` ficaram SEM uso mas foram MANTIDAS (rebuild do fluxo de classificar na pagina de Lotes). Novo: `.spv2-pending-stat*` (card so-visualizacao "Classificacao pendente" em `/samples`).
 
 ### Variante: dashboard do PROSPECTOR (app restrito)
 
@@ -306,14 +307,14 @@ Todos os verdes do app vivem na paleta Safras, expostos como tokens CSS no `:roo
 
 ### Superficies
 
-| Uso                   | Cor                                                 |
-| --------------------- | --------------------------------------------------- |
-| Fundo pagina (quente) | `#fdf9ec` → `#f4f0e7`                               |
-| Fundo card            | `linear-gradient(180deg, #ffffff 0%, #f9f7f2 100%)` |
-| Fundo campo repouso   | `#f8f6f2`                                           |
-| Fundo campo focado    | `#ffffff`                                           |
-| Divider / separador   | `#d9d3be`                                           |
-| Skeleton loading      | `#e8e3d5`, `#e0dbd0`                                |
+| Uso                   | Cor                                                                                      |
+| --------------------- | ---------------------------------------------------------------------------------------- |
+| Fundo pagina (quente) | `#fdf9ec` → `#f4f0e7`                                                                    |
+| Fundo card            | `linear-gradient(180deg, #ffffff 0%, #f9f7f2 100%)`                                      |
+| Fundo campo repouso   | `#f8f6f2`                                                                                |
+| Fundo campo focado    | `#ffffff`                                                                                |
+| Divider / separador   | `#d9d3be`                                                                                |
+| ~~Skeleton loading~~  | 🪦 nao ha mais esqueleto legado — o kit `.fv-skel-*` (§0) vale no app inteiro desde a F4 |
 
 ### Texto
 
@@ -373,12 +374,45 @@ Existem dois padroes em uso (ambos validos — usar conforme o contexto do card)
 - Nunca mudar cor de fundo ao clicar (excecao: filter chips em listagens — ver §7)
 - `-webkit-tap-highlight-color: transparent`
 
-### Skeleton loading
+### Skeleton loading — o kit `.fv-skel-*` (F4 do ciclo SN, SN-D10)
 
-- Formato identico ao card final (mesma altura, mesmo radius, mesma cor de fundo neutra)
-- Pode usar **shimmer suave** (`background-size: 200% 100%` + `linear-gradient` em movimento, `~1.4s ease-in-out infinite`) combinado com fade-in `cubic-bezier(0.22, 1, 0.36, 1)` na entrada
-- Exemplo em uso: skeleton dos cards de `/samples` (`.spv2-card` + `spv2-skeleton-shimmer`, ver `app/globals.css`)
-- Skeleton e para **cards/secoes especificas** dentro de uma pagina ja carregada — e, desde a F3 do ciclo SN, e **o unico recurso de espera que existe**. Nunca um texto "Carregando...", e nunca mais um overlay de tela cheia.
+**Nao escreva CSS de esqueleto novo, e nao escreva o laco no JSX.** Use `components/Skeleton.tsx`:
+
+| Peca                                         | O que da                                                                    |
+| -------------------------------------------- | --------------------------------------------------------------------------- |
+| `<SkeletonCards count={3} />`                | N cards no formato da lista (`.fv-skel-card`)                               |
+| `<SkeletonTableRows rows={6} columns={6} />` | N linhas de `<tbody>`, uma `.fv-skel-line` por celula                       |
+| `<SkeletonLine />` · `<SkeletonBox />`       | barra de texto · quadrado de icone/avatar                                   |
+| `<SkeletonDetail cards={3} />`               | linha de titulo + blocos na altura do `.sdv-card` — o 1o load de um detalhe |
+
+Todas ja nascem `aria-hidden`. Antes da F4 eram **6 familias com prefixo de pagina, 3 tecnicas de animacao e 4 duracoes** — duas telas carregando lado a lado piscavam fora de compasso.
+
+🔴 **O kit da superficie + animacao + raio. A ALTURA e da pagina** — o esqueleto tem de ter o formato do card final, e so a pagina sabe qual e. Escopar la (`.rsm-list .fv-skel-card { height: ... }`), nunca no kit.
+
+🔴 **`prefers-reduced-motion` e UM bloco so**, no kit. Regra de esqueleto fora dele volta a deixar buraco — antes da F4, 2 das 4 animacoes (inclusive a mais usada do app) ignoravam movimento reduzido.
+
+**Excecao declarada:** `.pg-canvas-skeleton` (canvas do simulador) **nao** e esqueleto — e reserva de caixa para o `next/dynamic`, sem animacao, pintando `--pg-canvas-bg` para nao dar CLS. Fica fora do kit de proposito; o porque esta escrito ao lado dela no `globals.css`.
+
+Skeleton e para **carga real e troca de filtro**. Revalidacao por baixo **nunca** mostra esqueleto (ver `lib/revalidation/use-revalidate.ts`).
+
+### O vocabulario de "Carregando" (F4)
+
+Antes da F4 a palavra aparecia **22 vezes em 12 grafias**, divergindo em reticencias, acento e substantivo. A regra:
+
+1. **Uma grafia so: `Carregando…`**, com reticencias tipograficas. Nunca `...`.
+2. **Sem substantivo no texto visivel** — o campo tem rotulo, o dropdown esta sobre o campo, a aba diz de que aba se trata.
+3. **Com substantivo so no `aria-live`**, que e lido sem o contexto visual: `<LoadingLive active={...} label="mais lotes" />`.
+4. **Area grande nao tem texto: tem esqueleto.** Lista, detalhe e painel **nunca** dizem "Carregando".
+
+`Carregando…` seco sobrou so em **dropdown de campo** e em **botao "carregar mais"** — os dois lugares onde o rotulo ao lado ja diz do que se trata.
+
+### `<LoadingLive />` — o anuncio do load-more
+
+`components/LoadingLive.tsx`. Toda lista com rolagem infinita precisa dele: o esqueleto e `aria-hidden`, entao sem a regiao o conteudo novo entra **em silencio** para leitor de tela. Antes da F4 so a `/samples` tinha.
+
+🔴 **NAO e parte do `SkeletonCards`, de proposito.** A regiao precisa estar **sempre no DOM**, com so o texto mudando — regiao recem-inserida costuma nao disparar em parte dos leitores. Sao duas pecas porque sao dois tempos de vida.
+
+Utilitaria de esconder visualmente: **`.fv-visually-hidden`** (era `.login-visually-hidden` ate a F4).
 
 ### 🪦 Loader de pagina lenta (branded) — APAGADO na F3 (2026-07-30)
 
@@ -795,5 +829,5 @@ Telas com estado nao-salvo devem se registrar via `useRegisterDirtyState('chave'
 - [ ] Botao primario com gradiente verde, nao muda cor ao clicar
 - [ ] Modais como bottom sheet (nunca dropdown no mobile)
 - [ ] Cores da paleta documentada (nunca cores inventadas)
-- [ ] Skeleton loading no formato do componente final
+- [ ] Skeleton pelo kit `.fv-skel-*` do §0 (vale tambem nas paginas legadas)
 - [ ] Tipografia seguindo a hierarquia definida

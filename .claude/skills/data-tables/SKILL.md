@@ -434,23 +434,33 @@ condicional, não fixo.
 
 ### Estados
 
-| Estado          | O que renderizar                                                                                       |
-| --------------- | ------------------------------------------------------------------------------------------------------ |
-| Carregando (1º) | skeleton, nunca "Carregando…"                                                                          |
-| Erro sem itens  | `.spv2-error-banner` com `role="status"` — **não** cair no vazio                                       |
-| Vazio           | `.spv2-empty` com ícone + texto + sub ("Tente outro filtro…")                                          |
-| Carregando mais | 3 `<tr className="fv-table-skel-row" aria-hidden>` com `<span className="fv-table-skel" />` por célula |
-| Fim             | sentinel `<div ref={loadMoreRef} …>` só enquanto houver `nextCursor`                                   |
+| Estado          | O que renderizar                                                                                     |
+| --------------- | ---------------------------------------------------------------------------------------------------- |
+| Carregando (1º) | `<SkeletonCards count={3} />` (mobile) / `<SkeletonTableRows …>` (desktop) — **nunca** "Carregando…" |
+| Erro sem itens  | `.spv2-error-banner` com `role="status"` — **não** cair no vazio                                     |
+| Vazio           | `.spv2-empty` com ícone + texto + sub ("Tente outro filtro…")                                        |
+| Carregando mais | as mesmas peças, 3 unidades + `<LoadingLive active label="mais lotes" />`                            |
+| Fim             | sentinel `<div ref={loadMoreRef} …>` só enquanto houver `nextCursor`                                 |
+
+**O esqueleto vem do kit** (`components/Skeleton.tsx`, F4 do ciclo SN) — não escreva o
+`Array.from({length}).map` à mão nem CSS de esqueleto novo; a altura, sim, é escopada na página
+(`design-system` §3). `.fv-table-skel-row` não tem CSS próprio — é só gancho semântico.
 
 **O skeleton precisa do mesmo número de células que `<col>`.** Célula a menos desalinha a tabela
-inteira enquanto carrega. `.fv-table-skel-row` não tem CSS próprio — é só gancho semântico; quem
-pulsa é o `.fv-table-skel`.
+inteira enquanto carrega — é o que o `columns` do `SkeletonTableRows` existe para não deixar
+esquecer.
+
+🔴 **`<LoadingLive />` não é opcional.** O esqueleto é `aria-hidden`, então sem a região o
+load-more traz conteúdo **em silêncio** para leitor de tela. E ela **não** mora dentro do
+`SkeletonCards`: precisa estar sempre no DOM, com só o texto mudando (monte-a acima do ramo de
+lista, fora do `isDesktop ? … : …`).
 
 O vazio do modo seleção tem texto próprio ("Nenhum lote disponível para liga"), não o genérico.
 
-> ⚠️ As classes de estado (`.spv2-list-scroll`, `.spv2-empty`, `.spv2-error-banner`,
-> `.spv2-skeleton-card`) são **compartilhadas por todas as listas do app** — reuse o markup, mas
-> qualquer mudança de CSS nelas vai escopada na página (`css-architecture` §3).
+> ⚠️ As classes de estado (`.spv2-list-scroll`, `.spv2-empty`, `.spv2-error-banner`) são
+> **compartilhadas por todas as listas do app** — reuse o markup, mas qualquer mudança de CSS nelas
+> vai escopada na página (`css-architecture` §3). _(A `.spv2-skeleton-card` saiu desta lista na F4:
+> virou o kit `.fv-skel-card`.)_
 
 ---
 
@@ -685,7 +695,7 @@ desabilitado). Se as duas divergirem, uma ação existe num breakpoint e some no
 O prefixo `spv2-` é **compartilhado** — `.spv2-card*` aparece em `SampleCard`,
 `SampleCardActionsSheet`, `RelatedSampleRow` e no `ClientsBrowser`, e em peças soltas
 (`.spv2-card-chevron` em `/users`, `.spv2-card-badge` no detalhe do contrato); `/users` usa os
-ESTADOS (`.spv2-list-scroll`, `.spv2-empty`, `.spv2-error-banner`, `.spv2-skeleton-card`), não o
+ESTADOS (`.spv2-list-scroll`, `.spv2-empty`, `.spv2-error-banner`), não o
 card. _(O picker de lote do contrato saiu da lista na RC-D49, virou `.lotpick-card` e **morreu inteiro** na
 RC-D69, 2026-07-29 — o lote é um campo do formulário agora.)_ Mudança de visual do card de lote vai escopada em
 `.samples-page-v2`; prefixo com nome de página não é escopo (`css-architecture`).
@@ -794,13 +804,15 @@ tem, por decisão: `/dashboard` e `/profile` (agregados e dados do próprio usu�
 - [ ] `useRevalidate` com os assuntos que a tela EXIBE (não os que ela escreve)
 - [ ] Recarga silenciosa sem skeleton, sem scroll ao topo, sem reanimar item
 - [ ] Snapshot com chave do registro; scroll via `restoreListScrollTop`; dep booleana
+- [ ] Esqueleto pelo kit (`components/Skeleton.tsx`) + `<LoadingLive />` acima do ramo de lista
 
 ## §12 Fora do padrão hoje
 
 Ao tocar nestes pontos, alinhe:
 
 - **Tabela de corretores** (`/cadastros`, aba Corretor): sem `<colgroup>` — larguras instáveis.
-- **Loading inicial do `/cadastros`**: ainda texto, não skeleton.
+- ~~**Loading inicial do `/cadastros`**: ainda texto, não skeleton.~~ 🪦 **Corrigido na F4 do ciclo
+  SN** (2026-07-30) — `/cadastros` e `/users` abrem com `<SkeletonCards />` como as irmãs.
 - **`.fv-table-lotes`**: classe aplicada no JSX de `/samples` sem regra CSS correspondente. Ou ganha
   regra, ou sai.
 - **Card de `/financeiro`** (`FinanceiroCard`): a página entrou no kit (RC-D92/D93), mas o

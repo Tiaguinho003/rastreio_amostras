@@ -128,9 +128,11 @@ Mexer numa dessas 14 sem escopo muda **os dois detalhes**. Sempre escope no cont
 
 ### O mais fácil de subestimar: `.spv2-*`
 
-Os estados de lista (`.spv2-list-scroll`, `.spv2-empty`, `.spv2-error-banner`,
-`.spv2-skeleton-card`) são reusados por **todas** as listas do app, inclusive páginas que ainda não
-entraram no ciclo de redesenho. Restilizar o "vazio" de uma lista mexe no vazio de todas.
+Os estados de lista (`.spv2-list-scroll`, `.spv2-empty`, `.spv2-error-banner`) são reusados por
+**todas** as listas do app, inclusive páginas que ainda não entraram no ciclo de redesenho.
+Restilizar o "vazio" de uma lista mexe no vazio de todas. _(A `.spv2-skeleton-card` era o quarto
+membro desta lista até a F4 do ciclo SN, que a promoveu ao kit `.fv-skel-card` junto com outras 5
+famílias de esqueleto.)_
 
 **Regra:** antes de editar qualquer regra de prefixo de página, rode a checagem do §7. Se voltar
 mais de um arquivo, a regra vai escopada no contêiner da página.

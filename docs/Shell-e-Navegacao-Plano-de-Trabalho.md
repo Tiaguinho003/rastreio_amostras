@@ -1,6 +1,6 @@
 # Shell, Navegação e Carregamento — Plano de Trabalho
 
-Status: **9 decisões TRAVADAS · F1, F2 e F3 IMPLEMENTADAS (2026-07-30)** — próxima é a F4 (estrutura aprovada 2026-07-24)
+Status: **10 decisões TRAVADAS · F1, F2, F3 e F4 IMPLEMENTADAS (2026-07-30)** — resta a F5 (splash nova + SN-D2)
 Escopo (1 linha): remover a atual "página de carregamento verde", tornar o **navbar/shell persistente** (nunca desmonta), fazer a transição entre páginas **sem loader full-screen** (só o conteúdo carrega), e definir a **política de cache/estado/atualização por página**.
 Prefixo de decisões: **SN** (Shell & Navegação)
 Documentos relacionados: `Redesign-Plano-de-Trabalho.md` (redesign visual página-a-página), `Dashboard-Visao-Geral.md`, `Lotes-Visao-Geral.md`, `Auditoria-Navegacao-por-Papel.md`, skill `page-redesign-cycle`.
@@ -16,11 +16,11 @@ Este doc tem **duas metades**:
 - **Metade A — Contexto estável (§1–§3 + §9):** a fotografia de como o app funciona hoje e a arquitetura-alvo. Muda pouco. **Leia para se situar.**
 - **Metade B — Decisões evolutivas (§4–§8):** o ledger de decisões, o mapa de páginas, a política de estado, o faseamento. **É onde o trabalho acontece.**
 
-**Estado em 2026-07-30:** a reconciliação da Metade A com o código entregue pelo ciclo de redesign **foi feita** (§2 inteira re-verificada), a varredura encontrou **7 fatos que não estavam no doc** (§2.4, §2.7, §2.8) e **9 decisões estão travadas** (§4.1 — a SN-D14 nasceu na F3). Restam **2 em aberto** (SN-D2 e SN-D11, esta empurrada para a F4) e **1 derivada a confirmar** (SN-D12) — a SN-D6 saiu da lista na F2 e a SN-D9 na F3.
+**Estado em 2026-07-30:** a reconciliação da Metade A com o código entregue pelo ciclo de redesign **foi feita** (§2 inteira re-verificada), a varredura encontrou **7 fatos que não estavam no doc** (§2.4, §2.7, §2.8) e **10 decisões estão travadas** (§4.1 — a SN-D14 nasceu na F3, a SN-D11 fechou na F4). Resta **1 em aberto** (SN-D2, que é da F5) e **1 derivada a confirmar** (SN-D12) — a SN-D6 saiu da lista na F2 e a SN-D9 na F3.
 
-**A F1, a F2 e a F3 foram implementadas no mesmo dia.** O boot splash não existe mais (F1), o shell parou de remontar (F2, com o `PageTransition` apagado junto) e a queixa do dado velho foi curada (F3: barramento de invalidação, sessão lida do cache e o page loader verde apagado). As marcas 🪦 na Metade A indicam o que caiu; o texto do "antes" fica porque é ele que explica **por que** as decisões seguintes são como são — a §2.7 em especial: ela é o diagnóstico que desenhou o barramento.
+**A F1, a F2, a F3 e a F4 foram implementadas no mesmo dia.** O boot splash não existe mais (F1), o shell parou de remontar (F2, com o `PageTransition` apagado junto), a queixa do dado velho foi curada (F3: barramento de invalidação, sessão lida do cache e o page loader verde apagado) e a camada 4 virou sistema (F4: um kit de esqueleto, um vocabulário, a região `aria-live` como peça e a barra fina de navegação). As marcas 🪦 na Metade A indicam o que caiu; o texto do "antes" fica porque é ele que explica **por que** as decisões seguintes são como são — a §2.7 em especial: ela é o diagnóstico que desenhou o barramento.
 
-**Próxima fase: F4** (§6) — a camada 4 (skeleton) vira sistema, e é onde a **SN-D11** finalmente se decide, com o kit na mão. **Nada da F1–F3 foi validado no device ainda**; a lista do que só o Flavio vê está no fim do §8.
+**Próxima fase: F5** (§6) — a splash de entrada nova, junto da **SN-D2** (o verde nativo do SO). É a única fase que ainda não tem especificação: precisa de doc próprio ou do §3.5 expandido. **Nada da F1–F4 foi validado no device ainda**; a lista do que só o Flavio vê está no fim do §8.
 
 Fluxo para uma sessão futura: ler §1–§3 → conferir §4.1 (travadas × abertas) → se for implementar, entrar pela fase correspondente no §6 → registrar no ledger o que mudar de plano.
 
@@ -203,13 +203,25 @@ Isso explica os **dois** sintomas distintos:
 
 _(O alerta foi respeitado: a F3 saiu em três commits nesta ordem — barramento, sessão + morte do loader, snapshots.)_
 
-### 2.8 🔴 A camada 4 existe, mas não é sistema (seção nova — 2026-07-30)
+### 2.8 🪦 A camada 4 existe, mas não é sistema — **resolvida pela F4 (2026-07-30)**
+
+_A fotografia abaixo é de antes da F4. Fica como registro do que a fase encontrou._
 
 - **6 famílias de skeleton / 9 classes**, todas com prefixo de página, nenhuma compartilhada: `.dashboard-skeleton-*` (4 classes), `.fv-cd-chart-skeleton`, `.fv-table-skel`, `.pg-canvas-skeleton`, `.rsm-skeleton-card`, `.spv2-skeleton-card`.
 - **Nenhum primitivo compartilhado** — não há `components/ui/`, `components/common/` nem equivalente.
 - **11 strings distintas** de "Carregando" na UI, com divergências de pontuação e acentuação: `Carregando` · `Carregando...` · `Carregando…` · `Carregando a etiqueta...` · `Carregando cliente…` · `Carregando corretores...` · `Carregando lote…` · `Carregando mais lotes` · `Carregando o histórico...` · `Carregando usuarios...` · `Carregando usuários...`
 
 É onde a diferença entre "funciona" e "profissional" aparece. → **SN-D10, travada:** entra no ciclo, como fase própria (F4).
+
+**Estado depois da F4:** um kit (`.fv-skel-card` / `.fv-skel-line` / `.fv-skel-box`) + `components/Skeleton.tsx` (`SkeletonCards`, `SkeletonTableRows`, `SkeletonLine`, `SkeletonBox`, `SkeletonDetail`), uma animação, uma grafia (`Carregando…`). O que a leitura do código acrescentou à fotografia:
+
+- Eram **três técnicas de animação e quatro durações** (1,1s / 1,2s / 1,4s / 1,5s) — duas telas carregando lado a lado piscavam fora de compasso. Cada um dos 4 `@keyframes` tinha **um consumidor só** e morreu com a família (o `sdv-fadeIn`, que o `.rsm-skeleton-card` também usava, tem outros 4 consumidores e ficou).
+- 🔴 **`prefers-reduced-motion` cobria só 2 das 4 animações.** O shimmer do `.spv2-skeleton-card` — o mais usado, 7 vezes em 5 páginas — e o pulse do `.fv-table-skel` seguiam animando para quem pediu movimento reduzido. Agora é um bloco só, por construção.
+- **A duplicação estava no JSX, não só no CSS:** 7 laços `Array.from({length:N}).map` de card e 5 laços aninhados (linhas × colunas) de tabela. Dois arquivos já tinham extraído um helper local (`skeletonCards`, `tableSkeletonRows`) — o pedido pelo primitivo estava escrito no código.
+- Duas classes **sem CSS nenhum**: `.fv-table-skel-row` (gancho semântico, ficou) e `.avisos-list.is-skeleton` (modificador morto — apagado).
+- 🔴 **`.pg-canvas-skeleton` FICOU fora, de propósito** — e o porquê está escrito ao lado dela no `globals.css`, senão a próxima varredura a "conserta". **Não é esqueleto:** é reserva de caixa para o `next/dynamic` do canvas do simulador, sem animação, pintando `--pg-canvas-bg` para não dar CLS. Fazê-la brilhar como card seria errado. Ou seja: **6 famílias → 1 kit + 1 exceção declarada.**
+
+**O que o kit dá e o que ele não dá:** superfície + animação + raio. A **ALTURA** continua escopada por página, porque o esqueleto tem de ter o formato do card final (`design-system` §3) — daí `.rsm-list .fv-skel-card`, `.dashboard-operation-card.is-skeleton`, `.fv-cd-chart-skel`, `.fv-skel-detail-card` e `.usr-panel-skel .fv-skel-card`.
 
 ---
 
@@ -334,12 +346,26 @@ Toda decisão SN passa por este rito — **uma situação por vez** — antes de
 **Descartadas:** _entrar junto na F3_ — misturaria mudança de arquitetura (com risco de tela branca) com acabamento visual, dificultando isolar a causa de uma quebra; _ficar fora_ — o app seguiria com 11 jeitos de dizer "Carregando".
 **Impacto:** (a) compatível; (b) fornece o skeleton que a SN-D1 usa; (c) acrescenta a F4 e empurra a splash nova para F5; (d) o kit resultante vira material da skill `design-system`.
 
+#### SN-D11 · Indicador de navegação _(travada na F4, 2026-07-30)_
+
+**Decisão:** **barra fina no topo** (2px, verde de marca), que só aparece depois de **180ms** de espera e some ao terminar. Não disputa com o conteúdo — o snapshot da F3 pinta como hoje e a barra apenas diz "estou indo".
+
+**O caso, localizado no código antes de decidir:** **não existe nenhum `loading.tsx` no projeto** e o service worker é **network-first inclusive para os chunks de rota**, então em rede lenta o primeiro toque em cada aba da sessão deixa a **tela anterior** no lugar, sem sinal nenhum.
+
+**Descartada — `loading.tsx` por rota:** é o mecanismo nativo do App Router e o que Instagram/WhatsApp fazem, mas ele pinta um esqueleto **antes** de a página montar, ou seja **antes de o snapshot ser lido** — desfaria exatamente o que a F3 acabou de entregar. _(Era a recomendação original; o Flavio escolheu a barra.)_
+
+**Implementação:** três peças no molde do barramento da F3 — `lib/navigation/nav-progress.ts` (store no formato de `useSyncExternalStore`, guardando o **conjunto** de links pendentes, não um booleano), `<LinkPendingProbe />` (usa o `useLinkStatus()` do próprio Next, disponível no 15.5.12) e `<NavProgressBar />` no shell. `z-index` por token (`--z-toast`).
+
+**Limite aceito:** `useLinkStatus` só funciona dentro da árvore de um `<Link>`, então navegação por `router.push` não acende a barra. O caso da SN-D11 é o toque na aba.
+
+**Impacto:** (a) compatível; (b) nenhum; (c) fecha a última decisão do ciclo fora a SN-D2 (F5); (d) a barra entra na skill `containers` como chrome do shell.
+
 ### §4.2 Decisões EM ABERTO
 
-| ID         | Questão                                                                                                                                            | Status        | Nota                                                                                                                                                                           |
-| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **SN-D2**  | A tela verde **nativa do SO** (manifest `background_color`/`theme_color`) — neutralizar também?                                                    | **EM ABERTO** | Adiada de propósito: decidir junto do visual da splash nova (F5)                                                                                                               |
-| **SN-D11** | **Indicador de navegação** — hoje não existe nenhum. Com shell instantâneo e conteúdo assíncrono, o que sinaliza "vindo" quando o conteúdo demora? | **EM ABERTO** | **Empurrada para a F4** — a F3 entregou snapshot nas listas, então o caso "conteúdo demora" ficou raro demais para decidir por cima dele. Decidir com o kit de skeleton na mão |
+| ID             | Questão                                                                                         | Status                                                                                | Nota                                                             |
+| -------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| **SN-D2**      | A tela verde **nativa do SO** (manifest `background_color`/`theme_color`) — neutralizar também? | **EM ABERTO**                                                                         | Adiada de propósito: decidir junto do visual da splash nova (F5) |
+| ~~**SN-D11**~~ | ~~**Indicador de navegação**~~                                                                  | 🪦 **TRAVADA na F4 (2026-07-30)** — ver §4.1. Barra fina no topo, com atraso de 180ms |
 
 ### §4.3 Decisões DERIVADAS (a confirmar antes de implementar)
 
@@ -433,13 +459,21 @@ A ordem combinada em 2026-07-24 era **D4 → D6 → D1 → D3** (D5/D2 por últi
 > 1. **O page loader tinha uma fonte só.** `useGlobalLoading` era chamado em **exatamente um lugar** (o provider de auth). O comentário da skill `design-system` que falava em "páginas de detalhe também registram" estava obsoleto — os detalhes viraram overlay há tempos. Resolvida a sessão pelo cache, o `LoadingProvider` ficou sem fonte e **caiu inteiro**, junto com o `SplashVisual` e 366 linhas de CSS. **O `public/logo-safras-branco.png` FICOU** — tem 8 consumidores. É a lição da F1 se repetindo: conferir quem mais consome, sempre.
 > 2. **O `/login` não gravava o cache de sessão** — quem gravava era o provider, depois do próprio fetch. Ou seja: **a primeira tela depois de todo login** caía no caminho lento. Sem corrigir isso, a SN-D8 não valeria justamente onde mais aparece.
 > 3. **A hidratação é o gotcha desta fase, e tem dois casos distintos.** O cache de sessão é lido em **layout effect** (não no inicializador do `useState`): `readCachedSession()` devolve `null` no servidor e a sessão no cliente, e as 8 rotas são pré-renderizadas — o inicializador daria mismatch. Já os **snapshots de página** podem ser lidos no inicializador com segurança, porque o layout do grupo devolve `null` até a sessão resolver: as páginas **nunca renderizam no servidor**. Distinção que parece sutil e decide onde cada leitura mora.
+>
+> **🔴 Descobertas da F4 (2026-07-30):**
+>
+> 1. **A acessibilidade era o achado maior da fase, não a estética.** Duas coisas que nenhuma varredura de CSS acharia: `prefers-reduced-motion` cobria só **2 das 4** animações de esqueleto (a mais usada de todas ficava de fora), e **só a `/samples`** tinha região `aria-live` do load-more — nas outras **cinco** listas a rolagem infinita trazia conteúdo **em silêncio**, porque o esqueleto é `aria-hidden`. Virou a peça `components/LoadingLive.tsx`.
+> 2. **A região `aria-live` NÃO pode morar dentro do `SkeletonCards`**, por mais que pareça o lugar. Ela precisa estar **sempre no DOM**, com só o texto mudando — região recém-inserida costuma não disparar em parte dos leitores de tela. São duas peças porque são **dois tempos de vida**, e o porquê está escrito nos dois arquivos.
+> 3. **Um 5º lugar que a varredura da fase não tinha contado:** o **painel do usuário** (`/users`) dizia "Carregando..." no corpo, com o cabeçalho de identidade já pintado por cima (ele vem da linha da lista). A regra 4 do vocabulário — _lista, detalhe e painel nunca dizem "Carregando"_ — o cobre. Foi convertido junto (`.usr-panel-skel`): deixar de fora significaria escrever na skill uma regra que o código não cumpre, que é exatamente a dívida que a F2 apontou.
+> 4. **O "completa e some" da barra é feito trocando a DURAÇÃO da animação, não a animação.** Substituir por outra devolve o elemento ao `scaleX(0)` da base antes de recomeçar (o valor computado de uma animação não serve de ponto de partida para uma transição). Como o tempo decorrido já passa dos 0,2s, trocar `animation-duration` faz cair direto no último keyframe.
+> 5. **O efeito que liga a barra depende SÓ de `pending`.** Com `phase` nas deps, o `setPhase('done')` dispararia a limpeza do próprio efeito e mataria o timer do 'done' — a barra ficaria presa em 100%. É o mesmo gênero de erro que a F3 teve com o `cancelAnimationFrame` da restauração de scroll.
 
 | Fase            | Objetivo                                                       | Entra                                                                                                                                                                                             | NÃO tocar                                                                                | Risco                                                                     | Pronto quando                                                                   |
 | --------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
 | **F1** ✅       | Remover o **boot splash** e sua lógica                         | **só** `SplashScreen.tsx` + os 2 pontos no `app/layout.tsx`                                                                                                                                       | `SplashVisual`, `LoadingProvider`, o CSS e o logo — **todos compartilhados**, saem na F3 | deep-link e offline mudam de comportamento (SN-D3, intencional)           | **código feito e gates verdes 2026-07-30; falta o 🖥️/📱 do Flavio**             |
 | **F2** ✅       | **Shell persistente** no route group                           | 8 dirs → `app/(app)/` (85 imports), `AuthProvider` + `AppShell` no layout do grupo, `PageTransition` **apagado** (SN-D5')                                                                         | dados por página                                                                         | perda de estado, hidratação                                               | **código feito e gates verdes 2026-07-30; falta o 🖥️/📱 do Flavio**             |
 | **F3** ✅       | **Sessão do cache + invalidação + fim do page loader**         | init do cache via layout effect; **barramento (SN-D13 + SN-D14)**; snapshots nas 4 restantes (SN-D7); registro de chaves (SN-D9); `LoadingProvider`+`SplashVisual`+366 linhas de CSS **apagados** | —                                                                                        | tela branca se F2 incompleta; dado velho se o barramento ficar incompleto | **código feito e gates verdes 2026-07-30 (3 commits); falta o 🖥️/📱 do Flavio** |
-| **F4**          | **Camada 4 vira sistema** (SN-D10)                             | primitivo único de skeleton (absorve as 6 famílias); vocabulário de "Carregando"; **SN-D11** (empurrada da F3)                                                                                    | arquitetura da F3                                                                        | —                                                                         | um kit, um vocabulário; skill `design-system` atualizada                        |
+| **F4** ✅       | **Camada 4 vira sistema** (SN-D10)                             | primitivo único de skeleton (absorve as 6 famílias); vocabulário de "Carregando"; `LoadingLive`; **SN-D11** (barra de navegação)                                                                  | arquitetura da F3                                                                        | —                                                                         | **código feito e gates verdes 2026-07-30 (3 commits); falta o 🖥️/📱 do Flavio** |
 | **F5** (futura) | **Nova splash de entrada** (nome do app, só após X tempo fora) | novo componente; SN-D2 (verde nativo)                                                                                                                                                             | —                                                                                        | —                                                                         | especificado em doc próprio ou §3.5 expandido                                   |
 
 ## §7. Riscos & questões abertas
@@ -454,6 +488,7 @@ A ordem combinada em 2026-07-24 era **D4 → D6 → D1 → D3** (D5/D2 por últi
 - **Modal de senha inicial (novo):** o `AppShell` guarda o fluxo de `initialPasswordDecision` (`AppShell.tsx:401-409`). Com shell persistente esse estado passa a **sobreviver à navegação** — provavelmente melhora, mas é fluxo forçado: verificar no device.
 - **~~O `transform` do `PageTransition` é load-bearing~~ — RESOLVIDO na F2 (2026-07-30).** O risco era real e se materializou: a implementação da SN-D5' removeu o `transform` **por completo** (opacidade pura), então o stacking context que obrigava o portal deixou de existir. O que se fez: **manter os portais** — o `.bottom-sheet` tem `transform` permanente e páginas têm animação de entrada com `translateY`, então a regra segue válida por outros ancestrais — e **reescrever a justificativa** na skill `modals` e nos comentários de `MobileTabbar`, `SampleSendFlow`, `SampleLookupResultModal`, `ResultDrawer` e 2 blocos do `globals.css`. A lição fica: **motivo revogado sem código revogado é dívida de documentação** — quem lesse a skill depois iria atrás de um componente que não existe.
 - **Memória:** shell persistente não pode segurar todas as páginas montadas — só o chrome; conteúdo troca (foi o que a SN-D7 decidiu ao recusar "abas montadas").
+- 🔴 **O service worker é network-first para `/_next/static` (achado da F4, FORA DE ESCOPO).** Essas URLs têm **hash de conteúdo** — são imutáveis por construção, então cache-first seria estritamente correto e deixaria toda navegação repetida instantânea, inclusive em rede ruim. **É a causa raiz do caso que a SN-D11 está mascarando:** a barra avisa que está demorando; isto faria não demorar. Não entrou na F4 porque é decisão de **cache**, não de "camada 4", e mexe no `sw.js` (exige bumpar o `CACHE_NAME`). Fica **proposto como fase curta própria**, para o Flavio decidir.
 
 ## §8. Verificação (por fase)
 
@@ -477,6 +512,16 @@ Gates padrão (`lint` + `format:check` + `typecheck` + `build` + `test:unit`) + 
 - **Login → `/dashboard` sem espera** — é o efeito de gravar o cache no `/login`.
 - As **4 páginas novas** (`/contratos`, `/financeiro`, `/relatorios`, `/users`) restaurando **scroll e filtros** ao voltar, dentro dos 30min — e **sem piscar skeleton** ao restaurar.
 - Em `/users`, os cards **não recascatam** quando a lista revalida por baixo.
+
+**Da F4, o que só o device mostra** (código feito e gates verdes em 2026-07-30):
+
+- **Um esqueleto só** em todas as listas — mesmo brilho, mesma cadência. Duas telas carregando lado a lado não podem mais piscar fora de compasso.
+- ⚠️ **Muda a aparência em 2 telas:** o esqueleto de `/relatorios` e o do dashboard do PROSPECTOR ganharam a **borda e a sombra** do card do kit (eram retângulos chapados). É o objetivo da fase, mas é mudança visível — confirmar que ficou melhor.
+- `/users` e `/cadastros` abrindo com **esqueleto**, não com a palavra "Carregando"; o **painel do usuário** idem.
+- Detalhe de **lote** e de **cliente** abrindo **no formato do conteúdo** (linha de título + blocos), não com uma frase centralizada.
+- A **barra do topo** aparecendo só quando a navegação demora, e **nunca piscando** na troca rápida. Se piscar, o número a ajustar é o `APPEAR_DELAY_MS` (180ms) — é chute calibrado, não medição.
+- Posição da barra: **abaixo da faixa verde** no mobile (em `top: 0` ela ficaria embaixo da status bar do PWA) e **abaixo da top bar, à direita da sidenav** no desktop.
+- **Movimento reduzido ligado no aparelho:** nenhum esqueleto animando, e a barra vira uma linha cheia parada.
 
 ## §9. Glossário & referências
 

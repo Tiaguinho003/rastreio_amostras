@@ -559,9 +559,16 @@ duplica efeitos em dev. Se for mexer, leia os comentários no arquivo primeiro.
 | Backdrop `.is-stacked`                | `--z-modal-stacked` = 600  |
 | Card `.is-stacked`                    | 610                        |
 | `.fv-panel-scrim` e `.is-scrim-none`  | 620                        |
+| Toast e `.fv-navprogress`             | `--z-toast` = 700          |
 
 Tokens em `app/globals.css` (`:root`). **Nunca escrever z-index numérico** em regra nova de
 overlay — usar o token ou `calc()` sobre ele.
+
+**`.fv-navprogress`** é a barra fina de navegação (SN-D11, F4 do ciclo SN): 2px no topo, montada
+uma vez pelo `AppShell`, `pointer-events: none`. Fica no tier do toast porque precisa passar por
+cima do chrome (faixa mobile `z:50`, top bar desktop `z:32`) sem competir com modal/tooltip. Ela
+**nunca** vai em `top: 0` — no mobile ali fica embaixo da status bar do PWA, invisível; a posição é
+a base da faixa verde (mobile) e abaixo da top bar, à direita da sidenav (desktop).
 
 ### Quando `stacked` é obrigatório
 
