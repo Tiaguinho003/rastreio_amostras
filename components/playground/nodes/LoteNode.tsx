@@ -1,9 +1,18 @@
 'use client';
 
-import { Handle, Position, useReactFlow, type NodeProps } from '@xyflow/react';
+import { useReactFlow, type NodeProps } from '@xyflow/react';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 
 import type { SampleSnapshot } from '../../../lib/types';
+import { NodeShell } from './NodeShell';
+
+// Um saco de café: base larga, boca amarrada.
+const LoteIcon = (
+  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path d="M9 3h6l-1.5 3.5h-3z" />
+    <path d="M13.5 6.5c3 1 5.5 4.2 5.5 8.2V19a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-4.3c0-4 2.5-7.2 5.5-8.2" />
+  </svg>
+);
 
 // O snapshot do lote mora no PRÓPRIO node: o canvas não mantém um índice à
 // parte, e o `lotsById` que os módulos puros recebem é derivado dos nodes a cada
@@ -19,15 +28,15 @@ export type LoteNodeData = {
   sample: SampleSnapshot;
 };
 
-// Node Lote (PG29/PG30, reescrito na PG60): MÍNIMO e sempre configurado —
-// número do lote e as sacas. Dono/saldo/safra seguem no hover (PG8/PG10).
+// Node Lote (PG29/PG30 → PG60 → PG61): o quadrado carrega só o ícone; o número
+// do lote e as sacas moram abaixo dele.
 //
-// As sacas deixaram de ser um `<input>` sempre aberto no node e viraram um chip
-// que abre um dropdown de edição (containers §1: "editar 1–2 campos de um card"
-// é dropdown inline, não painel). O chip é o gatilho, e não o node inteiro, por
-// dois motivos: o alvo fica explícito, e um `onClick` no corpo do node
-// dispararia também ao terminar de ARRASTAR — a armadilha que a PG53 documentou
-// no Resultado. Com `nodrag` no chip, arrastar por ele nem começa.
+// As sacas são um chip que abre um dropdown de edição (containers §1: editar
+// 1–2 campos de um card é dropdown inline, não painel). O chip é o gatilho, e
+// não o node inteiro, por dois motivos: o alvo fica explícito, e um `onClick` no
+// corpo do node dispararia também ao terminar de ARRASTAR — a armadilha que a
+// PG53 documentou no Resultado. Com `nodrag` no chip, arrastar por ele nem
+// começa.
 export function LoteNode({ id, data }: NodeProps) {
   const { updateNodeData } = useReactFlow();
   const { sample, sacks } = data as LoteNodeData;
@@ -65,80 +74,86 @@ export function LoteNode({ id, data }: NodeProps) {
   }
 
   return (
-    <div className="pg-node pg-node-lote">
-      <header className="pg-node-title">
-        Lote {sample.internalLotNumber}
-        {sample.isBlend ? <span className="pg-node-badge">liga</span> : null}
-      </header>
-
-      <button
-        type="button"
-        className="pg-sacks-chip nodrag"
-        aria-expanded={editing}
-        aria-label={`${sacks} sacas do lote ${sample.internalLotNumber}. Editar`}
-        onClick={() => (editing ? setEditing(false) : openEditor())}
-      >
-        <span>{sacks} sc</span>
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-          <path d="M6 9l6 6 6-6" />
-        </svg>
-      </button>
-
-      {editing ? (
-        <form
-          className="pg-sacks-pop nodrag nopan"
-          onSubmit={commit}
-          // Fecha ao sair do dropdown — cobre clique fora e Tab. O
-          // `relatedTarget` contido segura a abertura quando o foco só anda do
-          // input para o botão de confirmar.
-          onBlur={(event) => {
-            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-              setEditing(false);
-            }
-          }}
-          onKeyDown={(event) => {
-            if (event.key !== 'Escape') return;
-            // O ESC morre aqui: sem isto ele seguiria para o canvas.
-            event.stopPropagation();
-            setEditing(false);
-          }}
+    <NodeShell
+      id={id}
+      icon={LoteIcon}
+      source
+      name={
+        <>
+          Lote {sample.internalLotNumber}
+          {sample.isBlend ? <span className="pg-node-badge">liga</span> : null}
+        </>
+      }
+    >
+      <div className="pg-sacks">
+        <button
+          type="button"
+          className="pg-sacks-chip nodrag"
+          aria-expanded={editing}
+          aria-label={`${sacks} sacas do lote ${sample.internalLotNumber}. Editar`}
+          onClick={() => (editing ? setEditing(false) : openEditor())}
         >
-          <div className="pg-sacks-pop-row">
-            <input
-              ref={inputRef}
-              value={draft}
-              inputMode="numeric"
-              aria-label="Sacas"
-              aria-invalid={overCap}
-              className={overCap ? 'has-error' : undefined}
-              onChange={(event) => setDraft(event.target.value.replace(/\D+/g, ''))}
-            />
-            <span className="pg-sacks-pop-unit">sc</span>
-            <button
-              type="submit"
-              className="pg-sacks-confirm"
-              disabled={!canCommit}
-              aria-label="Confirmar sacas"
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <path d="M20 6 9 17l-5-5" />
-              </svg>
-            </button>
-          </div>
-          {overCap ? (
-            <p className="pg-sacks-pop-error" role="alert">
-              Máx. {available} sc disponíveis
-            </p>
-          ) : null}
-        </form>
-      ) : null}
+          <span>{sacks} sc</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+        </button>
+
+        {editing ? (
+          <form
+            className="pg-sacks-pop nodrag nopan"
+            onSubmit={commit}
+            // Fecha ao sair do dropdown — cobre clique fora e Tab. O
+            // `relatedTarget` contido segura a abertura quando o foco só anda do
+            // input para o botão de confirmar.
+            onBlur={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                setEditing(false);
+              }
+            }}
+            onKeyDown={(event) => {
+              if (event.key !== 'Escape') return;
+              // O ESC morre aqui: sem isto ele seguiria para o canvas.
+              event.stopPropagation();
+              setEditing(false);
+            }}
+          >
+            <div className="pg-sacks-pop-row">
+              <input
+                ref={inputRef}
+                value={draft}
+                inputMode="numeric"
+                aria-label="Sacas"
+                aria-invalid={overCap}
+                className={overCap ? 'has-error' : undefined}
+                onChange={(event) => setDraft(event.target.value.replace(/\D+/g, ''))}
+              />
+              <span className="pg-sacks-pop-unit">sc</span>
+              <button
+                type="submit"
+                className="pg-sacks-confirm"
+                disabled={!canCommit}
+                aria-label="Confirmar sacas"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path d="M20 6 9 17l-5-5" />
+                </svg>
+              </button>
+            </div>
+            {overCap ? (
+              <p className="pg-sacks-pop-error" role="alert">
+                Máx. {available} sc disponíveis
+              </p>
+            ) : null}
+          </form>
+        ) : null}
+      </div>
 
       <div className="pg-node-tooltip" role="tooltip">
         <span>{sample.declared.owner ?? 'Sem dono'}</span>
         <span>disp. {available} sc</span>
         <span>safra {sample.declared.harvest ?? '—'}</span>
       </div>
-      <Handle type="source" position={Position.Right} />
-    </div>
+    </NodeShell>
   );
 }

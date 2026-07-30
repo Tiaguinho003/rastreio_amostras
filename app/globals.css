@@ -29332,41 +29332,78 @@ body.is-selection-mode .mobile-tabbar {
 /* ── Nodes (PG29/PG34) ── */
 .pg-node {
   position: relative;
-  min-width: 180px;
-  max-width: 240px;
-  padding: 0.6rem 0.75rem 0.7rem;
-  background: var(--pg-surface);
-  border: 1px solid var(--color-line);
-  border-left: 3px solid var(--brand-green);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  width: 118px;
   font-size: 0.82rem;
   color: var(--color-ink);
 }
-.pg-node-lote {
-  border-left-color: var(--pg-node-lote);
+
+/* O QUADRADO (PG61). Um só desenho para os três tipos — branco com borda verde;
+   quem diz o tipo é o ícone e o nome, não a cor. 🪦 As três regras de acento
+   (`.pg-node-lote/-mistura/-resultado`) morreram aqui; o `.pg-accent-*` segue
+   vivo FORA do canvas, nos cartões do painel e no menu de compatíveis. */
+.pg-node-box {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 68px;
+  height: 68px;
+  background: var(--pg-surface);
+  border: 2px solid var(--brand-green);
+  border-radius: 18px;
+  box-shadow: var(--shadow-sm);
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
 }
-.pg-node-mistura {
-  border-left-color: var(--pg-node-mistura);
-}
-.pg-node-resultado {
-  border-left-color: var(--pg-node-resultado);
-}
-.pg-node.is-incomplete {
+/* Estados são da MOLDURA — a frase que explicava cada um saiu na PG61. */
+.pg-node-box.is-incomplete {
   border-style: dashed;
-  border-left-style: solid;
+  border-color: var(--color-line);
 }
-.pg-node.has-error {
+.pg-node-box.has-error {
   border-color: var(--color-danger);
-  border-left-color: var(--color-danger);
 }
-.pg-node-title {
+/* Só o Resultado usa `is-ready`, e nele o quadrado inteiro abre a ficha
+   (`onNodeClick` do canvas) — daí o cursor. */
+.pg-node-box.is-ready {
+  box-shadow: var(--shadow-md);
+  cursor: pointer;
+}
+.pg-node-icon {
+  display: block;
+  line-height: 0;
+}
+.pg-node-icon svg {
+  width: 30px;
+  height: 30px;
+  fill: none;
+  stroke: var(--brand-green);
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.pg-node-box.is-incomplete .pg-node-icon svg {
+  stroke: var(--brand-muted);
+}
+.pg-node-box.has-error .pg-node-icon svg {
+  stroke: var(--color-danger);
+}
+/* O nome mora FORA do quadrado. Pode quebrar em duas linhas ("Lote 6228" com o
+   selo de liga) sem empurrar nada: o quadrado tem altura fixa. */
+.pg-node-name {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  text-align: center;
+  font-size: 0.8rem;
   font-weight: 600;
-  font-size: 0.85rem;
-  margin-bottom: 0.3rem;
+  line-height: 1.25;
 }
 .pg-node-badge {
   font-size: 0.62rem;
@@ -29378,24 +29415,119 @@ body.is-selection-mode .mobile-tabbar {
   border-radius: var(--radius-pill);
   padding: 0.1rem 0.45rem;
 }
-.pg-node-hint {
-  margin: 0;
-  color: var(--brand-muted);
-  font-size: 0.78rem;
-}
-.pg-node-hint.is-ok {
-  color: var(--color-success);
-}
-.pg-node-error {
-  margin: 0.3rem 0 0;
-  color: var(--color-danger);
-  font-size: 0.76rem;
-  font-weight: 600;
-}
-/* 🪦 `.pg-node-sacks*` (4 regras) morreu na PG60 junto com o `<input>` sempre
-   aberto no node — ver `.pg-sacks-chip`/`.pg-sacks-pop` mais abaixo. */
+/* 🪦 `.pg-node-title`, `.pg-node-hint` e `.pg-node-hint.is-ok` morreram na PG61
+   com as frases que explicavam cada node; `.pg-node-sacks*` (4 regras) morreu na
+   PG60 com o `<input>` sempre aberto. */
 
-/* Tooltip de hover do node Lote (PG29) — só onde hover existe de verdade. */
+/* O erro fica no node de propósito (é sobre o desenho do fluxo), mas embaixo do
+   nome: o quadrado só tem o ícone. */
+.pg-node-error {
+  margin: 0;
+  max-width: 100%;
+  text-align: center;
+  color: var(--color-danger);
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+/* ── Portas (PG61) ──
+   A da esquerda é um ponto discreto. A da DIREITA é o coto com "+": ela É a
+   porta, não um enfeite ao lado dela, e por isso o arraste começa no próprio
+   "+" — que é o ponto grande e óbvio de onde puxar. Consequência de ser a porta:
+   é dali que a edge nasce, então o coto PERMANECE depois de conectado (esconder
+   faria o ponto de ancoragem saltar de volta para a borda do quadrado) e segue
+   servindo, porque um node pode alimentar mais de um destino. */
+.pg-node-box .react-flow__handle-right {
+  display: grid;
+  place-items: center;
+  right: -34px;
+  width: 20px;
+  height: 20px;
+  background: var(--pg-surface);
+  border: 1.5px solid var(--brand-green);
+}
+.pg-node-box .react-flow__handle-right svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: var(--brand-green);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  pointer-events: none;
+}
+/* A linha do coto, ligando a borda do quadrado ao "+". Mesma cor da edge, pra
+   ler como o começo dela. */
+.pg-node-box .react-flow__handle-right::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: 100%;
+  width: 26px;
+  height: 2px;
+  background: var(--pg-edge);
+  transform: translateY(-50%);
+}
+@media (hover: hover) {
+  .pg-node-box .react-flow__handle-right:hover {
+    background: var(--brand-green);
+  }
+  .pg-node-box .react-flow__handle-right:hover svg {
+    stroke: var(--pg-surface);
+  }
+}
+
+/* ── Barra de ações no hover (PG61) ──
+   Portada pelo `NodeToolbar` do React Flow, então acompanha pan/zoom e não é
+   recortada. Só ícones: o rótulo mora no `title`/`aria-label`. */
+.pg-node-tools {
+  display: flex;
+  gap: 0.15rem;
+  padding: 0.15rem;
+  background: var(--pg-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-md);
+}
+.pg-node-tools button {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--brand-muted);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform var(--duration-instant) var(--ease-out);
+}
+.pg-node-tools button svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.pg-node-tools button:active {
+  transform: scale(0.88);
+}
+@media (hover: hover) {
+  .pg-node-tools button:hover {
+    background: var(--color-surface-muted);
+    color: var(--color-ink);
+  }
+  .pg-node-tools button.is-danger:hover {
+    color: var(--color-danger);
+  }
+}
+
+/* Tooltip de hover do node Lote (PG29) — só onde hover existe de verdade.
+   Ancorado no `.pg-node`, que é o contexto de posicionamento; sobe ACIMA da
+   barra de ações pra os dois não se cobrirem. */
 .pg-node-tooltip {
   display: none;
 }
@@ -29403,8 +29535,8 @@ body.is-selection-mode .mobile-tabbar {
   .pg-node-tooltip {
     display: flex;
     position: absolute;
-    left: 0;
-    bottom: calc(100% + 6px);
+    left: 50%;
+    bottom: calc(100% + 44px);
     gap: 0.55rem;
     white-space: nowrap;
     padding: 0.35rem 0.6rem;
@@ -29415,6 +29547,7 @@ body.is-selection-mode .mobile-tabbar {
     box-shadow: var(--shadow-md);
     opacity: 0;
     pointer-events: none;
+    transform: translateX(-50%);
     transition: opacity var(--duration-fast) var(--ease-out);
     z-index: var(--z-tooltip);
   }
@@ -29430,12 +29563,19 @@ body.is-selection-mode .mobile-tabbar {
    O dropdown pode passar da caixa do node, e passa mesmo: o `.pg-node` não tem
    `overflow` de propósito. Quem garante que ele não fica atrás do node vizinho é
    o React Flow, que sobe o node selecionado (`elevateNodesOnSelect`, ligado por
-   padrão) — e clicar no chip seleciona o node. */
+   padrão) — e clicar no chip seleciona o node.
+
+   PG61: o chip desceu para baixo do nome, e o dropdown ancora no `.pg-sacks` —
+   não no `.pg-node` — pra abrir centrado sob o chip, e não sob o quadrado. */
+.pg-sacks {
+  position: relative;
+  display: flex;
+  justify-content: center;
+}
 .pg-sacks-chip {
   display: inline-flex;
   align-items: center;
   gap: 0.2rem;
-  margin-top: 0.35rem;
   padding: 0.2rem 0.4rem 0.2rem 0.5rem;
   border: 1px solid var(--color-line);
   border-radius: var(--radius-pill);
@@ -29462,8 +29602,9 @@ body.is-selection-mode .mobile-tabbar {
 }
 .pg-sacks-pop {
   position: absolute;
-  top: calc(100% - 0.2rem);
-  left: 0.6rem;
+  top: calc(100% + 0.3rem);
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 2;
   min-width: 168px;
   padding: 0.45rem;
@@ -29823,25 +29964,20 @@ body.is-selection-mode .mobile-tabbar {
   }
 }
 
-/* ── Node Resultado pronto (PG53) ──
-   Saíram o resumo de 4 linhas e o "Ver ficha completa →": o node vira uma
-   plaquinha com o check. Sem número, ele encolhe pro tamanho do próprio
-   título — por isso o min-width menor que o dos demais. O node inteiro é
-   clicável (`onNodeClick`); o cursor avisa. */
-.pg-node-resultado.is-ready {
-  min-width: 0;
-  padding-right: 2.3rem;
-  cursor: pointer;
-}
-
+/* ── Node Resultado pronto (PG53, recolocado na PG61) ──
+   Saíram o resumo de 4 linhas e o "Ver ficha completa →": sobra o check. Com o
+   node quadrado, ele virou um selo no CANTO do quadrado, meio pra fora — dentro
+   ele disputaria os 68px com o ícone. O anel branco (`box-shadow`) o descola da
+   borda verde que ele cruza. */
 .pg-result-check {
   position: absolute;
-  top: 0.45rem;
-  right: 0.5rem;
+  top: -6px;
+  right: -6px;
   display: grid;
   place-items: center;
   width: 1.25rem;
   height: 1.25rem;
+  box-shadow: 0 0 0 2px var(--pg-surface);
   padding: 0;
   border: 0;
   border-radius: 50%;
