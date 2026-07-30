@@ -9,6 +9,7 @@ import { createPortal } from 'react-dom';
 import { HeaderAvatarMenu } from './HeaderAvatarMenu';
 import { HeaderCameraButton } from './HeaderCameraButton';
 import { MobileTabbar } from './MobileTabbar';
+import { LinkPendingProbe, NavProgressBar } from './NavProgressBar';
 import { UserAvatar } from './UserAvatar';
 import { changeCurrentUserPassword, recordInitialPasswordDecision } from '../lib/api-client';
 import { CameraSheetProvider } from '../lib/camera-sheet/CameraSheetProvider';
@@ -294,6 +295,7 @@ function ProfileMenuCard({
             <path d="M5 20a7 7 0 0 1 14 0" />
           </svg>
           <span className="header-avatar-menu-row-label">Meu perfil</span>
+          <LinkPendingProbe />
         </Link>
 
         <button
@@ -684,6 +686,10 @@ export function AppShell({
     <div
       className={`app-shell-root mobile-edge-shell mobile-edge-shell-auth${hideMobileTabbar ? ' is-tabbar-hidden' : ''}`}
     >
+      {/* SN-D11: a barra fina de navegacao. Uma por app, acima do chrome e
+          fora do fluxo (fixed) — nao empurra nada. */}
+      <NavProgressBar />
+
       {/* Sidebar vertical: mantida SÓ pro PROSPECTOR (app restrito — o
           desktop dos demais papéis migrou pra top bar, DSB-D6). O grid do
           shell alterna via :has(.app-sidebar) no CSS. */}
@@ -714,6 +720,7 @@ export function AppShell({
                     {renderNavIcon(item.icon)}
                   </span>
                   <span className="app-sidebar-link-label">{item.label}</span>
+                  <LinkPendingProbe />
                 </Link>
               );
             })}
@@ -846,6 +853,8 @@ export function AppShell({
                         {renderNavIcon(item.icon)}
                       </span>
                       <span className="app-sidenav-link-label">{item.label}</span>
+                      {/* SN-D11: so funciona dentro da arvore do <Link>. */}
+                      <LinkPendingProbe />
                     </Link>
                   );
                 }
@@ -891,6 +900,7 @@ export function AppShell({
                               aria-current={subActive ? 'page' : undefined}
                             >
                               {sub.label}
+                              <LinkPendingProbe />
                             </Link>
                           );
                         })}
@@ -911,6 +921,7 @@ export function AppShell({
                   {renderNavIcon('profile')}
                 </span>
                 <span className="app-sidenav-link-label">Perfil</span>
+                <LinkPendingProbe />
               </Link>
 
               {/* Inerte por ora (ganha funcao no futuro) — veio da top bar. */}

@@ -27480,6 +27480,101 @@ body.is-selection-mode .mobile-tabbar {
 }
 
 /* ================================================================
+   SN-D11 (F4) — Barra fina de navegacao
+   ================================================================
+   Montada pelo AppShell, uma por app. Acende quando um `<Link>` de navegacao
+   fica `pending` por mais de 180ms (ver components/NavProgressBar.tsx) e some
+   ao terminar. O caso: nao existe `loading.tsx` no projeto e o service worker
+   e network-first ate pros chunks de rota, entao em rede lenta o primeiro
+   toque em cada aba da sessao deixava a tela ANTERIOR no lugar, sem sinal.
+
+   2px, verde de marca, `pointer-events: none` — ela avisa, nao interage. O
+   z-index vem por TOKEN (--z-toast): a regra do `containers` proibe tier
+   numerico novo, e ela precisa ficar acima do chrome (faixa mobile z:50,
+   top bar desktop z:32) sem competir com modal/tooltip.
+
+   POSICAO: nunca em `top: 0`. No mobile a faixa verde e a safe area ocupam o
+   topo — ali a barra ficaria embaixo da status bar do PWA, invisivel. */
+
+.fv-navprogress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  z-index: var(--z-toast);
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.fv-navprogress-bar {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: var(--brand-green-soft);
+  transform: scaleX(0);
+  transform-origin: left center;
+  /* Duracao longa com ease que gasta quase todo o tempo na primeira metade: em
+     1–3s de navegacao real a barra chega a ~60–85% e segue andando. Ela nunca
+     "trava cheia" esperando, que e o que faz uma barra parecer quebrada. */
+  animation: fv-navprogress-grow 20s cubic-bezier(0.05, 0.75, 0.2, 1) forwards;
+}
+
+/* Terminou: completa e some. Trocar a DURACAO (em vez de trocar a animacao)
+   e o que faz a barra pular pro fim sem repicar — a animacao e a mesma, so
+   reinterpretada; como o tempo ja decorrido passa dos 0,2s, ela cai direto no
+   ultimo keyframe. Substituir por outra animacao a devolveria pro scaleX(0)
+   da base antes de recomecar. */
+.fv-navprogress.is-done .fv-navprogress-bar {
+  animation-duration: 0.2s;
+}
+
+.fv-navprogress.is-done {
+  opacity: 0;
+  transition: opacity 220ms ease-out 120ms;
+}
+
+@keyframes fv-navprogress-grow {
+  0% {
+    transform: scaleX(0);
+  }
+  100% {
+    transform: scaleX(1);
+  }
+}
+
+/* Movimento reduzido: a barra continua avisando, so nao anda — vira uma linha
+   cheia enquanto a navegacao dura. */
+@media (prefers-reduced-motion: reduce) {
+  .fv-navprogress-bar {
+    animation: none;
+    transform: scaleX(1);
+  }
+
+  .fv-navprogress.is-done {
+    transition: none;
+  }
+}
+
+@media (max-width: 900px) {
+  /* Abaixo da faixa verde (a safe area entra no padding-top dela, por isso as
+     duas parcelas). PROSPECTOR nao tem .fv-mtopbar e cai no `top: 0` da base. */
+  .app-shell-root:has(.fv-mtopbar) .fv-navprogress {
+    top: calc(env(safe-area-inset-top) + var(--fv-mtopbar-h));
+  }
+}
+
+@media (min-width: 901px) {
+  /* Abaixo da top bar e a DIREITA da sidenav — a barra e do conteudo, nao do
+     chrome. Os dois valores sao os mesmos do grid do shell (mesmo seletor,
+     mesmos fallbacks); PROSPECTOR nao tem sidenav e fica no canto do viewport. */
+  .app-shell-root:has(.app-sidenav) .fv-navprogress {
+    top: var(--app-topbar-h, 56px);
+    left: var(--app-sidenav-w, 252px);
+  }
+}
+
+/* ================================================================
    RD16 — Chrome mobile institucional: header UNICO (.fv-mtopbar)
    ================================================================
    Faixa verde CURTA no topo de todas as paginas <= 900px, montada pelo

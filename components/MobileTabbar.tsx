@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { useEffect, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
+import { LinkPendingProbe } from './NavProgressBar';
+
 export type MobileTabbarItem = {
   href: string;
   mobileLabel: string;
@@ -65,6 +67,9 @@ export function MobileTabbar({ items, isActive }: MobileTabbarProps) {
                 </span>
                 <span className="mobile-tabbar-label">{item.mobileLabel}</span>
               </span>
+              {/* SN-D11: publica o `pending` deste link pra barra do topo. So
+                  funciona dentro da arvore do <Link>, por isso mora aqui. */}
+              <LinkPendingProbe />
             </Link>
           );
         })}
