@@ -8,6 +8,7 @@ import type {
   BrokerInput,
   BrokerListResponse,
   BrokerResponse,
+  ContractListState,
   ContractLookupListKey,
   ContractLookupsResponse,
   ContractPeriodBase,
@@ -19,7 +20,6 @@ import type {
   SaleContractListResponse,
   SaleContractResponse,
   SaleContractTimelineResponse,
-  SaleContractStatus,
   SaleContractType,
   ClientBankAccountInput,
   ClientBankAccountListResponse,
@@ -787,7 +787,10 @@ export function listSaleContracts(
   session: SessionData,
   query: {
     search?: string;
-    status?: SaleContractStatus[];
+    // RC-D118: a situação viaja como ESTADO (atraso/aberto/finalizado/cancelado), e
+    // não como o `status` do banco — a KPI row e o painel de filtros escolhem a mesma
+    // coisa, num eixo só. Vazio = os quatro.
+    state?: ContractListState[];
     type?: SaleContractType[];
     buyerClientId?: string;
     sellerClientId?: string;
@@ -801,7 +804,7 @@ export function listSaleContracts(
 ) {
   const params = new URLSearchParams();
   if (query.search) params.set('search', query.search);
-  if (query.status?.length) params.set('status', query.status.join(','));
+  if (query.state?.length) params.set('state', query.state.join(','));
   if (query.type?.length) params.set('type', query.type.join(','));
   if (query.buyerClientId) params.set('buyerClientId', query.buyerClientId);
   if (query.sellerClientId) params.set('sellerClientId', query.sellerClientId);

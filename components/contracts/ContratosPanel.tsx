@@ -21,6 +21,7 @@ import {
   listSaleContracts,
   reopenSaleContract,
 } from '../../lib/api-client';
+import { getBrtToday, toDayKey } from '../../lib/dashboard-calendar';
 import { espelhoEligibility } from '../../lib/espelho';
 import { useDelayedValue } from '../../lib/use-delayed-value';
 import { useContractHighlight } from '../../lib/use-contract-highlight';
@@ -29,46 +30,55 @@ import { useToast } from '../../lib/toast/ToastProvider';
 import type {
   AgioDesagioType,
   ClientSummary,
+  ContractListState,
+  ContractStateCounts,
   SaleContract,
-  SaleContractStatus,
   SessionData,
 } from '../../lib/types';
 import { ContractCreateRadialFab } from './ContractCreateRadialFab';
 import {
+  CONTRACT_STATE_LABELS,
   type ContractFilters,
   EMPTY_CONTRACT_FILTERS,
   PERIOD_BASE_LABELS,
-  STATUS_LABELS,
   TYPE_LABELS,
   countActiveContractFilters,
 } from './ContractsFilterButton';
 import { EspelhoConferenciaModal, type EspelhoSide } from './EspelhoConferenciaModal';
-import { ContractPhaseLine } from './ContractPhaseLine';
 import { EspelhoCorretagemModal } from './EspelhoCorretagemModal';
 import { SaleContractAgioDialog } from './SaleContractAgioDialog';
-import {
-  formatContractDate,
-  SaleContractCard,
-  snapshotName,
-  AGENDA_CHIP,
-  contractAgenda,
-  contractAgendaLabel,
-  finalizeBlockedReason,
-  terminalErrorMessage,
-  TYPE_LABEL,
-} from './SaleContractCard';
+import { SaleContractCard, terminalErrorMessage } from './SaleContractCard';
 import { SaleContractDetailsModal } from './SaleContractDetailsModal';
 import { SaleContractEtapa2Modal } from './SaleContractEtapa2Modal';
 import { SaleContractLifecycleDialog } from './SaleContractLifecycleDialog';
 
-const SITUACAO_CHIP_OPTIONS = STATUS_LABELS.map((s) => ({ id: s.value, label: s.label }));
+const SITUACAO_CHIP_OPTIONS = CONTRACT_STATE_LABELS.map((s) => ({ id: s.value, label: s.label }));
 const TYPE_CHIP_OPTIONS = TYPE_LABELS.map((t) => ({ id: t.value, label: t.label }));
 
-// RC-F6: a lista pagina no servidor (keyset por contractSeq). O limite bate com
-// o default do listSaleContracts; o rootMargin dispara o load-more antes do fim.
+// RC-D118: os quatro cartões de KPI, que são TAMBÉM o filtro. Mesma ordem dos chips
+// do painel (`CONTRACT_STATE_LABELS`), porque são a mesma escolha por dois caminhos.
+// `mobile` marca os dois que sobrevivem abaixo de 901px: os outros dois são ARQUIVO,
+// e no celular a faixa presa custa altura permanente (data-tables §1) — quem procura
+// finalizado ou cancelado abre o funil.
+const KPI_CARDS: {
+  key: ContractListState;
+  label: string;
+  tone: 'blue' | 'red' | 'green' | 'amber';
+  mobile: boolean;
+}[] = [
+  { key: 'aberto', label: 'Em aberto', tone: 'blue', mobile: true },
+  { key: 'atraso', label: 'Atraso', tone: 'red', mobile: true },
+  { key: 'finalizado', label: 'Finalizados', tone: 'green', mobile: false },
+  { key: 'cancelado', label: 'Cancelados', tone: 'amber', mobile: false },
+];
+
+const EMPTY_COUNTS: ContractStateCounts = { atraso: 0, aberto: 0, finalizado: 0, cancelado: 0 };
+
+// RC-F6: a lista pagina no servidor. RC-D117: o cursor virou opaco ({g,pd,seq}),
+// porque a ordem é por grupo de estado. O limite bate com o default do
+// listSaleContracts; o rootMargin dispara o load-more antes do fim.
 const CONTRACT_PAGE_LIMIT = 30;
 const LOAD_MORE_ROOT_MARGIN = '320px';
-const TABLE_COLUMN_COUNT = 6;
 
 // --- Estado da lista (molde do usersListReducer de /users) ------------------
 
@@ -77,6 +87,7 @@ type ContractsListStatus = 'loading-initial' | 'loading-more' | 'idle' | 'error'
 interface ContractsListState {
   items: SaleContract[];
   total: number;
+  counts: ContractStateCounts;
   nextCursor: string | null;
   status: ContractsListStatus;
   error: string | null;
@@ -85,13 +96,20 @@ interface ContractsListState {
 type ContractsListAction =
   | { type: 'fetch-initial' }
   | { type: 'fetch-more' }
-  | { type: 'success-initial'; items: SaleContract[]; total: number; nextCursor: string | null }
+  | {
+      type: 'success-initial';
+      items: SaleContract[];
+      total: number;
+      counts: ContractStateCounts;
+      nextCursor: string | null;
+    }
   | { type: 'success-more'; items: SaleContract[]; nextCursor: string | null }
   | { type: 'error'; message: string };
 
 const CONTRACTS_INITIAL: ContractsListState = {
   items: [],
   total: 0,
+  counts: EMPTY_COUNTS,
   nextCursor: null,
   status: 'loading-initial',
   error: null,
@@ -103,13 +121,17 @@ function contractsListReducer(
 ): ContractsListState {
   switch (action.type) {
     case 'fetch-initial':
-      return { ...CONTRACTS_INITIAL, status: 'loading-initial' };
+      // Os `counts` sobrevivem à troca de filtro: eles não dependem da situação
+      // escolhida (RC-D118), então zerá-los faria os quatro cartões piscarem "0" a
+      // cada clique — no próprio número que acabou de ser clicado.
+      return { ...CONTRACTS_INITIAL, counts: state.counts, status: 'loading-initial' };
     case 'fetch-more':
       return { ...state, status: 'loading-more', error: null };
     case 'success-initial':
       return {
         items: action.items,
         total: action.total,
+        counts: action.counts,
         nextCursor: action.nextCursor,
         status: 'idle',
         error: null,
@@ -136,7 +158,7 @@ function contractsListReducer(
 function filtersToQuery(filters: ContractFilters, search: string) {
   return {
     search: search || undefined,
-    status: filters.statuses.length ? filters.statuses : undefined,
+    state: filters.states.length ? filters.states : undefined,
     type: filters.types.length ? filters.types : undefined,
     buyerClientId: filters.buyerClient?.id,
     sellerClientId: filters.sellerClient?.id,
@@ -159,10 +181,14 @@ export function ContratosPanel({ session }: { session: SessionData }) {
   const [listState, dispatchList] = useReducer(contractsListReducer, CONTRACTS_INITIAL);
   const [searchInput, setSearchInput] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [rowMenuFor, setRowMenuFor] = useState<string | null>(null);
   const rowMenuRef = useRef<HTMLDivElement | null>(null);
   const rowMenuTriggerRef = useRef<HTMLButtonElement | null>(null);
+
+  // RC-D114: o dia BRT é calculado UMA vez para a página inteira — cada card
+  // derivando o próprio "hoje" abriria a porta para dois cards discordarem numa
+  // renderização que atravesse a meia-noite.
+  const todayKey = useMemo(() => toDayKey(getBrtToday()), []);
 
   // Filtros avancados — rascunho/aplicado (sem query params), molde de /samples e
   // /cadastros. `applied` vira querystring do servidor; `draft` e o que o painel
@@ -194,13 +220,21 @@ export function ContratosPanel({ session }: { session: SessionData }) {
     setDraftFilters(EMPTY_CONTRACT_FILTERS);
     setAppliedFilters(EMPTY_CONTRACT_FILTERS);
   };
-  const toggleExpand = (id: string) =>
-    setExpandedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+
+  // RC-D118: o cartão de KPI ESCREVE no filtro do painel — não é um estado próprio.
+  // Por isso o destaque é DERIVADO do filtro corrente (`activeKpi`): desmarcar a
+  // situação no painel apaga o destaque sozinho, e os dois nunca podem discordar.
+  // Clicar no cartão já ativo desliga o filtro (volta para os quatro estados).
+  const activeKpi =
+    appliedFilters.states.length === 1 ? (appliedFilters.states[0] as ContractListState) : null;
+  const toggleKpi = (key: ContractListState) => {
+    const next: ContractFilters = {
+      ...appliedFilters,
+      states: activeKpi === key ? [] : [key],
+    };
+    setAppliedFilters(next);
+    setDraftFilters(next);
+  };
 
   const [etapa2, setEtapa2] = useState<{ contractId: string } | null>(null);
   // RC-D63: o diálogo sobrou só para o washout — Finalizar/Reabrir são toque
@@ -303,6 +337,7 @@ export function ContratosPanel({ session }: { session: SessionData }) {
           type: 'success-initial',
           items: response.items,
           total: response.total,
+          counts: response.counts,
           nextCursor: response.nextCursor,
         });
       })
@@ -406,6 +441,7 @@ export function ContratosPanel({ session }: { session: SessionData }) {
         type: 'success-initial',
         items: response.items,
         total: response.total,
+        counts: response.counts,
         nextCursor: response.nextCursor,
       });
     } catch (cause) {
@@ -590,29 +626,59 @@ export function ContratosPanel({ session }: { session: SessionData }) {
     }
   };
 
-  // RC-D85/D86: o "Finalizar" do menu ⋯. Travado, ele vira DUAS linhas — rótulo +
-  // motivo. Item apagado e mudo é um beco: no toque não há tooltip para socorrer, e
-  // a frase carrega a saída ("defina a data"), não só o impedimento.
-  const finalizeMenuItem = (contract: SaleContract) => {
-    const blocked = finalizeBlockedReason(contract);
-    return (
-      <button
-        type="button"
-        role="menuitem"
-        className={`fv-row-menu-item${blocked ? ' is-blocked' : ''}`}
-        disabled={terminalBusy === contract.id || blocked != null}
-        onClick={() => {
-          setRowMenuFor(null);
-          void runTerminal(contract, 'finalize');
-        }}
-      >
-        Finalizar
-        {blocked ? <span className="fv-row-menu-hint">{blocked}</span> : null}
-      </button>
-    );
-  };
+  // --- Chrome (KPI row + toolbar) --------------------------------------------
 
-  // --- Chrome (toolbar) ------------------------------------------------------
+  // RC-D118: os quatro números SÃO o filtro. Por `baseWhere` no servidor (busca,
+  // tipo, partes, período) e independentes da situação escolhida — clicar num cartão
+  // filtra a lista e não pode mexer nos outros três.
+  const kpiRow = (
+    <div className="fv-kpi-row">
+      {KPI_CARDS.filter((card) => isDesktop || card.mobile).map((card) => {
+        const isActive = activeKpi === card.key;
+        return (
+          <button
+            key={card.key}
+            type="button"
+            className={`fv-kpi is-clickable fv-kpi-tone-${card.tone}${isActive ? ' is-active' : ''}`}
+            aria-pressed={isActive}
+            onClick={() => toggleKpi(card.key)}
+          >
+            <div className="fv-kpi-top">
+              <span className="fv-kpi-label">{card.label}</span>
+              <span className={`fv-kpi-icon is-${card.tone}`} aria-hidden="true">
+                {card.key === 'aberto' ? (
+                  <svg viewBox="0 0 24 24" focusable="false">
+                    <circle cx="12" cy="12" r="9" />
+                    <path d="M12 7v5l3 2" />
+                  </svg>
+                ) : card.key === 'atraso' ? (
+                  <svg viewBox="0 0 24 24" focusable="false">
+                    <path d="M10.3 3.9 2.4 17.5A2 2 0 0 0 4.1 20.5h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" />
+                    <path d="M12 9v4" />
+                    <path d="M12 17h.01" />
+                  </svg>
+                ) : card.key === 'finalizado' ? (
+                  <svg viewBox="0 0 24 24" focusable="false">
+                    <circle cx="12" cy="12" r="9" />
+                    <path d="m8.5 12.3 2.4 2.4 4.6-4.9" />
+                  </svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" focusable="false">
+                    <circle cx="12" cy="12" r="9" />
+                    <path d="m8.8 8.8 6.4 6.4" />
+                  </svg>
+                )}
+              </span>
+            </div>
+            <span className="fv-kpi-value">{listState.counts[card.key]}</span>
+            <span className="fv-kpi-delta">
+              {listState.counts[card.key] === 1 ? 'contrato' : 'contratos'}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
 
   // A MESMA toolbar nos dois breakpoints — uma fonte de estado. No desktop fica
   // presa no topo do cartão; no mobile rola DENTRO do `.spv2-list-scroll`, porque
@@ -681,7 +747,15 @@ export function ContratosPanel({ session }: { session: SessionData }) {
     </div>
   );
 
-  const mobileListChrome = isDesktop ? null : toolbar;
+  // No desktop as duas faixas ficam PRESAS (a KPI acima do cartão, a toolbar no topo
+  // dele); no mobile as duas ROLAM dentro do `.spv2-list-scroll`, porque ali cada
+  // faixa presa custa altura permanente (data-tables §1). Molde do /financeiro.
+  const mobileListChrome = isDesktop ? null : (
+    <>
+      {kpiRow}
+      {toolbar}
+    </>
+  );
 
   const emptyState = (
     <div className="spv2-empty">
@@ -699,16 +773,41 @@ export function ContratosPanel({ session }: { session: SessionData }) {
     </div>
   );
 
-  const tableSkeletonRows = (count: number, keyPrefix: string) =>
+  // RC-D112: skeleton de CARD nos dois breakpoints — a tabela saiu, e com ela as
+  // linhas de `<td>` vazios.
+  const skeletonCards = (count: number, keyPrefix: string) =>
     Array.from({ length: count }).map((_, i) => (
-      <tr key={`${keyPrefix}-${i}`} className="fv-table-skel-row" aria-hidden="true">
-        {Array.from({ length: TABLE_COLUMN_COUNT }).map((__, j) => (
-          <td key={j}>
-            <span className="fv-table-skel" />
-          </td>
-        ))}
-      </tr>
+      <div key={`${keyPrefix}-${i}`} className="spv2-skeleton-card" aria-hidden />
     ));
+
+  // A LISTA: a mesma nos dois breakpoints (RC-D112). O que muda é a densidade do
+  // card, e isso é decisão dele (`isDesktop`), não desta função.
+  const cardList = (
+    <div className="ctr-list">
+      {contracts.map((contract) => (
+        <SaleContractCard
+          key={contract.id}
+          contract={contract}
+          todayKey={todayKey}
+          isDesktop={isDesktop}
+          onDetalhes={() => openDetails(contract)}
+          canManage={canManage}
+          isHighlighted={highlightId === contract.id}
+          busy={terminalBusy === contract.id}
+          menuOpen={rowMenuFor === contract.id}
+          menuRef={rowMenuFor === contract.id ? rowMenuRef : undefined}
+          onMenuToggle={(trigger) => {
+            rowMenuTriggerRef.current = trigger;
+            setRowMenuFor((current) => (current === contract.id ? null : contract.id));
+          }}
+          onMenuClose={() => setRowMenuFor(null)}
+          onFinalizar={() => void runTerminal(contract, 'finalize')}
+          onReabrir={() => void runTerminal(contract, 'reopen')}
+        />
+      ))}
+      {listState.status === 'loading-more' ? skeletonCards(3, 'more') : null}
+    </div>
+  );
 
   return (
     <>
@@ -748,6 +847,8 @@ export function ContratosPanel({ session }: { session: SessionData }) {
         onCreateFuture={() => setFutureOpen(true)}
       />
 
+      {isDesktop ? kpiRow : null}
+
       <section className="clients-v2-sheet">
         {isDesktop ? toolbar : null}
 
@@ -758,230 +859,27 @@ export function ContratosPanel({ session }: { session: SessionData }) {
         ) : null}
 
         {listState.status === 'loading-initial' ? (
-          isDesktop ? (
-            <div className="spv2-list-scroll fv-table-scroll">
-              <table className="fv-table">
-                <tbody>{tableSkeletonRows(6, 'boot')}</tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="spv2-list-scroll">
-              {mobileListChrome}
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div key={`boot-${i}`} className="spv2-skeleton-card" aria-hidden />
-              ))}
-            </div>
-          )
+          <div className="spv2-list-scroll ctr-list-scroll">
+            {mobileListChrome}
+            {skeletonCards(isDesktop ? 6 : 4, 'boot')}
+          </div>
         ) : contracts.length === 0 ? (
-          // `fv-table-scroll` no desktop tambem no vazio: sem ele o
-          // `.spv2-list-scroll` e um grid de 3 colunas (herdado dos cards) e o
-          // `.spv2-empty` cairia na primeira celula, encostado a esquerda.
-          <div className={`spv2-list-scroll${isDesktop ? ' fv-table-scroll' : ''}`}>
+          // `ctr-list-scroll` no desktop tambem no vazio: sem ele o
+          // `.spv2-list-scroll` e um grid de 3 colunas (herdado dos cards legados de
+          // /samples) e o `.spv2-empty` cairia na primeira celula, encostado a
+          // esquerda.
+          <div className="spv2-list-scroll ctr-list-scroll">
             {mobileListChrome}
             {emptyState}
           </div>
-        ) : isDesktop ? (
-          /* RC-F6 (desktop): tabela institucional de 5 colunas + ⋯. Os mesmos
-             dados, ordem e scroll infinito dos cards — muda a apresentação. A
-             linha inteira clica; o nº é <button> pra dar alvo de teclado. */
-          <div ref={scrollRef} className="spv2-list-scroll fv-table-scroll" tabIndex={-1}>
-            <table className="fv-table">
-              <colgroup>
-                <col className="fv-col-contract" />
-                <col className="fv-col-parties" />
-                <col className="fv-col-sacks" />
-                <col className="fv-col-dates" />
-                {/* RC-D80: coluna propria (nao a `.fv-col-status` compartilhada com
-                    /users e /cadastros) — so a de Contratos carrega a linha de
-                    fases por cima do chip, e precisa de mais largura por isso. */}
-                <col className="fv-col-situacao" />
-                <col className="fv-col-actions" />
-              </colgroup>
-              <thead>
-                <tr>
-                  <th scope="col">Contrato</th>
-                  <th scope="col">Partes</th>
-                  <th scope="col">Sacas</th>
-                  <th scope="col">Datas</th>
-                  <th scope="col">Situação</th>
-                  <th scope="col" className="fv-table-th-actions" aria-label="Ações" />
-                </tr>
-              </thead>
-              <tbody>
-                {contracts.map((contract) => (
-                  <tr
-                    key={contract.id}
-                    className={`fv-table-row${highlightId === contract.id ? ' is-highlighted' : ''}`}
-                    data-contract-id={contract.id}
-                    onClick={() => openDetails(contract)}
-                  >
-                    <td>
-                      <button
-                        type="button"
-                        className="fv-table-name-btn"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          openDetails(contract);
-                        }}
-                      >
-                        <span className="fv-table-name">{contract.contractNumber}</span>
-                        <span className="fv-table-code">
-                          {TYPE_LABEL[contract.type] ?? contract.type}
-                        </span>
-                      </button>
-                    </td>
-                    <td>
-                      <span className="fv-table-cell-stack">
-                        <span className="fv-table-cell-main">
-                          {snapshotName(contract.sellerSnapshot)}
-                        </span>
-                        <span className="fv-cell-ic">
-                          <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                            <path d="M5 12h14M13 6l6 6-6 6" />
-                          </svg>
-                          <span className="fv-table-sub">
-                            {snapshotName(contract.buyerSnapshot)}
-                          </span>
-                        </span>
-                      </span>
-                    </td>
-                    <td>
-                      <span className="fv-table-cell-main">{contract.quantitySacks} sc</span>
-                    </td>
-                    <td>
-                      {/* "À definir" (D144): data nula é um estado legítimo do
-                          contrato, não um vazio — mesma leitura do card. */}
-                      <span className="fv-table-cell-stack">
-                        <span className="fv-table-sub">
-                          Fat.{' '}
-                          {contract.invoiceDate
-                            ? formatContractDate(contract.invoiceDate)
-                            : 'À definir'}
-                        </span>
-                        <span className="fv-table-sub">
-                          Pag.{' '}
-                          {contract.paymentDate
-                            ? formatContractDate(contract.paymentDate)
-                            : 'À definir'}
-                        </span>
-                      </span>
-                    </td>
-                    <td>
-                      {/* RC-D83: as duas peças convivem porque respondem coisas
-                          diferentes. A LINHA diz onde o contrato está (5 fases);
-                          o CHIP diz qual é o próximo compromisso — com a data e o
-                          vermelho do atraso, que a linha não tem (RC-D68). */}
-                      <span className="fv-table-cell-stack ctr-situacao-cell">
-                        <ContractPhaseLine phases={contract.phases} />
-                        <span className={AGENDA_CHIP[contractAgenda(contract).kind]}>
-                          {contractAgendaLabel(contractAgenda(contract))}
-                        </span>
-                      </span>
-                    </td>
-                    <td
-                      className="fv-table-td-actions"
-                      onClick={(event) => event.stopPropagation()}
-                    >
-                      <div
-                        className="fv-row-menu-wrap"
-                        ref={rowMenuFor === contract.id ? rowMenuRef : undefined}
-                      >
-                        <button
-                          type="button"
-                          className="fv-table-dots"
-                          aria-label={`Ações do contrato ${contract.contractNumber}`}
-                          aria-haspopup="menu"
-                          aria-expanded={rowMenuFor === contract.id}
-                          onClick={(event) => {
-                            rowMenuTriggerRef.current = event.currentTarget;
-                            setRowMenuFor((current) =>
-                              current === contract.id ? null : contract.id
-                            );
-                          }}
-                        >
-                          <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                            <circle cx="5" cy="12" r="1.6" />
-                            <circle cx="12" cy="12" r="1.6" />
-                            <circle cx="19" cy="12" r="1.6" />
-                          </svg>
-                        </button>
-                        {rowMenuFor === contract.id ? (
-                          <div
-                            className="fv-row-menu"
-                            role="menu"
-                            aria-label={`Ações do contrato ${contract.contractNumber}`}
-                          >
-                            {/* RC-D62/D63: o marco terminal — o mesmo que o card
-                                mostra no mobile. Editar, Ágio e Washout ficam no
-                                PAINEL de Detalhes: precisam do contexto do
-                                contrato na tela. */}
-                            {contract.status === 'EMITIDO' && canManage
-                              ? finalizeMenuItem(contract)
-                              : null}
-                            {contract.status === 'FINALIZADO' && canManage ? (
-                              <button
-                                type="button"
-                                role="menuitem"
-                                className="fv-row-menu-item"
-                                disabled={terminalBusy === contract.id}
-                                onClick={() => {
-                                  setRowMenuFor(null);
-                                  void runTerminal(contract, 'reopen');
-                                }}
-                              >
-                                Reabrir
-                              </button>
-                            ) : null}
-                            <button
-                              type="button"
-                              role="menuitem"
-                              className="fv-row-menu-item"
-                              onClick={() => {
-                                setRowMenuFor(null);
-                                openDetails(contract);
-                              }}
-                            >
-                              Ver detalhes
-                            </button>
-                          </div>
-                        ) : null}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {listState.status === 'loading-more' ? tableSkeletonRows(3, 'more') : null}
-              </tbody>
-            </table>
-            {listState.nextCursor ? (
-              <div ref={loadMoreRef} className="cv2-load-more-sentinel" aria-hidden />
-            ) : null}
-            {!listState.nextCursor && listState.status === 'idle' ? (
-              <p className="spv2-list-end">Você chegou ao fim</p>
-            ) : null}
-          </div>
         ) : (
-          <div className="spv2-list-scroll" ref={scrollRef}>
+          /* RC-D112: UMA lista nos dois breakpoints — cards. A tabela institucional
+             de 5 colunas (RC-D43) saiu: cada contrato e uma historia (prazo,
+             estado, compromisso), nao um valor a comparar linha a linha. O scroll
+             infinito e o mesmo de antes. */
+          <div ref={scrollRef} className="spv2-list-scroll ctr-list-scroll" tabIndex={-1}>
             {mobileListChrome}
-            <div className="ctr-list">
-              {contracts.map((contract) => (
-                <SaleContractCard
-                  key={contract.id}
-                  contract={contract}
-                  isExpanded={expandedIds.has(contract.id)}
-                  onToggle={() => toggleExpand(contract.id)}
-                  onDetalhes={() => openDetails(contract)}
-                  canManage={canManage}
-                  isHighlighted={highlightId === contract.id}
-                  onFinalizar={() => void runTerminal(contract, 'finalize')}
-                  onReabrir={() => void runTerminal(contract, 'reopen')}
-                />
-              ))}
-              {listState.status === 'loading-more'
-                ? Array.from({ length: 3 }).map((_, i) => (
-                    <div key={`more-${i}`} className="spv2-skeleton-card" aria-hidden />
-                  ))
-                : null}
-            </div>
+            {cardList}
             {listState.nextCursor ? (
               <div ref={loadMoreRef} className="cv2-load-more-sentinel" aria-hidden />
             ) : null}
@@ -1048,14 +946,16 @@ export function ContratosPanel({ session }: { session: SessionData }) {
             />
           </div>
 
+          {/* RC-D118: os mesmos quatro estados dos cartões de KPI — a KPI row é o
+              atalho, e este é o caminho completo (dá pra marcar mais de um). */}
           <div className="fv-filter-field">
             <ChipMultiSelectField
               label="Situação"
               placeholder="Qualquer situação"
               options={SITUACAO_CHIP_OPTIONS}
-              selected={draftFilters.statuses}
+              selected={draftFilters.states}
               onChange={(next) =>
-                setDraftFilters((f) => ({ ...f, statuses: next as SaleContractStatus[] }))
+                setDraftFilters((f) => ({ ...f, states: next as ContractListState[] }))
               }
               forceDropDown
             />

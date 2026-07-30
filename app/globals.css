@@ -27650,199 +27650,309 @@ body.is-selection-mode .mobile-tabbar {
 }
 
 /* ===========================================================================
-   Fechamento (Fase B.3): pagina "Contratos" — filtros, cards e modal etapa 2.
+   /contratos: a LISTA (RC-D112/D113) — cards nos dois breakpoints.
+
+   🪦 APAGADOS na RC-D112/D119:
+   - `.ctr-card-head-btn`, `.ctr-card-chevron`, `.ctr-card-expanded*`,
+     `.ctr-card-essential`, `.ctr-card-stat*` — o ACORDEAO morreu: o card inteiro
+     virou o link pro Detalhes, e os campos que ele escondia (dinheiro, datas)
+     moram la e no /financeiro;
+   - `.ctr-card-top`, `.ctr-card-head-main`, `.ctr-card-head-right`,
+     `.ctr-card-type` — o cabecalho virou uma linha so (nº + partes);
+   - `.ctr-card-washout` (o motivo esta nos Detalhes) e `.ctr-card-blocked`
+     (o motivo do Finalizar travado virou a 2a linha do item do menu ⋯);
+   - as colunas da tabela do desktop: `.fv-col-parties`, `.fv-col-dates`,
+     `.fv-col-situacao`, `.ctr-situacao-cell` e as 13 regras `.ctr-phase*`.
+     ⚠️ `.fv-col-contract` e `.fv-col-sacks` FICARAM: a primeira e compartilhada
+     com o /financeiro e a segunda com o /samples (css-architecture §3 —
+     prefixo ≠ familia).
    =========================================================================== */
 .ctr-list {
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
 }
-@media (min-width: 901px) {
-  /* No desktop o pai `.spv2-list-scroll` é um GRID de cards (herdado de /samples
-     e /clients); sem isto o `.ctr-list` cairia numa ÚNICA célula (~1/3 da
-     largura) e ficaria compactado à esquerda. `grid-column: 1 / -1` faz ele
-     ocupar TODAS as colunas do grid pai; o `.ctr-list` segue flex-column (base)
-     => 1 card por linha, cobrindo a largura inteira. (Sem grid pai, inócuo.) */
-  .ctr-list {
-    grid-column: 1 / -1;
-  }
-}
+
+/* ⚠️ `.ctr-list-scroll` (o marcador do container de rolagem desta lista) NAO tem
+   regra aqui: no mobile o `.spv2-list-scroll` base ja e flex-column, que e
+   exatamente o que a lista quer. Ele existe pro tier DESKTOP, onde
+   `.clients-v2-sheet .spv2-list-scroll` vira grid de 3 colunas — e a regra que
+   desfaz isso mora na secao do kit FV, ao lado da irma do /financeiro, porque
+   precisa da especificidade daquele seletor. */
+
 .ctr-card {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
   background: #fff;
   border: 1px solid var(--brand-cream-line);
   border-radius: 14px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   overflow: hidden;
-}
-/* Cabecalho clicavel = toggle de expansao (sem button aninhado: as acoes
-   ficam no painel expandido). */
-.ctr-card-head-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.7rem;
-  width: 100%;
-  padding: 0.85rem 1rem;
-  background: transparent;
-  border: none;
   cursor: pointer;
-  text-align: left;
-  font-family: inherit;
   -webkit-tap-highlight-color: transparent;
+  transition:
+    transform var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
 }
+/* RC-D120: o card inteiro abre os Detalhes, e o feedback de toque e PROFUNDIDADE,
+   nunca troca de cor (skill button-press-effect). */
+.ctr-card:active {
+  transform: scale(0.99);
+}
+@media (hover: hover) {
+  .ctr-card:hover {
+    border-color: var(--fv-line-strong, #d8d3c7);
+  }
+}
+
+/* A tarja: coluna cheia na lateral esquerda, na cor do TOM (RC-D115 — azul
+   correndo, vermelho atrasado, verde finalizado, laranja cancelado). Ela e a
+   unica peca que da o estado do contrato a um metro de distancia. */
 .ctr-card-bar {
   flex: 0 0 auto;
+  align-self: stretch;
   width: 4px;
-  height: clamp(42px, 12vw, 54px);
-  border-radius: 2px;
   background: #999;
 }
-.ctr-card-head-main {
+
+.ctr-card-body {
   flex: 1 1 auto;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-}
-.ctr-card-top {
-  display: flex;
-  align-items: center;
   gap: 0.5rem;
-  flex-wrap: wrap;
+  padding: 0.8rem 0.9rem;
 }
+
+.ctr-card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+/* O alvo de TECLADO do card (o clique inteiro e do `.ctr-card`, que e um div).
+   Cresce pra ocupar a linha; a barra e o ⋯ ficam a direita. */
+.ctr-card-title-btn {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0;
+  background: transparent;
+  border: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
 .ctr-card-number {
   font-weight: 700;
   color: var(--brand-green-ink);
-  font-size: 1rem;
+  font-size: 0.98rem;
+  font-variant-numeric: tabular-nums;
 }
-.ctr-card-type {
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: var(--brand-muted);
-  background: var(--brand-cream-line);
-  border-radius: 999px;
-  padding: 0.1rem 0.5rem;
-}
+
 .ctr-card-parties {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.4rem;
   min-width: 0;
 }
+/* Os dois nomes dividem a sobra e truncam por reticencias — nenhum dos dois
+   empurra o outro fora da linha. */
 .ctr-card-party {
   flex: 1 1 0;
   min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: 0.9rem;
-  color: var(--brand-green-ink);
+  font-size: 0.86rem;
+  color: var(--brand-muted);
 }
 .ctr-card-arrow {
   flex: 0 0 auto;
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
   fill: none;
   stroke: var(--brand-muted);
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
-/* Coluna direita do cabeçalho: tipo (topo) + chevron (base). */
-.ctr-card-head-right {
-  flex: 0 0 auto;
-  align-self: stretch;
+
+/* ── A barra de TEMPO (RC-D114) ──────────────────────────────────────────────
+   Ela mede o prazo `contractDate -> paymentDate`, nao fases: tempo e monotonico,
+   entao o preenchimento nao mente. (A RC-D82 recusou uma barra de FASES pelo
+   motivo oposto — la nada trava nada, e "cheguei ate aqui" seria falso.)
+
+   Sem `pct` (pagamento "A definir", D144) o trilho nao e renderizado: trilho
+   vazio inventaria um prazo que o contrato nao tem. So a frase fica. ── */
+.ctr-timebar {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  justify-content: space-between;
+  align-items: center;
   gap: 0.5rem;
+  min-width: 0;
 }
-.ctr-card-status {
-  font-size: 0.72rem;
-  font-weight: 700;
+
+.ctr-timebar-rail {
+  flex: 1 1 auto;
+  min-width: 48px;
+  max-width: 140px;
+  height: 5px;
   border-radius: 999px;
-  padding: 0.12rem 0.5rem;
+  background: var(--brand-cream-line);
+  overflow: hidden;
+}
+
+.ctr-timebar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: #999;
+}
+
+.ctr-timebar-label {
+  flex: 0 0 auto;
+  font-size: 0.76rem;
+  font-weight: 600;
   white-space: nowrap;
 }
-.ctr-card-chevron {
+
+/* ── O ⋯ do card (RC-D120) ── */
+.ctr-card-menu-wrap {
+  position: relative;
   flex: 0 0 auto;
+}
+
+.ctr-card-dots {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: var(--brand-muted);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background var(--duration-fast) var(--ease-out);
+}
+.ctr-card-dots svg {
   width: 18px;
   height: 18px;
-  fill: none;
-  stroke: var(--brand-muted);
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  fill: currentColor;
+  stroke: none;
 }
-.ctr-card.is-expanded .ctr-card-chevron {
-  transform: rotate(180deg);
+@media (hover: hover) {
+  .ctr-card-dots:hover {
+    background: var(--brand-cream-line);
+  }
 }
-/* Painel expandido (acordeao via grid-template-rows 0fr->1fr, molde do .spv2). */
-.ctr-card-expanded {
-  display: grid;
-  grid-template-rows: 0fr;
-  transition: grid-template-rows 0.3s cubic-bezier(0.22, 1, 0.36, 1);
-}
-.ctr-card.is-expanded .ctr-card-expanded {
-  grid-template-rows: 1fr;
-}
-.ctr-card-expanded-inner {
-  overflow: hidden;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
-  padding: 0 1rem;
-  opacity: 0;
-  transition: opacity 0.22s ease 0.05s;
-}
-.ctr-card.is-expanded .ctr-card-expanded-inner {
-  opacity: 1;
-  padding-bottom: 0.85rem;
-}
-.ctr-card-essential {
+
+/* ── A faixa de campos: 4 no desktop, 2 no mobile (RC-D113/D119) ──
+   `auto-fit` nao serve aqui: o numero de celulas muda por ARVORE (o card decide
+   por `isDesktop`), e as colunas precisam ser iguais entre cards vizinhos pra a
+   lista ler como lista. Duas declaracoes explicitas, uma por tier. ── */
+.ctr-card-fields {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.5rem 1rem;
-  padding-top: 0.7rem;
+  gap: 0.5rem 0.9rem;
+  padding-top: 0.6rem;
   border-top: 1px solid var(--brand-cream-line);
 }
-.ctr-card-stat {
+
+.ctr-card-field {
   display: flex;
   flex-direction: column;
-  gap: 0.1rem;
+  gap: 0.12rem;
   min-width: 0;
 }
-.ctr-card-stat-label {
-  font-size: 0.72rem;
+
+.ctr-card-field-label {
+  font-size: 0.68rem;
   font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   color: var(--brand-muted);
 }
-.ctr-card-stat-value {
-  font-size: 0.9rem;
-  color: var(--brand-green-ink);
-}
-.ctr-card-washout {
-  margin: 0;
-  font-size: 0.82rem;
-  color: var(--color-danger);
-}
-/* Acoes do card: 3-4 botoes SEMPRE numa linha (nao quebra). flex:1 distribui a
-   largura; rotulos curtos + ellipsis garantem o caber em telas estreitas. */
-.ctr-card-actions {
+
+.ctr-card-field-value {
   display: flex;
-  flex-wrap: nowrap;
-  gap: 0.4rem;
-}
-.ctr-card-actions > .ctr-btn {
-  flex: 1 1 0;
+  flex-direction: column;
+  gap: 0.05rem;
+  font-size: 0.86rem;
+  color: var(--brand-green-ink);
   min-width: 0;
-  padding: 0.45rem 0.4rem;
-  font-size: 0.78rem;
+}
+
+.ctr-card-date {
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+
+/* O ponto do status: mesma cor da tarja, porque e a mesma derivacao. */
+.ctr-card-status {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  white-space: nowrap;
+}
+.ctr-card-status-dot {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #999;
+}
+
+@media (min-width: 901px) {
+  /* No desktop o pai e `display: block` (`.ctr-list-scroll`), entao o `.ctr-list`
+     ja ocupa a largura toda — o `grid-column: 1 / -1` que morava aqui existia por
+     causa do grid de 3 colunas do `.spv2-list-scroll`. */
+  .ctr-card-body {
+    gap: 0.6rem;
+    padding: 0.9rem 1.1rem;
+  }
+
+  .ctr-card-number {
+    font-size: 1rem;
+  }
+
+  /* A linha do titulo cabe nº + partes + barra + ⋯: as partes e a barra dividem a
+     sobra, e o nº fica com o que precisa. */
+  .ctr-card-title-btn {
+    flex-direction: row;
+    align-items: baseline;
+    gap: 0.55rem;
+  }
+  .ctr-card-number {
+    flex: 0 0 auto;
+  }
+  .ctr-card-parties {
+    flex: 1 1 auto;
+  }
+  .ctr-card-party {
+    font-size: 0.88rem;
+    color: var(--brand-green-ink);
+  }
+
+  /* A barra fica na linha do titulo, presa a direita antes do ⋯. */
+  .ctr-card-head > .ctr-timebar {
+    flex: 0 0 auto;
+    align-self: center;
+  }
+
+  .ctr-card-fields {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
 }
 .ctr-btn {
   border: 1px solid var(--brand-cream-line);
@@ -28498,13 +28608,10 @@ body.is-selection-mode .mobile-tabbar {
   color: var(--brand-muted);
 }
 
-/* O mesmo motivo, no card do mobile. */
-.ctr-card-blocked {
-  margin: 0 0 0.5rem;
-  font-size: 0.78rem;
-  line-height: 1.35;
-  color: var(--brand-muted);
-}
+/* 🪦 RC-D120: `.ctr-card-blocked` era o mesmo motivo no card do mobile, quando o
+   card tinha uma faixa de acoes. Com o "Finalizar" so no menu ⋯, o motivo virou a
+   2a linha do proprio item (`.fv-row-menu-hint`) — onde o usuario esta olhando
+   quando descobre o botao apagado. */
 
 .ctr-modal-loading {
   margin: 0;
@@ -30164,6 +30271,10 @@ body.is-selection-mode .mobile-tabbar {
     gap: clamp(8px, 2.4vw, 10px);
     flex: none;
   }
+  /* ⚠️ /contratos e /financeiro NAO precisam de seletor proprio: as duas usam a
+     casca `.clients-page-v2` e montam a KPI row DENTRO do `.spv2-list-scroll`, e
+     o 2o seletor acima ja as pega. Com 2 cartoes (RC-D118, /contratos) da uma
+     linha; com 4 (RC-D94, /financeiro) da 2×2. */
 
   /* /relatorios agora tem UM só card (removido o "Total de visitas"): a faixa
      mobile vira coluna única pra ele ocupar a largura toda. Override só de
@@ -30517,10 +30628,20 @@ body.is-selection-mode .mobile-tabbar {
   }
 
   /* O scroll da tabela NAO e grid (o grid 3-col e dos cards legados). */
-  .fv-ctr-page .clients-v2-sheet .spv2-list-scroll.fv-table-scroll,
   .fv-fin-page .clients-v2-sheet .spv2-list-scroll.fv-table-scroll {
     display: block;
     padding: 0;
+  }
+
+  /* RC-D112: /contratos deixou de ser tabela, mas o scroll dela continua nao
+     sendo grid — e uma COLUNA de cards largos. Mesma regra, gatilho novo
+     (`.ctr-list-scroll` no lugar do `.fv-table-scroll`). O padding, diferente do
+     da tabela, existe pra a sombra lateral dos cards nao ser cortada na borda do
+     container (`overflow-x: hidden`) — o mesmo motivo do respiro no grid de
+     /cadastros. */
+  .fv-ctr-page .clients-v2-sheet .spv2-list-scroll.ctr-list-scroll {
+    display: block;
+    padding: 0.6rem 1rem 0.8rem;
   }
 
   /* O FAB e a porta de criacao do MOBILE; no desktop criar mora nos DOIS
@@ -30611,26 +30732,14 @@ body.is-selection-mode .mobile-tabbar {
     width: 112px;
   }
 
-  /* Colunas da tabela de Contratos (RC-F6): 5 + acoes. "Contrato" carrega o
-     numero + o tipo empilhados; "Datas" carrega faturamento + pagamento (por
-     isso as duas com largura fixa generosa). Quem absorve a sobra e Partes —
-     vendedor -> comprador sao os textos que mais variam. Sacas reusa a largura
-     da coluna homonima de /samples: e o mesmo dado. */
+  /* RC-D112: a tabela de /contratos virou lista de cards, e com ela morreram as
+     colunas `.fv-col-parties`, `.fv-col-dates` e `.fv-col-situacao`.
+     🔴 `.fv-col-contract` FICA: o /financeiro tambem a usa (mesmo dado — numero
+     do contrato). Prefixo ≠ familia (css-architecture §3): apagar as `.fv-col-*`
+     "de contratos" em bloco levaria a coluna do /financeiro junto. Pelo mesmo
+     motivo `.fv-col-sacks` fica onde esta, com as colunas de /samples. */
   .fv-col-contract {
     width: 148px;
-  }
-  .fv-col-parties {
-    width: auto;
-    min-width: 200px;
-  }
-  .fv-col-dates {
-    width: 168px;
-  }
-  /* RC-D80: "Situacao" de Contratos e mais larga que a `.fv-col-status` de
-     /users e /cadastros porque empilha a linha de fases sobre o chip. Classe
-     propria justamente para nao arrastar as outras duas tabelas junto. */
-  .fv-col-situacao {
-    width: 176px;
   }
 
   /* Colunas da tabela do Financeiro (RC-D92): 6, SEM acoes (RC-D95 — a pagina e
@@ -30655,98 +30764,12 @@ body.is-selection-mode .mobile-tabbar {
     width: 128px;
   }
 
-  /* ── Linha das cinco fases (RC-D80..D83) ──────────────────────────────
-     Vive so aqui: a linha e desktop (RC-D82) e esta secao inteira esta sob
-     `min-width: 901px`. Convive com o chip da agenda na mesma celula — a
-     linha diz ONDE esta, o chip diz QUANDO e o proximo compromisso.
-
-     🔴 Os TRILHOS sao sempre neutros; so os PONTOS mudam de estado. Trilho
-     preenchido leria como barra de progresso, e aqui nada trava nada (§6):
-     `● ○ ● ● ●` (finalizado sem aprovacao, RC-D66) e legitimo. */
-  .ctr-situacao-cell {
-    align-items: flex-start;
-    gap: 0.3rem;
-  }
-
-  .ctr-phaseline {
-    display: flex;
-    align-items: center;
-    align-self: stretch;
-    min-width: 0;
-    padding: 0.12rem 0;
-  }
-
-  .ctr-phase-pt {
-    display: flex;
-    align-items: center;
-    flex: 1 1 0;
-    min-width: 0;
-  }
-  /* O primeiro ponto nao tem trilho a esquerda, entao nao divide a sobra. */
-  .ctr-phase-pt:first-child {
-    flex: 0 0 auto;
-  }
-  .ctr-phase-pt:not(:first-child)::before {
-    content: '';
-    flex: 1 1 auto;
-    min-width: 6px;
-    height: 1px;
-    background: var(--fv-line-strong);
-  }
-
-  .ctr-phase-dot {
-    flex: 0 0 auto;
-    width: 9px;
-    height: 9px;
-    border: 1.5px solid var(--fv-line-strong);
-    border-radius: 50%;
-    background: var(--fv-surface);
-    box-sizing: border-box;
-  }
-
-  .ctr-phase-pt.is-feito .ctr-phase-dot {
-    border-color: var(--fv-cta);
-    background: var(--fv-cta);
-  }
-
-  /* "Nao se aplica" (aprovacao nao marcada): traco, nao circulo vazio — vazio
-     leria como pendencia. O slot fica de pe para as linhas da tabela
-     continuarem alinhadas entre contratos. */
-  .ctr-phase-pt.is-na .ctr-phase-dot {
-    width: 8px;
-    height: 1px;
-    border: 0;
-    border-radius: 0;
-    background: var(--fv-line-strong);
-  }
-
-  /* Washout: a linha inteira esmaece e fecha com ✕ no ultimo ponto — o
-     pagamento e o que nunca vai chegar. */
-  .ctr-phaseline.is-cancelado {
-    opacity: 0.5;
-  }
-  .ctr-phase-dot.is-x {
-    position: relative;
-    border-color: transparent;
-    background: none;
-  }
-  .ctr-phase-dot.is-x::before,
-  .ctr-phase-dot.is-x::after {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 9px;
-    height: 1.5px;
-    background: var(--ink);
-    border-radius: 1px;
-  }
-  .ctr-phase-dot.is-x::before {
-    transform: translate(-50%, -50%) rotate(45deg);
-  }
-  .ctr-phase-dot.is-x::after {
-    transform: translate(-50%, -50%) rotate(-45deg);
-  }
+  /* 🪦 RC-D116: as 13 regras da LINHA DAS CINCO FASES (`.ctr-phaseline`,
+     `.ctr-phase-pt`, `.ctr-phase-dot` e variantes) e a `.ctr-situacao-cell`
+     viviam aqui — a linha era desktop-only (RC-D82), e esta secao esta sob
+     `min-width: 901px`. Sairam com a coluna "Situacao" e com o produto: a
+     lista virou cards, e o que o card mostra e a barra de TEMPO
+     (`.ctr-timebar*`, na secao de /contratos) + o ponto do status. */
 
   /* Celula do lote: numero · badge de liga · chip de status, em linha. O
      numero encolhe/trunca primeiro; badge e chip nunca quebram. */

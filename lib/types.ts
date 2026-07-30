@@ -364,23 +364,12 @@ export interface ContractAgenda {
   dayKey: string | null;
 }
 
-// RC-D80..D83: as cinco fases como linha de progressão da lista (desktop, RC-D82).
-// 🔴 Não é barra de progresso — são cinco luzes: cada ponto acende pelo seu próprio
-// critério, independente dos outros, porque nada trava nada (§6). Buraco no meio da
-// linha é estado legítimo. `na` = a fase não existe neste contrato (aprovação não
-// marcada) — o slot fica, para as linhas da tabela não desalinharem entre si.
-export type ContractPhaseKey = 'emissao' | 'aprovacao' | 'embarque' | 'faturamento' | 'pagamento';
-export type ContractPhaseState = 'feito' | 'pendente' | 'na';
+// RC-D117: os quatro estados da lista de /contratos — mutuamente exclusivos e
+// exaustivos, por isso as quatro contagens somam o total. São TAMBÉM o filtro (a KPI
+// row escreve no painel, RC-D118). "atraso" é só o pagamento vencido (RC-D64).
+export type ContractListState = 'atraso' | 'aberto' | 'finalizado' | 'cancelado';
 
-export interface ContractPhasePoint {
-  key: ContractPhaseKey;
-  state: ContractPhaseState;
-}
-
-export interface ContractPhases {
-  cancelado: boolean;
-  points: ContractPhasePoint[];
-}
+export type ContractStateCounts = Record<ContractListState, number>;
 
 // Aprovação do contrato (Fase I, D112–D119): prefill da etiqueta montado no
 // backend (campos já cortados nos limites físicos e lotes quebrados do Lote
@@ -471,8 +460,6 @@ export interface SaleContract {
   // RC-D68: derivada no servidor, presente na lista E no detalhe (para os dois
   // nunca divergirem). Opcional só para o payload legado dos testes de contrato.
   agenda?: ContractAgenda;
-  // RC-D80: só a LISTA carrega — é lá que a linha de fases vive. Ausente no detalhe.
-  phases?: ContractPhases;
   version: number;
   createdAt: string | null;
   updatedAt: string | null;
@@ -554,11 +541,15 @@ export type ContractPeriodBase = 'contract' | 'invoice' | 'payment';
 
 export interface SaleContractListResponse {
   items: SaleContract[];
-  // RC-F6: a lista pagina por cursor (contractSeq). `nextCursor` nulo = fim.
-  // `total` e a contagem do FILTRO inteiro, nao da pagina — e o que a
-  // `.fv-toolbar-count` mostra.
+  // RC-F6: a lista pagina por cursor. `nextCursor` nulo = fim. `total` e a contagem
+  // do FILTRO inteiro, nao da pagina — e o que a `.fv-toolbar-count` mostra.
+  // RC-D117: o cursor virou opaco ({g, pd, seq} em base64url), porque a ordem passou
+  // a ser por GRUPO DE ESTADO e nao mais por contractSeq.
   nextCursor: string | null;
   total: number;
+  // RC-D118: as quatro contagens da KPI row. Independentes da situação filtrada
+  // (senão clicar num cartão mexeria nos outros três números) e sempre presentes.
+  counts: ContractStateCounts;
 }
 
 export interface SaleContractResponse {
