@@ -24,6 +24,7 @@ import { formatClientDocument, formatPhone } from '../../lib/client-field-format
 import { formatRelativeTime } from '../../lib/relative-time';
 import { useIsDesktop } from '../../lib/use-desktop';
 import { useRevalidate } from '../../lib/revalidation/use-revalidate';
+import { SNAPSHOT_KEYS, type SnapshotKey } from '../../lib/snapshots/registry';
 import { useToast } from '../../lib/toast/ToastProvider';
 import type {
   ClientStatus,
@@ -41,7 +42,7 @@ const CLIENT_PAGE_LIMIT = 60;
 // commercialUserFilter + showOnlyIncomplete. Snapshots v2 ficam orfaos.
 // A chave e parametrizavel (storageKey) pra o mesmo browser rodar em 2 telas
 // (/clients e a aba Clientes de /cadastros) sem colidir os snapshots.
-const DEFAULT_STORAGE_KEY = 'clients-list-snapshot-v3';
+const DEFAULT_STORAGE_KEY: SnapshotKey = SNAPSHOT_KEYS.clients;
 // 14.7.K: TTL 10min — snapshot expira apos esse periodo de inatividade.
 const CLIENTS_SNAPSHOT_TTL_MS = 10 * 60 * 1000;
 
@@ -238,7 +239,9 @@ export interface ClientsBrowserProps {
   session: SessionData;
   // Chave do snapshot em sessionStorage. Distinta por contexto: /clients usa a
   // default; a aba Clientes de /cadastros passa uma propria (nao colidem).
-  storageKey?: string;
+  // SN-D9: so aceita chave REGISTRADA — e o registro que o logout limpa, entao
+  // uma chave inventada aqui sobreviveria a troca de usuario.
+  storageKey?: SnapshotKey;
   // Deep-link ?incomplete=true (card "Cadastros pendentes" do dashboard). So a
   // /clients le a URL e repassa; a aba de /cadastros nao usa (default false).
   initialIncomplete?: boolean;

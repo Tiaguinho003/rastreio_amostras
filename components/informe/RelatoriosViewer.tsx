@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { InformeCreateRadialFab } from './InformeCreateRadialFab';
 import { useInformeCreateSheets } from './useInformeCreateSheets';
@@ -16,8 +16,18 @@ import {
 } from '../../lib/api-client';
 import { useRevalidate } from '../../lib/revalidation/use-revalidate';
 import { isWeeklyReportAuthor } from '../../lib/roles';
+import {
+  SNAPSHOT_KEYS,
+  SNAPSHOT_WRITE_DEBOUNCE_MS,
+  clearSnapshot,
+  readSnapshot,
+  writeSnapshot,
+  type SnapshotEnvelope,
+} from '../../lib/snapshots/registry';
+import { readListScrollTop, restoreListScrollTop } from '../../lib/snapshots/scroll';
 import { useDebouncedValue } from '../../lib/use-debounced-value';
 import { useIsDesktop } from '../../lib/use-desktop';
+import { useIsomorphicLayoutEffect } from '../../lib/use-isomorphic-layout-effect';
 import { useToast } from '../../lib/toast/ToastProvider';
 import type {
   InformeFeedItem,
@@ -58,6 +68,20 @@ const TYPE_CHIPS: { value: '' | InformeFeedType; label: string }[] = [
   { value: 'WEEKLY_REPORT', label: 'Semanal' },
 ];
 
+// SN-D7: primeira pintura ao voltar pra /relatorios. Guarda a lista JA
+// ACUMULADA (o "Carregar mais" volta com ela), o cursor de pagina, a posicao do
+// scroll e o recorte (busca + tipo). Nao e fonte de verdade: o refetch silencioso
+// da pagina 1 corre por baixo e substitui — igual /samples.
+interface RelatoriosSnapshot extends SnapshotEnvelope {
+  items: InformeFeedItem[];
+  total: number;
+  hasNext: boolean;
+  page: number;
+  scrollTop: number;
+  search: string;
+  typeFilter: '' | InformeFeedType;
+}
+
 interface RelatoriosViewerProps {
   session: SessionData;
   // Mostra as portas de criacao (Visita p/ todos; Semanal so ADMIN + COMMERCIAL;
@@ -69,16 +93,23 @@ export function RelatoriosViewer({ session, canCreate }: RelatoriosViewerProps) 
   const toast = useToast();
   const isDesktop = useIsDesktop();
 
-  const [items, setItems] = useState<InformeFeedItem[]>([]);
-  const [total, setTotal] = useState(0);
-  const [hasNext, setHasNext] = useState(false);
-  const [page, setPage] = useState(1);
-  const [initialLoading, setInitialLoading] = useState(true);
+  // SN-D7: o feed restaura a primeira pintura ao voltar pra pagina. Leitura no
+  // inicializador e segura aqui — o componente so monta com sessao resolvida,
+  // logo nunca renderiza no servidor.
+  const [initialSnapshot] = useState<RelatoriosSnapshot | null>(() =>
+    readSnapshot<RelatoriosSnapshot>(SNAPSHOT_KEYS.relatorios)
+  );
+
+  const [items, setItems] = useState<InformeFeedItem[]>(initialSnapshot?.items ?? []);
+  const [total, setTotal] = useState(initialSnapshot?.total ?? 0);
+  const [hasNext, setHasNext] = useState(initialSnapshot?.hasNext ?? false);
+  const [page, setPage] = useState(initialSnapshot?.page ?? 1);
+  const [initialLoading, setInitialLoading] = useState(!initialSnapshot);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [stats, setStats] = useState<RelatoriosStatsResponse | null>(null);
-  const [searchInput, setSearchInput] = useState('');
+  const [searchInput, setSearchInput] = useState(initialSnapshot?.search ?? '');
   const debouncedSearch = useDebouncedValue(searchInput.trim(), SEARCH_DEBOUNCE_MS);
 
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
@@ -86,7 +117,14 @@ export function RelatoriosViewer({ session, canCreate }: RelatoriosViewerProps) 
   const [cancelling, setCancelling] = useState(false);
 
   // Filtro por tipo (chips): aplica imediato — sem rascunho/painel.
-  const [typeFilter, setTypeFilter] = useState<'' | InformeFeedType>('');
+  const [typeFilter, setTypeFilter] = useState<'' | InformeFeedType>(
+    initialSnapshot?.typeFilter ?? ''
+  );
+
+  const feedScrollRef = useRef<HTMLElement | null>(null);
+  // Mount restaurado: o primeiro fetch tambem e silencioso, senao a pagina
+  // pintaria a lista do snapshot e logo a trocaria por um skeleton.
+  const restoredMountRef = useRef(Boolean(initialSnapshot));
   const hasActiveQuery = Boolean(debouncedSearch) || Boolean(typeFilter);
 
   // Params do feed (R7). Memo pra só a busca (debounced) e o tipo dispararem o
@@ -150,9 +188,14 @@ export function RelatoriosViewer({ session, canCreate }: RelatoriosViewerProps) 
   );
 
   // Refetch da pagina 1 na carga inicial E a cada mudanca de busca (loadPage muda
-  // com feedQuery).
+  // com feedQuery). Num mount RESTAURADO o primeiro fetch tambem e silencioso: a
+  // lista do snapshot ja esta na tela, e cobri-la com skeleton pra repintar o
+  // mesmo conteudo seria piora. Troca de busca/tipo segue acendendo o skeleton —
+  // ali o conteudo realmente muda.
   useEffect(() => {
-    void loadPage(1, 'replace');
+    const restoredMount = restoredMountRef.current;
+    restoredMountRef.current = false;
+    void loadPage(1, 'replace', restoredMount);
   }, [loadPage]);
 
   // KPIs (2 cards de visita). Sao um PLUS: se falharem, a lista ainda vale e o
@@ -180,6 +223,51 @@ export function RelatoriosViewer({ session, canCreate }: RelatoriosViewerProps) 
       refetchStats();
     },
   });
+
+  // ── Snapshot (SN-D7) ─────────────────────────────────────────────────────
+  // Restaura o scroll assim que a lista restaurada esta no DOM. Layout effect
+  // pra reposicionar ANTES da pintura — com `useEffect` o feed apareceria no
+  // topo e daria um pulo.
+  //
+  // A dep e o BOOLEANO `hasItems`, nao `items.length`: o refetch silencioso
+  // troca o tamanho da lista, e com o numero na dep o efeito re-rodaria e o
+  // cleanup cancelaria o rAF do retry no meio da restauracao.
+  const hasItems = items.length > 0;
+  const restoredScrollRef = useRef(false);
+  useIsomorphicLayoutEffect(() => {
+    if (restoredScrollRef.current || !initialSnapshot || !hasItems) return;
+    restoredScrollRef.current = true;
+    return restoreListScrollTop(() => feedScrollRef.current, initialSnapshot.scrollTop);
+  }, [initialSnapshot, hasItems]);
+
+  // Save CONTINUO (debounce) enquanto o usuario esta na pagina — cobre qualquer
+  // saida, nao so as que passam por um handler nosso.
+  useEffect(() => {
+    if (initialLoading || items.length === 0) return;
+    const timer = window.setTimeout(() => {
+      writeSnapshot<RelatoriosSnapshot>(SNAPSHOT_KEYS.relatorios, {
+        items,
+        total,
+        hasNext,
+        page,
+        scrollTop: readListScrollTop(feedScrollRef.current),
+        search: debouncedSearch,
+        typeFilter,
+        savedAt: Date.now(),
+      });
+    }, SNAPSHOT_WRITE_DEBOUNCE_MS);
+    return () => window.clearTimeout(timer);
+  }, [items, total, hasNext, page, initialLoading, debouncedSearch, typeFilter]);
+
+  // Trocar busca ou tipo invalida o snapshot na hora: ele guarda o recorte
+  // ANTIGO, e restaurar aquilo depois seria mostrar o resultado errado.
+  const snapshotScopeRef = useRef(`${debouncedSearch}|${typeFilter}`);
+  useEffect(() => {
+    const scope = `${debouncedSearch}|${typeFilter}`;
+    if (scope === snapshotScopeRef.current) return;
+    snapshotScopeRef.current = scope;
+    clearSnapshot(SNAPSHOT_KEYS.relatorios);
+  }, [debouncedSearch, typeFilter]);
 
   const toggleExpanded = useCallback((id: string) => {
     setExpandedIds((current) => {
@@ -463,7 +551,7 @@ export function RelatoriosViewer({ session, canCreate }: RelatoriosViewerProps) 
           {headActions}
         </div>
 
-        <section className="sdv-content informe-content rsm-content">
+        <section className="sdv-content informe-content rsm-content" ref={feedScrollRef}>
           {isDesktop ? toolbar : null}
 
           <div className="rsm-feed">

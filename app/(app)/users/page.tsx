@@ -19,8 +19,18 @@ import {
 } from '../../../lib/api-client';
 import { maskPhoneInput } from '../../../lib/client-field-formatters';
 import { formatRelativeTime } from '../../../lib/relative-time';
+import {
+  SNAPSHOT_KEYS,
+  SNAPSHOT_WRITE_DEBOUNCE_MS,
+  clearSnapshot,
+  readSnapshot,
+  writeSnapshot,
+  type SnapshotEnvelope,
+} from '../../../lib/snapshots/registry';
+import { readListScrollTop, restoreListScrollTop } from '../../../lib/snapshots/scroll';
 import { useToast } from '../../../lib/toast/ToastProvider';
 import { useIsDesktop } from '../../../lib/use-desktop';
+import { useIsomorphicLayoutEffect } from '../../../lib/use-isomorphic-layout-effect';
 import { getRoleLabel, isAssignableUserRole } from '../../../lib/roles';
 import { useRequireRole } from '../../../lib/auth/AuthProvider';
 import { useRevalidate } from '../../../lib/revalidation/use-revalidate';
@@ -132,7 +142,16 @@ interface UsersListState {
 type UsersListAction =
   | { type: 'fetch-initial' }
   | { type: 'fetch-more' }
-  | { type: 'success-initial'; items: UserSummary[]; total: number; nextCursor: UserCursor | null }
+  | {
+      type: 'success-initial';
+      items: UserSummary[];
+      total: number;
+      nextCursor: UserCursor | null;
+      // Revalidacao por baixo (barramento/foreground/poll) ou mount restaurado
+      // do snapshot: a lista ja esta na tela, entao NAO reanima a cascata de
+      // entrada — os cards piscariam sozinhos na cara de quem esta lendo.
+      silent?: boolean;
+    }
   | { type: 'success-more'; items: UserSummary[]; nextCursor: UserCursor | null }
   | { type: 'error'; message: string };
 
@@ -144,6 +163,17 @@ const USERS_INITIAL: UsersListState = {
   error: null,
   firstNewIndex: null,
 };
+
+// SN-D7: primeira pintura ao voltar pra /users. Guarda a lista ja acumulada pelo
+// scroll infinito, o cursor keyset, a posicao do scroll e a busca aplicada. Nao e
+// fonte de verdade — o refetch silencioso corre por baixo.
+interface UsersSnapshot extends SnapshotEnvelope {
+  items: UserSummary[];
+  total: number;
+  nextCursor: UserCursor | null;
+  scrollTop: number;
+  appliedSearch: string;
+}
 
 function usersListReducer(state: UsersListState, action: UsersListAction): UsersListState {
   switch (action.type) {
@@ -159,7 +189,7 @@ function usersListReducer(state: UsersListState, action: UsersListAction): Users
         nextCursor: action.nextCursor,
         status: 'idle',
         error: null,
-        firstNewIndex: 0,
+        firstNewIndex: action.silent ? null : 0,
       };
     case 'success-more':
       return {
@@ -281,7 +311,27 @@ function UsersPage() {
   // unico do historico: back fecha em UM toque e a URL so acompanha.
   const usuarioParam = searchParams.get('usuario');
 
-  const [listState, dispatchList] = useReducer(usersListReducer, USERS_INITIAL);
+  // SN-D7: leitura no inicializador e segura — a pagina so monta com sessao
+  // resolvida, logo nunca renderiza no servidor (nao ha mismatch de hidratacao).
+  const [initialSnapshot] = useState<UsersSnapshot | null>(() =>
+    readSnapshot<UsersSnapshot>(SNAPSHOT_KEYS.users)
+  );
+
+  const [listState, dispatchList] = useReducer(
+    usersListReducer,
+    initialSnapshot
+      ? {
+          items: initialSnapshot.items,
+          total: initialSnapshot.total,
+          nextCursor: initialSnapshot.nextCursor,
+          status: 'idle' as const,
+          error: null,
+          // Restaurado nao anima: os cards ja estavam na tela quando o usuario
+          // saiu, e a cascata de entrada aqui seria um pisca sem motivo.
+          firstNewIndex: null,
+        }
+      : USERS_INITIAL
+  );
   const [modal, dispatchModal] = useReducer(modalReducer, MODAL_INITIAL);
 
   // U-D1: no desktop a lista vira TABELA institucional (.fv-table); no mobile
@@ -289,8 +339,8 @@ function UsersPage() {
   // apresentacao (data-tables §9).
   const isDesktop = useIsDesktop();
 
-  const [searchInput, setSearchInput] = useState('');
-  const [appliedSearch, setAppliedSearch] = useState('');
+  const [searchInput, setSearchInput] = useState(initialSnapshot?.appliedSearch ?? '');
+  const [appliedSearch, setAppliedSearch] = useState(initialSnapshot?.appliedSearch ?? '');
   const [inactivateOpen, setInactivateOpen] = useState(false);
 
   // Menu ⋯ da linha. Dismiss = clique-fora + ESC devolvendo o foco ao trigger
@@ -328,6 +378,7 @@ function UsersPage() {
     token: number;
     abort: AbortController | null;
   }>({ inFlight: false, token: 0, abort: null });
+  const restoredMountRef = useRef(Boolean(initialSnapshot));
 
   useEffect(() => {
     if (!rowMenuFor) return;
@@ -382,7 +433,14 @@ function UsersPage() {
 
     const abortController = new AbortController();
     let active = true;
-    dispatchList({ type: 'fetch-initial' });
+    // Mount restaurado do snapshot: o primeiro fetch roda SILENCIOSO (sem
+    // skeleton, sem recascatear os cards) — a lista restaurada ja esta na tela.
+    // É stale-while-revalidate: o snapshot pinta, o servidor corrige por baixo.
+    const restoredMount = restoredMountRef.current;
+    restoredMountRef.current = false;
+    if (!restoredMount) {
+      dispatchList({ type: 'fetch-initial' });
+    }
     loadMoreStateRef.current.token += 1;
     loadMoreStateRef.current.inFlight = false;
     loadMoreStateRef.current.abort?.abort();
@@ -400,6 +458,7 @@ function UsersPage() {
           items: response.items,
           total: response.page.total,
           nextCursor: response.page.nextCursor,
+          silent: restoredMount,
         });
       })
       .catch((cause) => {
@@ -512,6 +571,7 @@ function UsersPage() {
           items: response.items,
           total: response.page.total,
           nextCursor: response.page.nextCursor,
+          silent,
         });
       } catch (cause) {
         if (silent) return;
@@ -534,6 +594,48 @@ function UsersPage() {
       void refreshList(true);
     },
   });
+
+  // ── Snapshot (SN-D7) ─────────────────────────────────────────────────────
+  // Restaura o scroll assim que a lista restaurada esta no DOM. Layout effect
+  // pra reposicionar ANTES da pintura — com `useEffect` a lista apareceria no
+  // topo e daria um pulo.
+  //
+  // A dep e o BOOLEANO `hasItems`, nao `items.length`: o refetch silencioso
+  // troca o tamanho da lista, e com o numero na dep o efeito re-rodaria e o
+  // cleanup cancelaria o rAF do retry no meio da restauracao.
+  const hasItems = listState.items.length > 0;
+  const restoredScrollRef = useRef(false);
+  useIsomorphicLayoutEffect(() => {
+    if (restoredScrollRef.current || !initialSnapshot || !hasItems) return;
+    restoredScrollRef.current = true;
+    return restoreListScrollTop(() => scrollRef.current, initialSnapshot.scrollTop);
+  }, [initialSnapshot, hasItems]);
+
+  // Save CONTINUO (debounce) enquanto o usuario esta na pagina — cobre qualquer
+  // saida, nao so as que passam por um handler nosso.
+  useEffect(() => {
+    if (listState.status !== 'idle' || listState.items.length === 0) return;
+    const timer = window.setTimeout(() => {
+      writeSnapshot<UsersSnapshot>(SNAPSHOT_KEYS.users, {
+        items: listState.items,
+        total: listState.total,
+        nextCursor: listState.nextCursor,
+        scrollTop: readListScrollTop(scrollRef.current),
+        appliedSearch,
+        savedAt: Date.now(),
+      });
+    }, SNAPSHOT_WRITE_DEBOUNCE_MS);
+    return () => window.clearTimeout(timer);
+  }, [listState.items, listState.total, listState.nextCursor, listState.status, appliedSearch]);
+
+  // Trocar a busca invalida o snapshot na hora: ele guarda o recorte ANTIGO, e
+  // restaurar aquilo depois seria mostrar o resultado errado.
+  const snapshotScopeRef = useRef(appliedSearch);
+  useEffect(() => {
+    if (appliedSearch === snapshotScopeRef.current) return;
+    snapshotScopeRef.current = appliedSearch;
+    clearSnapshot(SNAPSHOT_KEYS.users);
+  }, [appliedSearch]);
 
   // --- Load detail when modal opens ---
   useEffect(() => {

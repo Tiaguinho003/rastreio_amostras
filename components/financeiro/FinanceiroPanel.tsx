@@ -6,7 +6,17 @@ import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 
 import { ApiError, listFinanceiro } from '../../lib/api-client';
 import { useRevalidate } from '../../lib/revalidation/use-revalidate';
+import {
+  SNAPSHOT_KEYS,
+  SNAPSHOT_WRITE_DEBOUNCE_MS,
+  clearSnapshot,
+  readSnapshot,
+  writeSnapshot,
+  type SnapshotEnvelope,
+} from '../../lib/snapshots/registry';
+import { readListScrollTop, restoreListScrollTop } from '../../lib/snapshots/scroll';
 import { useContractHighlight } from '../../lib/use-contract-highlight';
+import { useIsomorphicLayoutEffect } from '../../lib/use-isomorphic-layout-effect';
 import { useIsDesktop } from '../../lib/use-desktop';
 import type {
   FinanceiroFilter,
@@ -80,6 +90,17 @@ type FinListAction =
   | { type: 'success-more'; items: FinanceiroReceivable[]; nextCursor: string | null }
   | { type: 'error'; message: string };
 
+// SN-D7: o que a carteira restaura ao voltar pra pagina. NUNCA e fonte de
+// verdade — e so a primeira pintura, com o refetch silencioso por baixo.
+interface FinanceiroSnapshot extends SnapshotEnvelope {
+  items: FinanceiroReceivable[];
+  nextCursor: string | null;
+  kpis: Record<FinanceiroPaymentState, FinanceiroKpi>;
+  scrollTop: number;
+  appliedSearch: string;
+  filter: FinanceiroFilter;
+}
+
 const FIN_INITIAL: FinListState = {
   items: [],
   nextCursor: null,
@@ -123,10 +144,30 @@ function finListReducer(state: FinListState, action: FinListAction): FinListStat
 export function FinanceiroPanel({ session }: { session: SessionData }) {
   const router = useRouter();
   const isDesktop = useIsDesktop();
-  const [listState, dispatchList] = useReducer(finListReducer, FIN_INITIAL);
-  const [searchInput, setSearchInput] = useState('');
-  const [appliedSearch, setAppliedSearch] = useState('');
-  const [filter, setFilter] = useState<FinanceiroFilter>('todos');
+
+  // SN-D7: a carteira restaura a primeira pintura ao voltar pra pagina — itens,
+  // cursor, KPIs, scroll, busca e filtro. Leitura no inicializador do `useState`
+  // e segura AQUI (diferente do cache de sessao): este componente so e montado
+  // com sessao resolvida, logo nunca renderiza no servidor.
+  const [initialSnapshot] = useState<FinanceiroSnapshot | null>(() =>
+    readSnapshot<FinanceiroSnapshot>(SNAPSHOT_KEYS.financeiro)
+  );
+
+  const [listState, dispatchList] = useReducer(
+    finListReducer,
+    initialSnapshot
+      ? {
+          items: initialSnapshot.items,
+          nextCursor: initialSnapshot.nextCursor,
+          kpis: initialSnapshot.kpis,
+          status: 'idle' as const,
+          error: null,
+        }
+      : FIN_INITIAL
+  );
+  const [searchInput, setSearchInput] = useState(initialSnapshot?.appliedSearch ?? '');
+  const [appliedSearch, setAppliedSearch] = useState(initialSnapshot?.appliedSearch ?? '');
+  const [filter, setFilter] = useState<FinanceiroFilter>(initialSnapshot?.filter ?? 'todos');
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const searchDebounceRef = useRef<number | null>(null);
@@ -163,7 +204,10 @@ export function FinanceiroPanel({ session }: { session: SessionData }) {
   // entra como um token nas deps. `silent` = não pisca skeleton nem derruba a
   // lista da tela se a rede falhar.
   const [reloadToken, setReloadToken] = useState(0);
-  const silentReloadRef = useRef(false);
+  // Restaurou do snapshot? Entao o PRIMEIRO fetch tambem e silencioso — senao a
+  // pagina pintaria a lista restaurada e logo em seguida a trocaria por um
+  // skeleton, que e pior do que nao ter snapshot nenhum.
+  const silentReloadRef = useRef(Boolean(initialSnapshot));
 
   useRevalidate({
     // O que a carteira mostra é derivado de CONTRATO — fechar/finalizar um
@@ -221,6 +265,57 @@ export function FinanceiroPanel({ session }: { session: SessionData }) {
       abortController.abort();
     };
   }, [appliedSearch, filter, session, reloadToken]);
+
+  // ── Snapshot (SN-D7) ─────────────────────────────────────────────────────
+  // Restaura o scroll assim que a lista restaurada esta no DOM. Layout effect
+  // pra reposicionar ANTES da pintura — com `useEffect` a pagina apareceria no
+  // topo e daria um pulo.
+  //
+  // A dep e o BOOLEANO `hasItems`, nao `items.length`: o refetch silencioso
+  // troca o tamanho da lista, e com o numero na dep o efeito re-rodaria e o
+  // cleanup cancelaria o rAF do retry no meio da restauracao.
+  const hasItems = listState.items.length > 0;
+  const restoredScrollRef = useRef(false);
+  useIsomorphicLayoutEffect(() => {
+    if (restoredScrollRef.current || !initialSnapshot || !hasItems) return;
+    restoredScrollRef.current = true;
+    return restoreListScrollTop(() => scrollRef.current, initialSnapshot.scrollTop);
+  }, [initialSnapshot, hasItems]);
+
+  // Save CONTINUO (debounce) enquanto o usuario esta na pagina — cobre qualquer
+  // saida, nao so as que passam por um handler nosso.
+  useEffect(() => {
+    if (listState.status !== 'idle' || listState.items.length === 0) return;
+    const timer = window.setTimeout(() => {
+      writeSnapshot<FinanceiroSnapshot>(SNAPSHOT_KEYS.financeiro, {
+        items: listState.items,
+        nextCursor: listState.nextCursor,
+        kpis: listState.kpis,
+        scrollTop: readListScrollTop(scrollRef.current),
+        appliedSearch,
+        filter,
+        savedAt: Date.now(),
+      });
+    }, SNAPSHOT_WRITE_DEBOUNCE_MS);
+    return () => window.clearTimeout(timer);
+  }, [
+    listState.items,
+    listState.nextCursor,
+    listState.kpis,
+    listState.status,
+    appliedSearch,
+    filter,
+  ]);
+
+  // Trocar busca ou filtro invalida o snapshot na hora: ele guarda o recorte
+  // ANTIGO, e restaurar aquilo depois seria mostrar o resultado errado.
+  const snapshotScopeRef = useRef(`${appliedSearch}|${filter}`);
+  useEffect(() => {
+    const scope = `${appliedSearch}|${filter}`;
+    if (scope === snapshotScopeRef.current) return;
+    snapshotScopeRef.current = scope;
+    clearSnapshot(SNAPSHOT_KEYS.financeiro);
+  }, [appliedSearch, filter]);
 
   // Load-more pelo cursor. inFlight + token protegem contra race em scrolls rápidos.
   const runLoadMore = useCallback(

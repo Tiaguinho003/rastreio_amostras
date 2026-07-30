@@ -22,9 +22,19 @@ import {
   reopenSaleContract,
 } from '../../lib/api-client';
 import { getBrtToday, toDayKey } from '../../lib/dashboard-calendar';
+import {
+  SNAPSHOT_KEYS,
+  SNAPSHOT_WRITE_DEBOUNCE_MS,
+  clearSnapshot,
+  readSnapshot,
+  writeSnapshot,
+  type SnapshotEnvelope,
+} from '../../lib/snapshots/registry';
+import { readListScrollTop, restoreListScrollTop } from '../../lib/snapshots/scroll';
 import { useDelayedValue } from '../../lib/use-delayed-value';
 import { useContractHighlight } from '../../lib/use-contract-highlight';
 import { useIsDesktop } from '../../lib/use-desktop';
+import { useIsomorphicLayoutEffect } from '../../lib/use-isomorphic-layout-effect';
 import { useRevalidate } from '../../lib/revalidation/use-revalidate';
 import { useToast } from '../../lib/toast/ToastProvider';
 import type {
@@ -150,6 +160,19 @@ function contractsListReducer(
   }
 }
 
+// SN-D7: primeira pintura ao voltar pra /contratos. Guarda a lista ja acumulada
+// pelo load-more, o cursor, os `counts` (a KPI row) e o recorte inteiro (busca +
+// filtros). Nao e fonte de verdade — o refetch silencioso corre por baixo.
+interface ContratosSnapshot extends SnapshotEnvelope {
+  items: SaleContract[];
+  total: number;
+  counts: ContractStateCounts;
+  nextCursor: string | null;
+  scrollTop: number;
+  appliedSearch: string;
+  appliedFilters: ContractFilters;
+}
+
 // Filtros aplicados -> querystring do listSaleContracts. Uma funcao so, usada
 // pelo fetch inicial, pelo load-more e pelo refresh — assim as tres chamadas nao
 // podem divergir no recorte.
@@ -176,9 +199,27 @@ export function ContratosPanel({ session }: { session: SessionData }) {
   const toast = useToast();
   const isDesktop = useIsDesktop();
 
-  const [listState, dispatchList] = useReducer(contractsListReducer, CONTRACTS_INITIAL);
-  const [searchInput, setSearchInput] = useState('');
-  const [appliedSearch, setAppliedSearch] = useState('');
+  // SN-D7: leitura no inicializador e segura — o painel so monta com sessao
+  // resolvida, logo nunca renderiza no servidor (nao ha mismatch de hidratacao).
+  const [initialSnapshot] = useState<ContratosSnapshot | null>(() =>
+    readSnapshot<ContratosSnapshot>(SNAPSHOT_KEYS.contratos)
+  );
+
+  const [listState, dispatchList] = useReducer(
+    contractsListReducer,
+    initialSnapshot
+      ? {
+          items: initialSnapshot.items,
+          total: initialSnapshot.total,
+          counts: initialSnapshot.counts,
+          nextCursor: initialSnapshot.nextCursor,
+          status: 'idle' as const,
+          error: null,
+        }
+      : CONTRACTS_INITIAL
+  );
+  const [searchInput, setSearchInput] = useState(initialSnapshot?.appliedSearch ?? '');
+  const [appliedSearch, setAppliedSearch] = useState(initialSnapshot?.appliedSearch ?? '');
   const [rowMenuFor, setRowMenuFor] = useState<string | null>(null);
   const rowMenuRef = useRef<HTMLDivElement | null>(null);
   const rowMenuTriggerRef = useRef<HTMLButtonElement | null>(null);
@@ -192,8 +233,12 @@ export function ContratosPanel({ session }: { session: SessionData }) {
   // /cadastros. `applied` vira querystring do servidor; `draft` e o que o painel
   // lateral edita; "Aplicar" copia draft->applied e refaz a 1a pagina.
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [draftFilters, setDraftFilters] = useState<ContractFilters>(EMPTY_CONTRACT_FILTERS);
-  const [appliedFilters, setAppliedFilters] = useState<ContractFilters>(EMPTY_CONTRACT_FILTERS);
+  const [draftFilters, setDraftFilters] = useState<ContractFilters>(
+    initialSnapshot?.appliedFilters ?? EMPTY_CONTRACT_FILTERS
+  );
+  const [appliedFilters, setAppliedFilters] = useState<ContractFilters>(
+    initialSnapshot?.appliedFilters ?? EMPTY_CONTRACT_FILTERS
+  );
 
   const activeFiltersCount = useMemo(
     () => countActiveContractFilters(appliedFilters),
@@ -306,13 +351,23 @@ export function ContratosPanel({ session }: { session: SessionData }) {
     };
   }, [searchInput, appliedSearch]);
 
+  // Mount restaurado do snapshot: o primeiro fetch roda SILENCIOSO (sem skeleton)
+  // — a lista restaurada ja esta na tela, e cobri-la pra repintar quase o mesmo
+  // conteudo seria piora. É stale-while-revalidate: o snapshot pinta, o servidor
+  // corrige por baixo.
+  const restoredMountRef = useRef(Boolean(initialSnapshot));
+
   // Fetch inicial: dispara ao mudar busca, filtros ou sessão. Reseta o cursor.
   useEffect(() => {
     if (!session) return;
 
     const abortController = new AbortController();
     let active = true;
-    dispatchList({ type: 'fetch-initial' });
+    const restoredMount = restoredMountRef.current;
+    restoredMountRef.current = false;
+    if (!restoredMount) {
+      dispatchList({ type: 'fetch-initial' });
+    }
     loadMoreStateRef.current.token += 1;
     loadMoreStateRef.current.inFlight = false;
     loadMoreStateRef.current.abort?.abort();
@@ -456,6 +511,60 @@ export function ContratosPanel({ session }: { session: SessionData }) {
   });
 
   const contracts = listState.items;
+
+  // ── Snapshot (SN-D7) ─────────────────────────────────────────────────────
+  // Restaura o scroll assim que a lista restaurada esta no DOM. Layout effect
+  // pra reposicionar ANTES da pintura — com `useEffect` a lista apareceria no
+  // topo e daria um pulo. Um `?highlight=` chegando junto ainda vence: aquele
+  // efeito roda DEPOIS da pintura e rola pro contrato apontado.
+  //
+  // A dep e o BOOLEANO `hasContracts`, nao `contracts.length`: o refetch
+  // silencioso troca o tamanho da lista, e com o numero na dep o efeito
+  // re-rodaria e o cleanup cancelaria o rAF do retry no meio da restauracao.
+  const hasContracts = contracts.length > 0;
+  const restoredScrollRef = useRef(false);
+  useIsomorphicLayoutEffect(() => {
+    if (restoredScrollRef.current || !initialSnapshot || !hasContracts) return;
+    restoredScrollRef.current = true;
+    return restoreListScrollTop(() => scrollRef.current, initialSnapshot.scrollTop);
+  }, [initialSnapshot, hasContracts]);
+
+  // Save CONTINUO (debounce) enquanto o usuario esta na pagina — cobre qualquer
+  // saida, nao so as que passam por um handler nosso.
+  useEffect(() => {
+    if (listState.status !== 'idle' || listState.items.length === 0) return;
+    const timer = window.setTimeout(() => {
+      writeSnapshot<ContratosSnapshot>(SNAPSHOT_KEYS.contratos, {
+        items: listState.items,
+        total: listState.total,
+        counts: listState.counts,
+        nextCursor: listState.nextCursor,
+        scrollTop: readListScrollTop(scrollRef.current),
+        appliedSearch,
+        appliedFilters,
+        savedAt: Date.now(),
+      });
+    }, SNAPSHOT_WRITE_DEBOUNCE_MS);
+    return () => window.clearTimeout(timer);
+  }, [
+    listState.items,
+    listState.total,
+    listState.counts,
+    listState.nextCursor,
+    listState.status,
+    appliedSearch,
+    appliedFilters,
+  ]);
+
+  // Trocar busca ou filtro invalida o snapshot na hora: ele guarda o recorte
+  // ANTIGO, e restaurar aquilo depois seria mostrar o resultado errado.
+  const snapshotScopeRef = useRef(`${appliedSearch}|${JSON.stringify(appliedFilters)}`);
+  useEffect(() => {
+    const scope = `${appliedSearch}|${JSON.stringify(appliedFilters)}`;
+    if (scope === snapshotScopeRef.current) return;
+    snapshotScopeRef.current = scope;
+    clearSnapshot(SNAPSHOT_KEYS.contratos);
+  }, [appliedSearch, appliedFilters]);
 
   // Deep-link `?details=<id>` de um contrato FORA da página carregada: busca por
   // id no servidor. Antes era só `contracts.find(...)` sobre o array baixado —

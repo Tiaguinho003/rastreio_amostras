@@ -21,6 +21,7 @@ import {
 import { formatPhone } from '../../../lib/client-field-formatters';
 import { CLIENT_MANAGEMENT_ROLES } from '../../../lib/roles';
 import { useRequireRole } from '../../../lib/auth/AuthProvider';
+import { SNAPSHOT_KEYS } from '../../../lib/snapshots/registry';
 import { useIsDesktop } from '../../../lib/use-desktop';
 import type { Broker, BrokerInput, ClientStatsResponse, UserLookupItem } from '../../../lib/types';
 
@@ -512,7 +513,7 @@ function CadastrosPage() {
         {tab === 'clientes' ? (
           <ClientsBrowser
             session={session}
-            storageKey="clients-list-snapshot-cad-v3"
+            storageKey={SNAPSHOT_KEYS.clientsCadastros}
             initialIncomplete={incompleteFromUrl}
             clientStats={clientStats}
             onOpenClient={openClient}

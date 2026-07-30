@@ -20,6 +20,7 @@ import {
 } from '../offline/session-cache';
 import { useRevalidate } from '../revalidation/use-revalidate';
 import { isRoleAllowed } from '../roles';
+import { clearAllSnapshots } from '../snapshots/registry';
 import type { SessionData, UserRole } from '../types';
 
 // O cache so existe no cliente. Ler no SSR devolveria `null` e no cliente a
@@ -184,16 +185,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // local cleanup still wins
     }
 
-    // Snapshots de lista (primeira pintura de /samples e /clients) sao do
-    // usuario da sessao — num PWA que sobrevive ao logout, sem esta limpeza o
-    // proximo login poderia restaurar a lista de outro usuario.
-    try {
-      window.sessionStorage.removeItem('samples-list-snapshot-v3');
-      window.sessionStorage.removeItem('clients-list-snapshot-v3');
-      window.sessionStorage.removeItem('clients-list-snapshot-cad-v3');
-    } catch {
-      // sessionStorage indisponivel — nada a limpar
-    }
+    // Snapshots de lista (a primeira pintura de cada pagina) sao do usuario da
+    // sessao — num PWA que sobrevive ao logout, sem esta limpeza o proximo
+    // login poderia restaurar a lista de outra pessoa.
+    // SN-D9: itera o REGISTRO em vez da lista hardcoded que morava aqui. Pagina
+    // nova entra em `lib/snapshots/registry.ts` e a limpeza vem de graca — a
+    // lista manual precisava ser lembrada, e esquecer nao quebrava nada na hora.
+    clearAllSnapshots();
 
     replaceSession(null);
     router.replace('/login');

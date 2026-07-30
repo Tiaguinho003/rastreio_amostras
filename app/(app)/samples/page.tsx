@@ -66,6 +66,12 @@ import {
   type BlendSelection,
 } from '../../../lib/samples/blend-selection';
 import { useRevalidate, type RevalidationSource } from '../../../lib/revalidation/use-revalidate';
+import { SNAPSHOT_KEYS } from '../../../lib/snapshots/registry';
+import {
+  applyListScrollTop,
+  readListScrollTop,
+  restoreListScrollTop,
+} from '../../../lib/snapshots/scroll';
 import { buildHarvestPresets } from '../../../lib/sample-identification';
 import { sampleStatusDisplay } from '../../../lib/sample-display';
 import { useToast } from '../../../lib/toast/ToastProvider';
@@ -426,7 +432,9 @@ function getInitialFilterSection(filters: HiddenFilters): FilterSectionId {
    lista nao fica mais
    congelada em dados velhos. ── */
 
-const SAMPLES_SNAPSHOT_KEY = 'samples-list-snapshot-v3';
+// SN-D9: a chave vem do registro (`lib/snapshots/registry.ts`), que e quem o
+// logout itera pra limpar. Literal solto aqui era o que apodrecia.
+const SAMPLES_SNAPSHOT_KEY = SNAPSHOT_KEYS.samples;
 // Janela de validade SO pra retorno que NAO veio do detalhe da amostra.
 const SAMPLES_SNAPSHOT_TTL_MS = 30 * 60 * 1000;
 
@@ -493,28 +501,6 @@ function clearSamplesSnapshot() {
   } catch {
     /* ignora */
   }
-}
-
-/* Quem rola e o container interno (.spv2-list-scroll) nos DOIS breakpoints:
-   /samples e rota "em camada" (AppShell), e la o `.app-shell-main` mobile e
-   `height: 100lvh; overflow: hidden`, entao a janela nao rola. O fallback pro
-   `window` abaixo e defensivo — vale se a pagina algum dia sair da camada.
-   (O comentario anterior afirmava o oposto: "no mobile quem rola e a janela".
-   Nunca foi verdade desde que a rota entrou na camada.) */
-function readListScrollTop(container: HTMLElement | null): number {
-  if (container && container.scrollHeight - container.clientHeight > 1) {
-    return container.scrollTop;
-  }
-  if (typeof window === 'undefined') return 0;
-  return window.scrollY || document.documentElement.scrollTop || 0;
-}
-
-function applyListScrollTop(container: HTMLElement | null, top: number): void {
-  if (container && container.scrollHeight - container.clientHeight > 1) {
-    container.scrollTo({ top });
-    return;
-  }
-  if (typeof window !== 'undefined') window.scrollTo({ top });
 }
 
 /* ── Samples list reducer (scroll infinito com cursor) ──
@@ -938,33 +924,16 @@ function SamplesPage() {
     [draftHiddenFilters]
   );
 
+  // Restaura o scroll ao voltar da detail. O porque do retry por frame (e nao um
+  // scrollTo unico) esta no `restoreListScrollTop` — F3 extraiu daqui pra que as
+  // 4 paginas que ganharam snapshot usem a MESMA logica.
   useLayoutEffect(() => {
     const pending = pendingScrollRestoreRef.current;
-    if (pending === null || pending <= 0) {
-      pendingScrollRestoreRef.current = null;
+    pendingScrollRestoreRef.current = null;
+    if (pending === null) {
       return;
     }
-    // Restaura o scroll ao voltar da detail. No mobile quem rola e a janela e o
-    // layout/altura so assenta depois de alguns frames (safe-areas, sheet,
-    // settle de scroll do iOS) — por isso um unico scrollTo "pegava" perto do
-    // topo e o scroll se perdia. Reaplica a cada frame ate o scroll bater no
-    // alvo (±2px) ou esgotar as tentativas (~20 frames). Para cedo ao acertar,
-    // pra nao brigar com um scroll do usuario.
-    let raf = 0;
-    let attempts = 0;
-    const MAX_ATTEMPTS = 20;
-    const tick = () => {
-      applyListScrollTop(samplesScrollRef.current, pending);
-      attempts += 1;
-      const reached = Math.abs(readListScrollTop(samplesScrollRef.current) - pending) <= 2;
-      if (reached || attempts >= MAX_ATTEMPTS) {
-        pendingScrollRestoreRef.current = null;
-        return;
-      }
-      raf = requestAnimationFrame(tick);
-    };
-    tick();
-    return () => cancelAnimationFrame(raf);
+    return restoreListScrollTop(() => samplesScrollRef.current, pending);
   }, []);
 
   // FV: scroll-lock, ESC e focus-trap dos filtros passaram a ser do BottomSheet
