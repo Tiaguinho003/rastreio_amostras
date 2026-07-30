@@ -329,6 +329,23 @@ não é óbvia:
 Grid de 2 colunas, cartões com rótulo + uma linha de apoio. Selecionado = hairline da marca + anel +
 lavagem discreta. O toque **afunda** (`scale(0.985)`), sem trocar de cor.
 
+### A segunda forma: cartões que AGEM, não selecionam
+
+O molde acima é o de **selecionar** — tem `role="radiogroup"`/`role="radio"`, `aria-checked` e um
+`is-selected` que persiste. A mesma peça visual serve para **agir**: cartões que disparam a ação e
+saem de cena, sem estado nenhum. Aí o grupo é `role="group"` com `aria-label`, os itens são botões
+simples e **`is-selected` nunca entra** — não há o que ficar marcado depois que o painel fechou.
+
+Vivo em `NodePaletteSheet` (Simulador, PG58): escolher o tipo de node cria o node e fecha o painel.
+Foi o que dispensou uma peça própria — a paleta antiga já desenhava rótulo + linha de apoio + afundar
+sem trocar de cor, à mão.
+
+🔴 **Mudar as colunas exige nomear as DUAS classes.** `.fv-choice-group` mora na seção do kit, perto
+do fim do `globals.css`; uma regra de página escrita antes dela, com a mesma especificidade, **perde
+por ordem** e o grid continua em 2 colunas sem explicação aparente. Escreva
+`.minha-classe.fv-choice-group { grid-template-columns: … }` — as duas estão no elemento de verdade,
+então não é guerra de especificidade, é só citar o que está lá.
+
 ### 🔴 A regra que originou o componente
 
 **Um seletor de 2–4 opções que só decide para onde ir não merece uma superfície própria — ele vira

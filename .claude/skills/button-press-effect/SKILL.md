@@ -179,6 +179,31 @@ em 2026-05-26 — a regra global `button { transition: 140ms ease }`
 em globals.css linha 1783 era um shorthand `all` que animava qualquer
 mudanca implicita do browser. Confirmado por `git log` do fix.
 
+### ❌ `:active` com `scale` num elemento JA transformado
+
+`transform` e uma propriedade so: o `:active` nao acrescenta o scale, ele
+**reescreve o valor inteiro**. Num elemento centrado por `translate` o scale
+sozinho apaga a centralizacao — o botao salta pro canto de baixo a direita
+no toque e volta ao soltar.
+
+```css
+/* NUNCA */
+.pg-add-node.is-center {
+  transform: translate(-50%, -50%);
+}
+.pg-add-node.is-center:active {
+  transform: scale(0.94); /* perdeu o translate */
+}
+
+/* CERTO — repetir a base e compor */
+.pg-add-node.is-center:active {
+  transform: translate(-50%, -50%) scale(0.94);
+}
+```
+
+Vale pra qualquer base: `translate`, `rotate` de um chevron, `translateY` de
+um card elevado. Se o seletor base tem `transform`, o `:active` repete.
+
 ## 6. Padroes pre-aprovados no projeto
 
 Lista de seletores que ja seguem o pattern corretamente — podem ser usados como referencia:

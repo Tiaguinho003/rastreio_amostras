@@ -231,6 +231,13 @@ e `pointer-events: none`: o peek `.detail-overlay` (RD4, "lista viva") e a ficha
 (`.pg-ficha-sheet`, PG52). O critério é o mesmo nos dois: **o que está atrás precisa continuar
 clicável pra superfície fazer sentido** — na ficha, editar as sacas no canvas recalcula a estimativa
 ao vivo. Painel que cria ou edita **não** entra aqui: tem estado sujo, e o bloqueio é a proteção.
+
+🔴 **O critério é a superfície, não a página.** O contraexemplo mora na MESMA feature: o painel de
+nodes do Simulador (`.pg-nodes-sheet`, PG58) fica no backdrop **bloqueante**, ao lado de uma ficha
+que é exceção. Escolher o node **encerra** o gesto — não há nada atrás que precise seguir clicável —,
+e o preço de estar no padrão é conhecido e aceito: o backdrop intercepta o drop, então a paleta
+perdeu o arraste-até-o-ponto que tinha quando era docada no canvas. Se o seu painel novo mora numa
+página que já tem exceção, isso não o herda.
 `display: none` no backdrop não serve — o sheet é FILHO dele e sumiria junto. A history segue com o árbitro do `BottomSheet` (criar não é um
 recurso endereçável — não ganha query param).
 
@@ -620,6 +627,7 @@ muda) · **🔜 ciclo** migra quando o redesenho chegar na página — nada de c
 | /contratos ?details=    | Etiqueta de aprovação — **abre de dentro do `DetailOverlay`** (RC-D25)                                                     | central **stacked**                            | fica                                                      |
 | /financeiro             | **Nenhuma** — a página é leitura pura (RC-D67)                                                                             | —                                              | ✅                                                        |
 | Simulador               | Ficha de resultado (`.pg-ficha-sheet`, backdrop atravessável); connect menu                                                | painel lateral                                 | ✅ (PG52)                                                 |
+| Simulador               | Escolher o tipo de node (`.pg-nodes-sheet`, backdrop **padrão**) — a paleta docada no canvas morreu                        | painel lateral                                 | ✅ (PG58)                                                 |
 
 **A migração acontece PÁGINA A PÁGINA**, dentro do redesenho completo de cada página: os
 contêineres dela realinham na mesma passada, junto com estrutura, cards e tipografia. Cada página é
