@@ -130,7 +130,7 @@ Escopo original: Rota vira redirect; `EmbarquePanel`, `AprovacoesPanel`, `Embarq
 
 **RC-F5 — a criação repensada** (RC-D12). 🟡 **1ª rodada IMPLEMENTADA em 2026-07-28** (RC-D27..D36, §5.10): seleção do lote, auto-preenchimento, erro no campo e a conferência pelo documento. 🟡 **2ª rodada no mesmo dia** (RC-D49..D52, §5.13): o **picker de lote** ganhou card FV em 4 colunas com cabeçalho fixo, e o status saiu dele. 🟡 **3ª rodada no mesmo dia** (RC-D53..D56, §5.14): a conferência deixou de ser modal central e virou o **2º passo do painel**, com deslize do miolo, ← e ESC voltando um passo e "Ampliar" para ler de perto. 🟡 **4ª rodada no mesmo dia** (RC-D57, §5.15): a **seleção de lote** virou o **1º passo** — o fluxo à vista inteiro (lote → formulário → documento) num painel só, e voltar ao lote deixou de descartar o formulário. 🟡 **5ª rodada no mesmo dia** (RC-D18 + RC-D58..D61, §5.16): o **corpo do formulário** — ordem espelhando o documento, cartão de identidade no lugar dos três jeitos de mostrar o não-editável, seções sem moldura e o painel a 700px. 🟡 **6ª rodada em 2026-07-29** (RC-D69..D72, §7): o lote **deixou de ser passo e virou campo** — a criação à vista caiu para **dois passos** e o cartão de identidade morreu. **A fase está fechada**; falta só a conferência no aparelho.
 
-**RC-F6 — o ciclo FV.** 🟡 **1ª rodada IMPLEMENTADA em 2026-07-28, ANTECIPADA** (RC-D42..D48, §5.12): moldura institucional, tabela no desktop, filtros em painel lateral, estados da lista, Espelho fora das ações da página. **Falta** o conteúdo do **card mobile** e a passada em `/financeiro`, que segue no kit legado.
+**RC-F6 — o ciclo FV.** ✅ **FECHADA.** 🟡 **1ª rodada IMPLEMENTADA em 2026-07-28, ANTECIPADA** (RC-D42..D48, §5.12): moldura institucional, tabela no desktop, filtros em painel lateral, estados da lista, Espelho fora das ações da página. 🟡 **2ª rodada em 2026-07-29** (RC-D92..D95, §11): `/financeiro` entrou no kit, com a KPI row clicável no lugar dos chips. 🟡 **3ª rodada em 2026-07-30** (RC-D112..D120, §14): o **miolo do card** — que era o que faltava — foi reescrito, e a **tabela do desktop saiu** (o card passou a valer nos dois breakpoints).
 
 ### 5.7 Gargalos e riscos (achados do levantamento)
 
@@ -1128,6 +1128,9 @@ específico faremos depois"):
   ontem** (`654d971`, RC-D43 — virou `.fv-table` de 5 colunas) e ele ainda não viu isso rodando.
   Decide depois de conferir. Se ficar tabela, a linha entra na coluna Situação; se voltar a card,
   a RC-D43 é desfeita e cabe o dinheiro que ela cortou (total, preço/saca).
+  **🪦 RESOLVIDO na §14 (RC-D112/D116, 2026-07-30), e nos dois sentidos: voltou a card (a RC-D43 foi
+  desfeita) e a linha de fases foi apagada — o lugar dela no card virou a barra de tempo. O dinheiro
+  que a RC-D43 cortou NÃO voltou: ele escolheu Tipo no lugar do Valor.**
 
 ### 8.6 Implementação da linha de fases — 2026-07-29
 
@@ -1705,6 +1708,142 @@ escolhido — e o clique respondia 409. Agora são duas funções, cada uma com 
   corretou (coerente com D34/D136, mas é assimetria consciente).
 - **Editar campos do espelho** — a RC-D104 fechou: o documento é imutável e se corrige pelo contrato.
 - **Guardar o arquivo PDF** — ele escolheu guardar os números; os bytes seguem regenerados.
+
+## 14. A lista vira card, com prazo, estado e ordem por urgência (RC-D112..D120) — 2026-07-30
+
+> **Fonte:** o Flavio: _"agora vamos fazer ajustes relevantes de funcionalidade, apresentação das
+> informações e design da pagina de contratos. Vou lhe enviar uma imagem de um exemplo para seguir
+> como inspiração, não é para copiar, apenas inspiração para que adaptemos nosso atual estado junto ao
+> exemplo que vou enviar. Analise as informações presentes na imagem e pergunte sobre tudo, o que
+> colocaremos no lugar das informações do exemplo."_
+
+### 14.1 A referência e as três tensões
+
+A imagem mostrava cards de contrato com: tarja colorida na lateral (azul em andamento / verde
+concluído), uma linha de cabeçalho `CTRX/2025-002 — Cloud Infrastructure Maintenance` + barra de
+progresso `03/25 (12%)` + chevron `>`, e abaixo de um divisor uma faixa de 4 campos — **Milestone**
+(`16 Milestones ↗`) · **Partner** · **Contract Value** · **Status** (ponto + texto).
+
+Analisando elemento a elemento contra o que existia, saíram três tensões — e é a resolução delas que
+esta seção registra:
+
+1. **O desktop era TABELA** (RC-D43, 28/07) e a referência é lista de cards.
+2. **A referência tem barra de progresso**, e a RC-D82 recusou uma barra **dois dias antes**, com a
+   razão escrita no código: as 5 fases são luzes independentes, _"uma barra mentiria"_.
+3. **"Status (emitido, embarcado…)"** — as palavras dele — descreve um modelo que não existe: o
+   embarque foi apagado do produto na RC-D65 e os status são três.
+
+A saída da tensão 2 é a decisão central desta seção: **mudar o que a barra MEDE.** Não fases, e sim
+**tempo**. Tempo é monotônico — o dia de hoje não volta atrás —, então o preenchimento não afirma que
+algo foi cumprido; ele afirma quanto do prazo passou. A RC-D82 continua de pé.
+
+A tensão 3 se resolveu no diálogo: "embarcado" saiu, e o 4º campo virou o status de verdade.
+
+O que a lista passa a responder: **quem, quanto tempo falta, e em que pé está.** Quanto vale **sai da
+lista** — fica no Detalhes e no `/financeiro`.
+
+### 14.2 As decisões
+
+| #           | Decisão                                                                                                                              |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| **RC-D112** | `/contratos` deixa de ser tabela no desktop e vira **lista de cards** — **revoga a RC-D43**                                          |
+| **RC-D113** | O card é **identidade + prazo + 4 campos**: `nº — vendedor → comprador`, barra, `Sacas · Tipo · Datas · Status`. **Dinheiro sai**    |
+| **RC-D114** | A barra mede **TEMPO** (`contractDate → paymentDate`, cheia até hoje). A **frase** é o próximo compromisso, em contagem de dias      |
+| **RC-D115** | A tarja e o ponto seguem o **tom**: azul correndo · verde finalizado · laranja cancelado — e o **vermelho fica reservado ao atraso** |
+| **RC-D116** | A **linha das 5 fases é apagada** do produto — **revoga a RC-D80..D83** (commit `2895fcf`)                                           |
+| **RC-D117** | A lista ordena por **urgência**, em 4 grupos de estado, com paginação por grupo (molde do `/financeiro`)                             |
+| **RC-D118** | **KPI row clicável**: 4 no desktop, **2 no mobile** (Em aberto · Atraso). Ela **escreve no filtro** do painel — um eixo só           |
+| **RC-D119** | O mobile é o mesmo card, enxuto: **sem trilho**, 2 campos, **acordeão morto**                                                        |
+| **RC-D120** | **Sem seta**: o card inteiro abre o Detalhes. O **⋯ fica**, com Finalizar/Reabrir (a RC-D62 fez questão do toque único)              |
+
+### 14.3 A barra e a frase (RC-D114)
+
+Duas funções puras novas em `lib/contract-timeline.ts`. Moram no **front** de propósito: o servidor já
+manda os ingredientes (`contractDate`, `paymentDate`, `status`, `agenda`), e um campo derivado no
+payload envelheceria à meia-noite dentro do cache.
+
+`contractTimeProgress` devolve `{ pct, tone }`:
+
+| caso                                   | resultado                                                                |
+| -------------------------------------- | ------------------------------------------------------------------------ |
+| `FINALIZADO`                           | `pct: 1`, tom `done` (verde) — o 25/25 da referência                     |
+| `WASH_OUT`                             | `pct: 1`, tom `cancelled` (**laranja**)                                  |
+| hoje > `paymentDate`                   | `pct: 1`, tom `late` (**vermelho**)                                      |
+| `paymentDate` nulo ("À definir", D144) | `pct: null` → **sem trilho**, só o texto                                 |
+| `contractDate` nulo, ou span ≤ 0       | `pct: null` — não há de onde medir / divisão por zero                    |
+| resto                                  | `(hoje − contrato) / (pagamento − contrato)`, travado em 0..1, `running` |
+
+O `tone` pinta **três** peças com uma derivação só: o preenchimento da barra, a **tarja** lateral e o
+**ponto** do status. É isso que faz um contrato emitido e atrasado ficar vermelho inteiro sem que
+"atrasado" precise existir como status no banco.
+
+`contractCountdownLabel(agenda, todayKey)` reusa a agenda que já existia (RC-D68) e muda **a forma**:
+o `contractAgendaLabel` diz `"Fatura em 12/08"` e segue vivo **no modal de Detalhes**, onde a data
+exata importa; a **lista** pergunta "quanto falta" e recebe `"Fatura em 3 dias"`, `"Fatura hoje"`,
+`"Paga em 12 dias"`, `"Venceu há 4 dias"`, `"Concluído"`, `"Cancelado"`, `"Sem prazo definido"`.
+
+Três escolhas de copy que valem registro:
+
+- as frases são **formas verbais** ("Fatura em…", "Venceu há…") porque são imunes a gênero: o sujeito
+  implícito muda conforme o compromisso (a fatura, o pagamento), e adjetivo concordaria errado em
+  metade dos casos;
+- **hoje não é "em 0 dias"** — vira "Fatura hoje" / "Paga hoje";
+- a **aprovação não conta dias**: o `dayKey` dela é a data de faturamento, e "aprovação em 3 dias"
+  leria como se ela vencesse. Ela só espera ser enviada.
+
+### 14.4 Ordem por urgência e um eixo de filtro só (RC-D117/D118)
+
+A ordem deixou de ser cadastro (`contractSeq desc`) e virou urgência, em quatro grupos:
+
+| grupo | estado     | ordem interna                                                        |
+| ----- | ---------- | -------------------------------------------------------------------- |
+| g0    | atraso     | `paymentDate asc`, `contractSeq asc`                                 |
+| g1    | aberto     | `paymentDate asc nulls last`, `contractSeq asc` ("À definir" no fim) |
+| g2    | finalizado | `contractSeq desc` (arquivo)                                         |
+| g3    | cancelado  | `contractSeq desc` (arquivo)                                         |
+
+Os três helpers de cursor do `/financeiro` foram **generalizados em vez de copiados**
+(`encodeReceivableCursor`→`encodeGroupCursor`, `decodeReceivableCursor`→`decodeGroupCursor(raw,
+{maxGroup})`, `receivableKeysetWhere`→`groupKeysetWhere(cursor, {dateGroups})`): o teto de 3 grupos e
+o "só o g0 é por data" eram constantes no corpo e viraram parâmetro. O `decodeContractSeqCursor`
+morreu (era o único cursor de inteiro do projeto).
+
+O estado também é **uma definição só** (`contractStateWhere`), lida pelo filtro **e** pelas contagens
+— a lição que a RC-D93 deixou escrita: cartão e filtro não podem discordar sobre o que é "atraso". O
+`/financeiro` passou a ler os três primeiros dela; o `cancelado` dele é a **única divergência
+deliberada** (lá é só o washout que cobra, RC-D89).
+
+#### 🔴 A correção de rumo: o eixo do filtro é o ESTADO, não o `status`
+
+O plano aprovado dizia `status[] + overdue?: boolean`. Implementando, o desenho não fechava: dos
+quatro cartões, **dois eram irrepresentáveis no painel**. Clicar em "Atraso" mandaria
+`status=['EMITIDO'] + overdue=true`, e o painel mostraria apenas "Emitido" marcado — exibindo 3 dos 12
+emitidos, com a diferença invisível. Exatamente a contradição que a escolha "o KPI **escreve** no
+filtro do painel" existia para evitar.
+
+A saída: **o filtro de situação passou a ser o estado** (`state=atraso|aberto|finalizado|cancelado`), e
+os chips do painel são os mesmos quatro dos cartões. Um eixo, quatro valores, duas portas para a mesma
+escolha — e nenhuma dimensão escondida. Custo: o `status` (o enum de 3 do banco) **não é mais aceito**
+na querystring da lista; o único consumidor era esta página.
+
+As **contagens** vêm de 2 consultas, não 4: um `groupBy` por status + um `count` do atraso, com
+`aberto = EMITIDO − atraso`. Todas por `baseWhere` — busca, tipo, partes, período — e **sem** a
+situação: clicar num cartão filtra a lista e não pode mexer nos outros três números. O `total` é a
+soma dos grupos ativos.
+
+### 14.5 O que não entrou (registrado)
+
+- **O dinheiro na lista.** Total, Preço/saca, Ágio e Data do contrato passam a existir só no Detalhes e
+  no `/financeiro` — escolha explícita dele ("mudar o Valor por Tipo"), confirmada depois de eu mostrar
+  a soma do efeito. Se sentir falta, o caminho é um 5º campo na faixa.
+- **A ordem ignora o faturamento.** A frase avisa "Fatura em 3 dias", mas quem **ordena** é a data de
+  pagamento — coerente com "a barra conta até o pagamento sempre". Um contrato que fatura amanhã e paga
+  em 40 dias fica abaixo de um que paga em 5.
+- **Tipo e Datas somem do celular** (2 campos), acessíveis pelo Detalhes.
+- **O ⋯ não aparece no cancelado**: washout não tem marco a mover, e menu que abre vazio é pior que
+  menu nenhum.
+- **Rótulos a confirmar no passe visual**: o `EMITIDO` virou **"Emitido"** (era "Em andamento"), e isso
+  muda também o selo do modal de Detalhes; a paleta do status virou **azul/verde/laranja** lá também.
 
 ## Apêndice A — Ledger de decisões (condensado)
 

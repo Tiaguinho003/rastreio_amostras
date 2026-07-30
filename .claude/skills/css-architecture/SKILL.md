@@ -72,6 +72,18 @@ telas. Consumidores hoje:
 > cresceu na RC-D106: além do toggle/resumo da conferência, ele carrega a **prateleira** dos espelhos
 > guardados no detalhe do contrato (`.ctr-espelho-shelf*`).
 
+> 🔴 **O caso `.fv-col-*` (RC-D112, 2026-07-30) é o exemplo mais limpo do "prefixo ≠ família".** Quando
+> a tabela de `/contratos` virou lista de cards, cinco classes de coluna pareciam "de contratos" e
+> estavam num bloco só, com comentário dizendo isso. Apagar o bloco inteiro teria levado
+> `.fv-col-contract` (que o `/financeiro` usa, mesmo dado) e `.fv-col-sacks` (que o `/samples` usa)
+> junto — duas tabelas vivas quebrando por causa de uma que morreu. Morreram só
+> `.fv-col-parties/-dates/-situacao`. **Antes de apagar um bloco de classes com nome de página,
+> `grep` cada seletor no JSX inteiro, não no do consumidor que você está mexendo.**
+>
+> Na mesma rodada morreram por perda de consumidor: `.ctr-situacao-cell` e as **13 regras
+> `.ctr-phase*`** (a linha de 5 fases, RC-D116), `.ctr-card-blocked` e todo o acordeão do card
+> (`.ctr-card-head-btn`, `-chevron`, `-expanded*`, `-essential`, `-stat*`, `-washout`, `-actions`).
+
 > **`.cdm-*` não existe mais.** Nasceu no modal de cliente, sobreviveu servindo o modal de `/users`
 > (§2.11 U6) e depois só pelo botão salvar de `/profile`; as últimas 9 regras saíram na §2.12 P3.
 > Fica registrado porque o nome ainda aparece em docs e comentários antigos — **não recriar**.

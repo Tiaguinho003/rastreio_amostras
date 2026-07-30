@@ -43,6 +43,10 @@ depois e pegam o gate **de graça**, porque já são `.clients-page-v2` e movem 
 `.spv2-list-scroll`. Cada nova lista entra somando seu escopo ao media-gate (critério do
 `css-architecture`). Nenhuma precisa de condicional no JSX.
 
+⚠️ **`/contratos` usa a chrome sem usar a tabela** (RC-D112, ver §"Tabela ou card" abaixo): ela tem
+page-head, KPI row, toolbar, cartão da lista e scroll infinito do kit, e a lista dentro é de **cards
+nos dois breakpoints**. Chrome do kit e `.fv-table` são peças separáveis.
+
 🔴 **O qualificador da rolagem é o que impede chrome dupla.** Enquanto uma página ainda montava a
 `.hero-search-wrap` legada, acender a `.fv-toolbar` na base lhe daria **duas buscas empilhadas** —
 por isso o gate pede `.spv2-list-scroll`, que só existe depois que a página larga a busca antiga.
@@ -297,73 +301,99 @@ para de respeitar a coluna. **Uma classe `fv-col-*` por coluna, na ordem exata d
 
 **Larguras fixas agrupadas à direita, UMA coluna elástica que absorve a sobra.**
 
-| Página       | Elástica                              | Fixas                                                                        |
-| ------------ | ------------------------------------- | ---------------------------------------------------------------------------- |
-| `/samples`   | `fv-col-owner` (`min-width: 150px`)   | lote 232px · sacas/safra/padrão/bebida/catação **112px cada** · ações 58px   |
-| `/cadastros` | `fv-col-contact`                      | cliente 32% · status 120px · doc 170px · atualizado 120px · ações 58px       |
-| `/users`     | `fv-col-contact`                      | usuário 32% · perfil 150px · status 120px · último acesso 120px · ações 58px |
-| `/contratos` | `fv-col-parties` (`min-width: 200px`) | contrato 148px · sacas 112px · datas 168px · **situação** 176px · ações 58px |
+| Página       | Elástica                            | Fixas                                                                        |
+| ------------ | ----------------------------------- | ---------------------------------------------------------------------------- |
+| `/samples`   | `fv-col-owner` (`min-width: 150px`) | lote 232px · sacas/safra/padrão/bebida/catação **112px cada** · ações 58px   |
+| `/cadastros` | `fv-col-contact`                    | cliente 32% · status 120px · doc 170px · atualizado 120px · ações 58px       |
+| `/users`     | `fv-col-contact`                    | usuário 32% · perfil 150px · status 120px · último acesso 120px · ações 58px |
+
+⚠️ `.fv-col-contract` (148px) sobreviveu ao fim da tabela de `/contratos`: o `/financeiro` a usa, com
+o mesmo dado. **Prefixo ≠ família** — ver `css-architecture` §3.
 
 Características do mesmo tipo (as cinco de `/samples`) levam a **mesma largura**: mesmo vão entre
 si, bloco visualmente coeso à direita. A identidade do registro fica à esquerda e ganha a sobra.
 `fv-col-actions` é sempre 58px.
 
-### 🔴 Coluna DERIVADA: mostre o que vem, não o rótulo do estado
+### 🔴 Tabela ou card no desktop?
 
-A última coluna de `/contratos` chama-se **"Situação"** e não carrega o `status` cru — carrega a
-**agenda** (RC-D68): o **próximo compromisso** daquele registro, derivado no servidor sem persistir
-nada. "Emitido" nunca foi informação: todo contrato vivo está emitido. O que o operador precisa
-saber é o que ainda vai ser pedido dele, e quando.
+**Tabela quando as linhas se COMPARAM pelo mesmo número. Card quando cada linha é uma HISTÓRIA.**
 
-```tsx
-<td>
-  <span className="fv-table-cell-stack ctr-situacao-cell">
-    <ContractPhaseLine phases={contract.phases} /> {/* ONDE está */}
-    <span className={AGENDA_CHIP[contractAgenda(contract).kind]}>
-      {contractAgendaLabel(contractAgenda(contract))} {/* QUANDO é o próximo */}
-    </span>
-  </span>
-</td>
-```
+A tabela existe para alinhar: 30 lotes com sacas, safra, padrão e bebida na mesma coluna deixam o
+olho varrer a coluna e achar o diferente. É o que `/samples`, `/cadastros`, `/users` e `/financeiro`
+fazem — em todas, a pergunta é "qual deles?".
+
+`/contratos` fazia isso e **deixou de fazer** (RC-D112, 2026-07-30 — revoga a RC-D43, de dois dias
+antes): a pergunta ali não é "qual tem mais sacas", é "quanto falta neste, e em que pé ele está".
+Prazo correndo, estado, próximo compromisso — três coisas que não se comparam entre linhas, e que
+numa tabela viravam uma célula empilhando duas peças enquanto quatro colunas ao lado ficavam mudas.
+É a **primeira lista card-no-desktop do projeto**.
+
+O que isso custa e o que compra:
+
+- **Perde** a varredura vertical: dois contratos não se comparam mais pelo campo.
+- **Ganha** hierarquia dentro do item: identidade em cima, prazo com peso visual, campos secundários
+  numa faixa abaixo do divisor. Numa tabela toda célula tem o mesmo peso, por construção.
+- **Ganha um breakpoint só de árvore.** Sem tabela, desktop e mobile são o MESMO componente com
+  densidade diferente (`isDesktop` escolhe 4 campos ou 2) — em vez de duas árvores paralelas que
+  precisam ser mantidas em paridade. Foi a maior economia da mudança.
+
+O resto do kit não muda: page-head, KPI row, toolbar, cartão da lista, `.fv-row-menu` e o scroll
+infinito são os mesmos. **Trocar a tabela por cards não é sair do kit.**
+
+### 🔴 Coluna (ou campo) DERIVADA: mostre o que vem, não o rótulo do estado
+
+O campo mais importante do item de `/contratos` não carrega o `status` cru — carrega a **agenda**
+(RC-D68): o **próximo compromisso**, derivado no servidor sem persistir nada. "Emitido" nunca foi
+informação: todo contrato vivo está emitido. O que o operador precisa saber é o que ainda vai ser
+pedido dele, e quando.
 
 Três regras que a fazem funcionar:
 
-- **O rótulo do estado só aparece nos terminais** ("Finalizado", "Cancelado"). Para quem está em
-  andamento, a célula é uma frase com data: "Fatura em 12/08/2026", "Pagamento venceu 02/08/2026".
+- **O rótulo do estado só aparece nos terminais** ("Concluído", "Cancelado"). Para quem está em
+  andamento, o campo é uma frase de prazo: "Fatura em 3 dias", "Venceu há 4 dias".
 - **Uma precedência única e explícita**, testada como função pura (`deriveContractAgenda`), e a
   **mesma** função na lista e no detalhe — senão os dois divergem no primeiro caso de borda.
-- **O servidor devolve `{ kind, dayKey }`, não a frase.** Formatar data é do front
-  (`contractAgendaLabel`); o backend só diz **o que é**. Quando o consumidor é genérico (os chips do
-  calendário, que só sabem `typeKey`), aí sim o `label` vem pronto de lá.
+- **O servidor devolve `{ kind, dayKey }`, não a frase.** Formatar é do front, e é por isso que a
+  MESMA agenda tem duas formas: contagem de dias na lista (`contractCountdownLabel` — a pergunta é
+  "quanto falta") e data no detalhe (`contractAgendaLabel` — ali a data exata importa). Quando o
+  consumidor é genérico (os chips do calendário, que só sabem `typeKey`), aí sim o `label` vem
+  pronto de lá.
 
-Vale para qualquer lista de registros com ciclo: a coluna de status é a mais lida da tabela e a
-menos informativa quando o estado dominante é um só.
+Vale para qualquer lista de registros com ciclo: o campo de status é o mais lido e o menos
+informativo quando o estado dominante é um só.
 
-#### Duas peças na mesma célula: só quando respondem perguntas diferentes
+#### 🔴 Barra de progresso: a pergunta não é "posso?", é "o que ela MEDE?"
 
-A Situação de `/contratos` empilha a **linha de fases** (RC-D80) sobre o chip. Elas convivem porque
-não dizem a mesma coisa: a linha diz **onde o registro está**, o chip diz **quando é o próximo
-compromisso** — com a data e o vermelho do atraso, que a linha não tem. Se as duas respondessem a
-mesma pergunta, uma delas seria ruído e a coluna teria ficado só com a mais informativa.
+Esta é a lição mais cara desta página, porque ela foi aprendida duas vezes em três dias.
 
-🔴 **Linha de progressão só é barra quando o processo é sequencial.** No contrato em andamento nada
-trava nada: dá para finalizar sem nunca ter enviado a aprovação, então `● ○ ● ● ○` (buraco no meio)
-é estado legítimo. Por isso os **trilhos entre os pontos são sempre neutros e só os pontos mudam de
-estado** — trilho preenchido leria "cheguei até aqui", que seria mentira. Cinco luzes num trilho,
-não uma barra. **Antes de desenhar progressão, pergunte se o processo realmente impede o passo N+1
-sem o N** — se não impede, barra é a peça errada.
+**Primeiro:** uma linha de 5 pontos (emissão · aprovação · embarque · faturamento · pagamento) com
+**trilhos neutros** — só os pontos mudando de estado. Motivo (RC-D82): no contrato em andamento nada
+trava nada; dá para finalizar sem nunca ter enviado a aprovação, então `● ○ ● ● ○` (buraco no meio) é
+estado legítimo, e trilho preenchido leria "cheguei até aqui", que seria mentira.
 
-Duas consequências de desenho que vêm junto:
+**Depois:** uma **barra cheia** foi aceita (RC-D114) — não porque a regra mudou, mas porque **o que a
+barra mede mudou**. Ela deixou de medir fases e passou a medir **tempo** (`contractDate →
+paymentDate`, cheia até hoje). Tempo é monotônico: o dia de hoje não volta atrás, e a distância entre
+duas datas do documento é um fato. A barra não afirma que algo foi cumprido — afirma **quanto do prazo
+passou**. A RC-D82 continua de pé; a linha de 5 fases foi apagada (RC-D116).
 
-- **Fase que não se aplica mantém o slot** (a aprovação não marcada vira um traço, não um ponto
-  vazio). Linha com número variável de pontos desalinha as linhas da tabela entre si, que é
-  justamente o que a tabela existe para dar.
-- **O que acende por AÇÃO não acende por data.** O pagamento marca ao finalizar (RC-D79), nunca por
-  `paymentDate` ter passado — e o faturamento, que marca por data, acende no dia **seguinte**, senão
-  contradiz o "Fatura em 12/08" escrito logo abaixo dele na mesma célula.
-- **O marco terminal pode preencher a linha inteira** (RC-D84: finalizar dá tudo por cumprido). Se
-  fizer isso, saiba o que some junto: ali, o buraco da aprovação não enviada deixa de ser visível
-  **e** o aviso do dashboard já tinha sumido pelo filtro de status — o fato sai do app inteiro.
+O critério que sobra:
+
+> **Antes de desenhar progressão, pergunte o que o preenchimento AFIRMA.** Se afirma "os passos até
+> aqui aconteceram", ela só vale quando o processo realmente impede o passo N+1 sem o N. Se afirma
+> algo monotônico — tempo corrido, quantidade acumulada, dias restantes —, ela vale sempre, porque
+> não há como voltar atrás.
+
+Três consequências de desenho que vieram com a barra de tempo:
+
+- **Sem dado, sem trilho.** Contrato com pagamento "À definir" (D144) mostra só a frase. Trilho vazio
+  inventaria um prazo que o registro não tem — e um trilho vazio é indistinguível de "0% corrido".
+- **O tom da barra pinta o resto do item.** Uma derivação (`contractTimeProgress`) devolve
+  `{ pct, tone }`, e o `tone` colore o preenchimento, a **tarja** lateral e o **ponto** do status. É
+  o que faz um registro atrasado ficar vermelho inteiro sem que "atrasado" exista como estado no
+  banco. Dois mapas de cor paralelos divergiriam no primeiro ajuste.
+- **Reserve o vermelho para uma coisa só.** Ali é o **atraso**; o cancelado, que antes era vermelho,
+  virou laranja (RC-D115). Cancelado não pede ação hoje; vencido pede.
 
 ### Células compostas
 
@@ -481,8 +511,9 @@ que andam juntas — falhar em qualquer uma delas deixa a regra pela metade:
 
 1. **O servidor recusa.** Botão escondido não é trava: quem chama a API direto passa. A guarda vai no
    serviço, com **código próprio de erro** por motivo.
-2. **A UI escreve o porquê**, nos **todos** os lugares onde a ação aparece (aqui foram três: menu ⋯,
-   card do mobile e rodapé do detalhe). Um deles sem a frase é o que o usuário vai encontrar.
+2. **A UI escreve o porquê**, em **todos** os lugares onde a ação aparece (aqui são dois: o menu ⋯ do
+   card e o rodapé do detalhe — eram três até o card mobile perder a faixa de ações). Um deles sem a
+   frase é o que o usuário vai encontrar.
 3. **O toast desempata pelo código, não pelo status.** Se a trava devolve o mesmo 409 do conflito de
    concorrência, a mensagem genérica ("recarregue a página") mente sobre o que aconteceu.
 
@@ -690,7 +721,8 @@ Ao tocar nestes pontos, alinhe:
 - **Loading inicial do `/cadastros`**: ainda texto, não skeleton.
 - **`.fv-table-lotes`**: classe aplicada no JSX de `/samples` sem regra CSS correspondente. Ou ganha
   regra, ou sai.
-- **Cards mobile de `/contratos` e `/financeiro`** (`SaleContractCard`, `FinanceiroCard`): as duas
-  páginas entraram no kit (RC-F6, 1ª e 2ª rodadas), mas o **conteúdo** dos cards ficou nos tokens
-  legados — `.ctr-card`/`.fin-card`, não o `.cv2-card` do §"O card da lista". A moldura em volta
-  (page-head, KPI row, toolbar, cartão da lista) é kit; o miolo do card não. Migram juntos.
+- **Card de `/financeiro`** (`FinanceiroCard`): a página entrou no kit (RC-D92/D93), mas o
+  **conteúdo** do card mobile ficou nos tokens legados — `.fin-card`, não o `.cv2-card` do §"O card da
+  lista". A moldura em volta (page-head, KPI row, toolbar, cartão da lista) é kit; o miolo do card
+  não. _(O `.ctr-card` de `/contratos` foi reescrito na RC-D112 e segue em tokens `--brand-*`: ele
+  virou a lista dos DOIS breakpoints, e a migração dele para os tokens `--fv-*` é o mesmo débito.)_
