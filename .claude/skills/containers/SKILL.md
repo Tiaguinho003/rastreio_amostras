@@ -26,6 +26,7 @@ central: `modals`. Para tokens e cards: `design-system`.
 | "Descartar?" de rascunho                           | idem + `.is-scrim-none.is-compact`            | 312px           |
 | Editar 1–2 campos de um card                       | **dropdown inline no próprio card**           | —               |
 | Ações de um item de LISTA no mobile                | `BottomSheet` + `.is-menu`                    | — (desktop: ⋯)  |
+| Ações de um objeto num CANVAS                      | **barra no hover, acima do objeto**           | —               |
 | Feedback transiente (salvo, copiado, erro de rede) | toast → `feedback-messages`                   | —               |
 
 **Regra de corte do painel vs. dropdown inline:** 1–2 campos sem consequência de negócio (data,
@@ -356,6 +357,25 @@ ESC fecha sem aplicar: em canvas, com `stopPropagation`, senão o ESC segue para
 baixo. Para fechar ao clicar fora, `onBlur` no container conferindo `relatedTarget` — sem essa
 conferência o foco andando do input para o botão de salvar já fecharia o dropdown.
 
+### Barra de ações no hover — objeto de canvas
+
+O equivalente, no canvas, do `⋯` da linha da tabela: os atos que são **sobre** o objeto (deletar,
+desacoplar) não cabem dentro dele — o objeto é pequeno e o que está dentro dele é o conteúdo. Eles
+aparecem numa barra **acima**, só com ícones, enquanto o mouse está no objeto; o rótulo vive no
+`title`/`aria-label`. Sem ela, a única saída é a tecla `Delete`, que ninguém descobre.
+
+Em React Flow use o **`NodeToolbar`**: ele portala, acompanha pan/zoom e não é recortado por nada.
+À mão custa as três coisas.
+
+🔴 **Precisa de folga no `mouseleave`.** Entre o objeto e a barra há o vão do `offset`, e o mouse
+atravessa esse vão para chegar lá — o `mouseleave` do objeto dispara no caminho e a barra fecha
+antes de ser clicável. ~140ms de `setTimeout`, cancelado pelo `mouseenter` da própria barra (que
+por isso também precisa dos dois handlers), resolve. Limpe o timer no unmount.
+
+As mesmas regras do `⋯` valem: **item ausente quando não cabe, nunca desabilitado** (no Simulador,
+"desativar" só existe se o node tem alguma ligação), e a lista não pode divergir da que o teclado
+ou outro breakpoint oferece.
+
 ---
 
 ## §3 `BottomSheet` é a primitiva
@@ -670,6 +690,7 @@ muda) · **🔜 ciclo** migra quando o redesenho chegar na página — nada de c
 | Simulador               | Ficha de resultado (`.pg-ficha-sheet`, backdrop atravessável); connect menu                                                | painel lateral                                 | ✅ (PG52)                                                 |
 | Simulador               | Tipo de node → qual lote (`.pg-nodes-sheet`, backdrop **padrão**) — menu que aprofunda, §1-A                               | painel de **dois passos**                      | ✅ (PG58/PG60)                                            |
 | Simulador               | Editar as sacas de um node de Lote                                                                                         | **dropdown inline no node**                    | ✅ (PG60)                                                 |
+| Simulador               | Deletar / desativar um node                                                                                                | **barra no hover** (`NodeToolbar`), acima dele | ✅ (PG61)                                                 |
 
 **A migração acontece PÁGINA A PÁGINA**, dentro do redesenho completo de cada página: os
 contêineres dela realinham na mesma passada, junto com estrutura, cards e tipografia. Cada página é

@@ -160,6 +160,14 @@ Duas verificações que fecham o buraco:
 E confirme o resultado por **diferença de conjuntos de seletores** antes/depois (`postcss.parse`),
 não pelo diff: o número que importa é "saiu algo que não continha token morto?".
 
+> 🔴 **O lado do CSS tem a armadilha simétrica — e ela é nossa.** Extrair os candidatos com um
+> `/\.([a-z0-9-]+)/g` cru sobre o `globals.css` colhe classe **de dentro dos comentários**, e este
+> projeto deixa 🪦 lápides justamente com o nome do que morreu. A varredura então acusa como morto o
+> que já foi apagado, e você vai procurar uma regra que não existe. `postcss.parse` + `rule.selectors`
+> não tem esse problema; um regex sobre o texto inteiro tem. Mesma raiz: **`--token-x` e `.token-x`
+> são nomes diferentes** — os `--pg-node-*` sobreviveram à morte das regras `.pg-node-lote/-mistura/-resultado`
+> porque quem os consome (`.pg-accent-*`) vive em outra tela.
+
 ### 🔴 Regra agrupada: remover o SELETOR, não a regra
 
 O script de poda encontra a classe morta dentro de uma regra que tem **vários seletores** — e
