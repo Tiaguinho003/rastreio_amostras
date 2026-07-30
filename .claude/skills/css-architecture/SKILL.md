@@ -118,10 +118,22 @@ mais de um arquivo, a regra vai escopada no contêiner da página.
 `.ctr-details-doc-frame` e `.ctr-doc-frame` eram a **mesma coisa** — `<iframe>` de PDF com hairline e
 raio — em dois lugares da mesma tela, só porque nasceram em componentes diferentes (o detalhe e o
 modal do espelho). Quando a RC-D125 juntou os dois na mesma superfície, a duplicação virou óbvia: uma
-sobrou, e agora o contrato, cada bloco do espelho e a releitura do histórico usam **uma** regra.
+sobrou.
 
-O sinal, antes de escrever a regra nova: **já existe uma classe que faz este desenho nesta tela?** Se
-existe e o nome só não bate, o problema é o nome, não a regra.
+E aí a unificação mostrou o que a duplicação escondia. Com **um** molde de documento, ficou visível
+que existia um **terceiro** — `.ctr-doc-pages`/`.ctr-doc-page`, do passo da emissão, que não era
+`<iframe>` nenhum: era o PDF **rasterizado** em `<img>`. Os dois desenhos mostravam o mesmo documento
+e não se pareciam, porque o `<iframe>` traz o **visualizador do navegador** junto (barra escura,
+miniaturas, fundo cinza) e o rasterizado é só a folha. A RC-D130 matou o `<iframe>`: hoje há **um**
+molde e um componente (`ContractDocumentView`).
+
+Duas perguntas, nesta ordem, antes de escrever a regra nova:
+
+1. **Já existe uma classe que faz este desenho nesta tela?** Se existe e o nome só não bate, o
+   problema é o nome, não a regra.
+2. **E existe uma que faz esta MESMA COISA de outro jeito?** Duas regras que resolvem o mesmo
+   problema com desenhos diferentes não são duplicação — são uma decisão que ninguém tomou. Ao juntar
+   as duas primeiras, olhe as vizinhas.
 
 ---
 

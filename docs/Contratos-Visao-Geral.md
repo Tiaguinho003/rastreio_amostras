@@ -21,6 +21,8 @@ Documentos relacionados: `Contratos-Plano-de-Trabalho.md` (backlog, decisões e 
 | 2026-07-29 | RC-D103..D111 | 13  | O espelho entregue passa a ficar **guardado** (snapshot + retenção de 15 dias)            |
 | 2026-07-30 | RC-D112..D120 | 14  | A lista vira **card nos dois breakpoints**, com barra de TEMPO e ordem por urgência       |
 | 2026-07-30 | RC-D121..D129 | 15  | O detalhe vira **4 abas**; três modais viram conteúdo                                     |
+| 2026-07-30 | —             | 16  | Varredura de alinhamento: docs, skills e comentários conferidos contra o código           |
+| 2026-07-30 | RC-D130       | 17  | As 3 inconsistências corrigidas; o documento vira **página rasterizada**, não `<iframe>`  |
 
 > ⚠️ **O contrato não é livro de status — é agenda** (RC-D62..D68, `Contratos-Plano-de-Trabalho.md` **§6**). Ele guarda só o que é **subproduto de trabalho já feito** (emitir o PDF, imprimir a etiqueta, gerar o espelho, aplicar ágio, cancelar por washout) e deixou de pedir **escrituração** — marcar faturado, marcar pago, confirmar embarque. Sobraram **três situações** (`EMITIDO` · `FINALIZADO` · `WASH_OUT`) e uma **agenda derivada** das datas que o documento já imprime. O **embarque foi apagado inteiro**. Tudo abaixo descreve o **código de hoje**.
 
@@ -184,12 +186,14 @@ Finalizar e Reabrir **não pedem confirmação** — são reversíveis, e confir
 
 ### 4.4 As quatro abas (RC-D121)
 
-| aba           | o que responde                | o que tem dentro                                                                     |
-| ------------- | ----------------------------- | ------------------------------------------------------------------------------------ |
-| **Detalhes**  | como está o contrato no papel | a **faixa** + o PDF. As 8 seções de texto saíram: o PDF já as imprime                |
-| **Aprovação** | falta mandar aprovar?         | o latch, ou os campos da etiqueta **inline** + "Gerar etiqueta" (§7)                 |
-| **Espelho**   | a corretagem já foi cobrada?  | **um bloco por lado** com corretagem — PDF entregue, ou os campos a conferir (§5)    |
-| **Histórico** | o que já aconteceu            | a timeline; e é o **único** lugar com o motivo do washout e os espelhos substituídos |
+| aba           | o que responde                | o que tem dentro                                                                                                           |
+| ------------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| **Detalhes**  | como está o contrato no papel | a **faixa** + o PDF. As 8 seções de texto saíram: o PDF já as imprime                                                      |
+| **Aprovação** | falta mandar aprovar?         | o latch, ou os campos da etiqueta **inline** + "Gerar etiqueta" (§7). Fora de `EMITIDO`, a frase de que a etiqueta não sai |
+| **Espelho**   | a corretagem já foi cobrada?  | **um bloco por lado** com corretagem — PDF entregue, ou os campos a conferir (§5)                                          |
+| **Histórico** | o que já aconteceu            | a timeline; e é o **único** lugar com o motivo do washout e os espelhos substituídos                                       |
+
+**O documento é rasterizado, não um `<iframe>` (RC-D130).** As páginas vêm em `<img>` pelo `pdfjs-dist`, no `ContractDocumentView` — o mesmo componente da conferência da emissão. Com `<iframe>`, o navegador embrulhava o PDF no visualizador dele (barra escura com zoom/girar/imprimir, painel de miniaturas, fundo cinza em volta da folha), que não se tematiza e no iOS muitas vezes não renderiza. O zoom que aquela barra dava é o **"Ampliar"**; baixar e imprimir já eram botões da tela.
 
 🔴 **A faixa da aba Detalhes (RC-D122) existe por um motivo medido:** o PDF do contrato **não imprime**
 ágio/deságio, valor total, corretagem em R$ nem os corretores, e o `Vlr. Saca` dele é o preço **cru**

@@ -242,6 +242,14 @@ fundo opaco), e o que a segunda vez ensinou:
   contrato, três modais (conferência do espelho, prévia do espelho, etiqueta) viraram conteúdo — e
   com eles morreu o vai-e-volta que existia só para sair de uma superfície e voltar (RC-D125). Se
   duas superfícies precisam de um caminho de ida-e-volta entre si, provavelmente são duas abas.
+- 🔴 **O que a superfície fazia ao FECHAR precisa virar estado explícito.** As três correções da
+  RC-D130 são a mesma história: o modal recarregava tudo ao reabrir (o PDF ficou velho quando virou
+  aba), errava no clique e não na entrada (o 409 do prefill virou banner que ninguém pediu) e tinha a
+  seta ← como volta universal (o "gerar de novo" ficou sem volta). **Aba não fecha.** Ao converter,
+  liste o que o fechamento resolvia de graça.
+- **PDF na tela não é `<iframe>`** (RC-D130): o `<iframe>` traz o visualizador do navegador junto —
+  barra escura, miniaturas, fundo cinza, nada tematizável, e no iOS às vezes nada. Rasterize
+  (`ContractDocumentView`, `pdfjs-dist` → `<img>` por página).
 
 ```tsx
 <DetailOverlay

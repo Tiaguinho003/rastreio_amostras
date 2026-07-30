@@ -626,6 +626,8 @@ documento apareceu** (ou foi baixado, quando a rasterização falha).
 - 🔴 **`.ctr-doc-modal`, `.ctr-doc-content`, `.ctr-doc-frame`, `.ctr-doc-hint` e `.ctr-doc-actions`
   não morreram** — o `EspelhoCorretagemModal` usa todas. Só as quatro regras exclusivas do
   `.ctr-confirm-doc` saíram, aparadas **seletor a seletor** dentro das regras agrupadas.
+  _(🪦 Depois: a RC-D125 levou as três do modal e a **RC-D130** levou o `.ctr-doc-frame` — só
+  `.ctr-doc-hint` sobreviveu. Ver §17.2.)_
 
 #### O que NÃO entrou
 
@@ -2037,6 +2039,58 @@ modal tinha a seta ← para voltar; a aba não tem.
   contrato — `new-sample` (104), `sample-classification` (51), `sample-detail` (37), `inactivate-user`
   (33). O prefixo `.ctr-*` está **limpo**: 101 classes vivas, 1 órfã. A `.nsv2-field*` (8 classes)
   segue órfã de propósito — §15.7.
+
+## 17. As três inconsistências, e o documento sem o visualizador (RC-D130) — 2026-07-30
+
+Fecha o que a **§16** achou e deixou aberto, mais um pedido dele no mesmo passo: _"mude a apresentação
+dos documentos, hoje eles estão com um modelo de design de sistema e acho feio, quero os documentos
+puros sem esse fundo preto com botões"_.
+
+### 17.1 As três correções
+
+| #   | Sintoma                                                                            | Causa                                                                                                 | Correção                                                                 |
+| --- | ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| 1   | O PDF da aba Detalhes não mostrava o **Nº compra** que a etiqueta acabou de gravar | O efeito do PDF não dependia do `reloadNonce`                                                         | Uma dependência                                                          |
+| 2   | Aba Aprovação num **FINALIZADO** mostrava a string crua do backend                 | O prefill é gateado pelo mesmo `APPROVAL_ELIGIBLE_STATUSES` do envio, e é buscado ao **ativar a aba** | Frase por situação **antes** da busca; o `wantsPrefill` confere o status |
+| 3   | "Gerar de novo" no espelho não tinha volta                                         | `generating` só desliga quando o `deliveredId` **muda** — e sobre um guardado ele não muda            | "Voltar ao guardado", só quando há documento atrás da prévia             |
+
+🔴 **O padrão comum aos três:** todos nasceram de uma superfície que **fechava** virar conteúdo que
+**fica**. O modal recarregava tudo ao reabrir (nº 1), errava no clique e não na entrada (nº 2) e tinha
+a seta ← como volta universal (nº 3). Aba não fecha — então cada uma dessas três coisas precisou virar
+estado explícito.
+
+### 17.2 RC-D130 — o documento deixa de ser `<iframe>`
+
+**O problema, no print que ele mandou:** o `<iframe src={blobUrl}>` não mostra o PDF — mostra o PDF
+**dentro do visualizador do navegador**. Barra escura no topo com zoom, girar, imprimir e menu de três
+pontos; painel de miniaturas à esquerda; fundo cinza-escuro em volta da folha. É chrome de aplicativo
+por cima de um papel — e chrome **do navegador**: não se tematiza, muda de forma entre
+Chrome/Firefox/Safari e no iOS muitas vezes não renderiza nada.
+
+**A saída já existia no projeto.** A conferência da emissão (RC-D28) rasteriza o PDF no cliente com
+`pdfjs-dist` e pinta `<img>` por página. Era, aliás, exatamente o que ele tinha pedido na abertura da
+§15: _"que apresente apenas o pdf do contrato, **assim como na apresentação do pdf ao emitir**"_ — a
+§15 entregou `<iframe>` e isso ficou por corrigir.
+
+| #           | Decisão                                                                                                                                              |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **RC-D130** | Todo documento do domínio é **rasterizado**, nunca `<iframe>`. Renderizador único: `ContractDocumentView` (contrato · espelho · histórico · emissão) |
+
+O que a barra do navegador dava e o operador usa — **baixar** e **imprimir/exportar** — já são botões
+da própria tela. O **zoom** virou o "Ampliar" (RC-D56), que abre as páginas em largura cheia; numa
+coluna de 620px a letra de 7pt do contrato fica com ~7px, então ele não é enfeite.
+
+E o aviso **"se o documento não aparecer no seu aparelho, use Baixar ou Exportar"** deixou de existir:
+ele contornava justamente a falha que a rasterização não tem. No lugar dele ficou o estado de erro da
+rasterização, com o botão de baixar — uma porta, não um rodapé preventivo.
+
+**Consolidação:** `.ctr-doc-frame` morreu; `.ctr-doc-pages`/`.ctr-doc-page`/`.ctr-doc-fallback`, que
+eram "do passo da emissão", viraram o molde do domínio. `.ctr-doc-pages` ganhou `overflow: visible`
+escopado no detalhe, pelo mesmo motivo que o passo já tinha: quem rola é o corpo do overlay, e dois
+scrollers aninhados param de rolar assim que o dedo sai da folha.
+
+_(Fora do domínio sobrou um `<iframe>` de PDF: o preview de anexo do cliente,
+`ClientAttachmentPreviewModal` — outra tela, não tocada.)_
 
 ## Apêndice A — Ledger de decisões (condensado)
 
