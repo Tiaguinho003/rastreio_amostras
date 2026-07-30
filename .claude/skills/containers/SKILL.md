@@ -83,8 +83,16 @@ campo. Se a escolha é a última coisa que acontece antes de fechar, é drill-do
 
 Vivo em `NodePaletteSheet` (Simulador, PG60): passo 1 = qual tipo de node; escolher "Lote" desliza
 para passo 2 = qual lote, e a escolha do lote cria o node e fecha. Os outros dois tipos não têm o
-que perguntar e resolvem no passo 1 — então **só o card que aprofunda leva chevron**, porque é o
-único cujo toque não termina ali.
+que perguntar e resolvem no passo 1 — então **só a opção que aprofunda leva a seta**, porque é a
+única cujo toque não termina ali.
+
+🔴 **Um menu de poucas opções é uma LISTA, não um mural de cartões** (PG66). As três opções eram
+`.fv-choice` do kit; empilhadas num painel de 420px, o que se via eram três molduras. Cartão é para
+**comparar** opções lado a lado — num menu vertical o que distingue é o glifo e o texto, e uma
+hairline entre as linhas basta para separar. O sinal de que o cartão sobra: você o forçou a **uma
+coluna** e reescreveu o grid interno dele. Quando a peça do kit perde borda, raio e fundo, ela
+virou outra coisa — escreva a sua (`css-architecture` §2), e não uma dúzia de contra-declarações
+sobre o kit, que continua certo onde é usado.
 
 A montagem é a MESMA da seção abaixo (trilha que recorta, `is-past`/`is-next`, voltar pelo
 `onDismissAttempt`) — muda o critério de quando criar o passo, não a mecânica.
@@ -756,7 +764,7 @@ muda) · **🔜 ciclo** migra quando o redesenho chegar na página — nada de c
 | /contratos ?details=    | Etiqueta de aprovação, conferência e prévia do espelho — **deixaram de ser superfícies**: viraram conteúdo de aba          | — (RC-D125/D127)                               | ✅                                                        |
 | /financeiro             | **Nenhuma** — a página é leitura pura (RC-D67)                                                                             | —                                              | ✅                                                        |
 | Simulador               | Ficha de resultado (`.pg-ficha-sheet`, backdrop atravessável); connect menu                                                | painel lateral                                 | ✅ (PG52)                                                 |
-| Simulador               | Tipo de node → qual lote (`.pg-nodes-sheet`, backdrop **padrão**) — menu que aprofunda, §1-A                               | painel de **dois passos**                      | ✅ (PG58/PG60)                                            |
+| Simulador               | Tipo de node → qual lote (`.pg-nodes-sheet`, backdrop **padrão**) — menu que aprofunda, §1-A; opções em LISTA              | painel de **dois passos**                      | ✅ (PG58/PG60/PG66)                                       |
 | Simulador               | Editar as sacas de um node de Lote                                                                                         | **dropdown inline no node**                    | ✅ (PG60)                                                 |
 | Simulador               | Deletar node / desativar (toggle reversível)                                                                               | **barra no hover** (`NodeToolbar`), acima dele | ✅ (PG61/PG65)                                            |
 | Simulador               | Deletar uma ligação / inserir node no meio dela                                                                            | **barra no hover** da LINHA (`PgEdge`)         | ✅ (PG64)                                                 |
