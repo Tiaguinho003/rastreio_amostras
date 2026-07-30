@@ -1,3 +1,43 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   🪦 PODA DE 2026-07-30 — 652 regras sem consumidor, ~4300 linhas
+
+   A poda é mencionada aqui, e não em cada ponto do arquivo, porque as 334
+   classes estavam espalhadas por 73 famílias. As grandes:
+
+     sample-classification 51 · sample-detail 37 · records-client 17 ·
+     app-modal 13 · mobile-camera 13 · client-reg-modal 12 · bsf 10 ·
+     owner-unit-field 10 · sdv-cls 10 · topbar-mobile 8 · hero-search 7 ·
+     cancel-inactivation 6 · clients-page 6 · sdv-page--sample (57 regras
+     numa classe só) · latest-registration · user-avatar-stack · nsv2-field
+
+   Também saíram 5 @keyframes que só elas animavam, 7 @media que esvaziaram e
+   80 comentários que passaram a descrever regra nenhuma.
+
+   🔴 O MÉTODO, que é o que importa se você for repetir:
+
+   1. Candidato = classe em posição de SELETOR (via `postcss.parse`, nunca
+      regex no texto — as lápides citam nomes mortos e viram falso-positivo),
+      cujo token não aparece em NENHUMA forma textual do código.
+   2. A decisão é da REGRA, não da classe. Uma regra morre quando uma classe
+      DECIDÍVEL do seletor morreu; um modificador `is-*` nunca decide nada
+      sozinho — ele vive ou morre com a âncora dele.
+   3. Três coisas o grep não vê, e as três quase custaram regra viva:
+      • **`:not(.morta)` NÃO mata — INVERTE.** `.samples-page-v2:not(.informe-
+        commercial-page)` é regra viva com classe morta dentro; apagá-la teria
+        despintado a /samples. (`:is()/:where()` idem: só morre se TUDO morrer.)
+      • **DOM de biblioteca.** `.react-flow__handle-left`, `__controls-button`,
+        `__edge-path`… quem escreve é o `@xyflow/react`; nosso código não cita.
+      • **Nome montado em runtime.** `` `is-role-${role}` ``, `fv-kpi-tone-${tone}`,
+        `pg-accent-${type}`, `user-avatar--${size}`, `app-toast--${kind}`,
+        `page-transition-enter--${dir}`, `pzv-toast-${kind}`, `login-bean-${n}`.
+        A lista saiu de varrer o próprio código atrás de `` `algo-${ ``.
+   4. Fora desta passada, de propósito: `.pg-*` (o simulador estava sendo
+      editado na mesma hora) e o que sobrou é de família viva.
+
+   Detalhe em `docs/Contratos-Plano-de-Trabalho.md` §19 e na skill
+   `css-architecture` §4.
+   ══════════════════════════════════════════════════════════════════════════ */
+
 :root {
   /* ══════════════════════════════════════════════════════════════
      BRAND — paleta Safras (fonte única de verdes)
@@ -1642,32 +1682,6 @@ body:has(.bottom-sheet-backdrop.is-open) .mobile-edge-shell-auth::after {
   min-width: 0;
 }
 
-.app-modal-chip {
-  margin: 0;
-  display: inline-flex;
-  align-items: center;
-  width: fit-content;
-  max-width: 100%;
-  padding: 0.55rem 0.88rem;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.36);
-  border: 1px solid rgba(214, 214, 214, 0.42);
-  color: rgba(63, 63, 59, 0.72);
-  font-size: 0.8rem;
-  line-height: 1.2;
-}
-
-.app-modal-feedback {
-  min-height: 1.35rem;
-  display: grid;
-  align-items: start;
-}
-
-.app-modal-feedback-text {
-  margin: 0;
-  line-height: 1.35;
-}
-
 .app-modal-actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1764,37 +1778,7 @@ body:has(.bottom-sheet-backdrop.is-open) .mobile-edge-shell-auth::after {
   }
 }
 
-.app-modal-empty {
-  margin: 0;
-  padding: 1rem 0;
-  color: var(--muted);
-  text-align: center;
-}
-
-.app-modal-list {
-  display: grid;
-  gap: 0.62rem;
-  max-height: min(48vh, 25rem);
-  overflow-y: auto;
-  padding-right: 0.1rem;
-  scrollbar-width: none;
-}
-
-.app-modal-list::-webkit-scrollbar {
-  display: none;
-}
-
 /* ── Status theme colors ── */
-
-@keyframes status-pulse {
-  0%,
-  100% {
-    box-shadow: 0 0 0 0 var(--status-glow);
-  }
-  50% {
-    box-shadow: 0 0 0 5px var(--status-glow);
-  }
-}
 
 .is-status-print-pending {
   --status-color: #c94444;
@@ -1855,42 +1839,6 @@ body:has(.bottom-sheet-backdrop.is-open) .mobile-edge-shell-auth::after {
     0 10px 18px rgba(18, 24, 20, 0.05);
 }
 
-.app-modal-card-indicator {
-  width: 0.5rem;
-  height: 0.5rem;
-  border-radius: 50%;
-  background: var(--status-color, #6b9d6b);
-  box-shadow: 0 0 0 3px var(--status-glow, rgba(107, 157, 107, 0.15));
-  flex-shrink: 0;
-}
-
-.is-status-print-pending .app-modal-card-indicator,
-.is-status-classification-pending .app-modal-card-indicator,
-.is-status-classification-progress .app-modal-card-indicator,
-.is-status-neutral .app-modal-card-indicator {
-  animation: status-pulse 2s ease-in-out infinite;
-}
-
-.app-modal-card-body {
-  display: grid;
-  /* grid-template-columns explicito: sem isto, a coluna implicita do
-     grid resolve pra `auto` (intrinsic content size), e com
-     white-space:nowrap nos filhos o body expandia ate caber o nome
-     completo. minmax(0, 1fr) permite o track encolher e ativa o
-     ellipsis nos filhos. */
-  grid-template-columns: minmax(0, 1fr);
-  gap: 0.18rem;
-  min-width: 0;
-  width: 100%;
-}
-
-.app-modal-card-title {
-  margin: 0;
-  font-size: 1.15rem;
-  font-weight: 700;
-  color: #1f5d43;
-}
-
 .app-modal-card-line {
   margin: 0;
   font-size: 0.8rem;
@@ -1902,55 +1850,12 @@ body:has(.bottom-sheet-backdrop.is-open) .mobile-edge-shell-auth::after {
   color: #1f5d43;
 }
 
-.app-modal-card-meta {
-  margin: 0;
-  font-size: 0.78rem;
-  line-height: 1.3;
-  color: #8a8e87;
-}
-
-/* Bloco F1 (Frente A): area comum clicavel do card de pendencias —
-   envolve o body inteiro e leva pro detalhe da amostra. */
-.app-modal-card-link {
-  display: flex;
-  align-items: center;
-  gap: 0.7rem;
-  min-width: 0;
-  flex: 1 1 auto;
-  text-decoration: none;
-  color: inherit;
-}
-
-/* Bloco F1 (Frente A): botao "Classificar" laranja a direita do card. */
-.app-modal-card-classify-cta {
-  flex: 0 0 auto;
-  min-width: 25%;
-  padding: 0.45rem 0.85rem;
-  align-self: center;
-  background: #f59e0b;
-  color: #fff;
-  border: 0;
-  border-radius: 8px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition:
-    transform 120ms ease,
-    opacity 120ms ease;
-}
-
-.app-modal-card-classify-cta:active {
-  transform: scale(0.96);
-  opacity: 0.92;
-}
-
 /* Bloco F1 (Frente A): truncamento scoped no card de pendencias —
    nao afeta SampleLookupResultModal que reusa as mesmas classes
    de typography fora do .app-modal-card.
    min-width:0 + max-width:100% garante que o ellipsis funcione mesmo
    se algum default UA forcar min-content nos grid items. */
-.app-modal-card .app-modal-card-line,
-.app-modal-card .app-modal-card-title {
+.app-modal-card .app-modal-card-line {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1962,12 +1867,6 @@ body:has(.bottom-sheet-backdrop.is-open) .mobile-edge-shell-auth::after {
    `1fr auto` do .app-modal-card: o body ocupa todo o espaco disponivel
    ate o gap, e ellipsis corta antes do gap. Limite ficou identico ao
    limite do titulo (lote), que sempre cabe inteiro. */
-
-.app-modal-status-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.38rem;
-}
 
 .app-modal-lookup-layout {
   display: grid;
@@ -2030,10 +1929,6 @@ body:has(.bottom-sheet-backdrop.is-open) .mobile-edge-shell-auth::after {
 .app-modal-lookup-lot-row > .commercial-status-badge {
   flex-shrink: 0;
   white-space: nowrap;
-}
-
-.app-modal-search {
-  width: min(430px, calc(100vw - 1.5rem));
 }
 
 .login-visually-hidden {
@@ -2164,12 +2059,6 @@ button:disabled {
   line-height: 1;
 }
 
-.status-badge-neutral {
-  background: #edf2eb;
-  border-color: #d5ddd2;
-  color: #39503f;
-}
-
 .status-badge-muted {
   background: #eff2ee;
   border-color: #d9ddd7;
@@ -2182,36 +2071,10 @@ button:disabled {
   color: #f4faef;
 }
 
-.status-badge-warning {
-  background: #eedca4;
-  border-color: #dbc583;
-  color: #5e4a19;
-}
-
-.status-badge-print-pending {
-  background: #f7dddd;
-  border-color: #e8b0b0;
-  color: #8f2f2f;
-}
-
-.status-badge-classification-progress {
-  background: #ddebfb;
-  border-color: #b3cdea;
-  color: #1f4e81;
-}
-
 .status-badge-danger {
   background: #f7dfdf;
   border-color: #efc2c2;
   color: #8a2f2f;
-}
-
-.status-badge-group {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  justify-content: flex-end;
-  gap: 0.24rem;
 }
 
 .commercial-status-badge {
@@ -2262,156 +2125,11 @@ button:disabled {
   flex-wrap: wrap;
 }
 
-.sample-detail-hero-action.is-danger {
-  border-color: rgba(190, 120, 120, 0.72);
-  background: linear-gradient(180deg, #c94444 0%, #a33030 100%);
-  color: #ffffff;
-  box-shadow: 0 8px 18px rgba(139, 40, 40, 0.22);
-}
-
-.sample-detail-hero-action.is-danger:hover {
-  background: linear-gradient(180deg, #b83c3c 0%, #952a2a 100%);
-}
-
-.sample-detail-hero-status-line.is-neutral {
-  background: #8b968b;
-}
-.sample-detail-hero-status-line.is-warning {
-  background: #c56262;
-}
-.sample-detail-hero-status-line.is-pending {
-  background: #cf9f2e;
-}
-.sample-detail-hero-status-line.is-progress {
-  background: #2d82c7;
-}
-.sample-detail-hero-status-line.is-success {
-  background: #3d9a55;
-}
-.sample-detail-hero-status-line.is-danger {
-  background: #b44646;
-}
-
-.sample-detail-hero-statuses .status-badge,
-.sample-detail-hero-statuses .commercial-status-badge {
-  min-height: 1.35rem;
-  padding: 0.14rem 0.46rem;
-  font-size: 0.62rem;
-}
-
-.sample-detail-main-fact.is-wide-value .sample-detail-inline-value {
-  word-break: break-word;
-}
-
-.sample-detail-qr-action.secondary {
-  border-color: rgba(116, 165, 102, 0.84);
-  background: linear-gradient(180deg, #5caa4f 0%, #3e8438 100%);
-  color: #ffffff;
-}
-
-.sample-detail-info-tab.is-active {
-  z-index: 3;
-  border-color: rgba(220, 225, 216, 0.96);
-  border-bottom: 0;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(249, 247, 241, 0.98) 100%);
-  color: #294031;
-  transform: translateY(0);
-  box-shadow: 0 -2px 10px rgba(42, 57, 41, 0.06);
-  padding-bottom: 0.52rem;
-  overflow: visible;
-}
-
-.sample-detail-info-tab.is-active::before,
-.sample-detail-info-tab.is-active::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  width: 0.5rem;
-  height: 0.5rem;
-  pointer-events: none;
-}
-
-.sample-detail-info-tab.is-active::before {
-  left: -0.5rem;
-  background: radial-gradient(
-    circle at 0% 0%,
-    transparent 0.5rem,
-    rgba(249, 247, 241, 0.98) 0.5rem
-  );
-}
-
-.sample-detail-info-tab.is-active::after {
-  right: -0.5rem;
-  background: radial-gradient(
-    circle at 100% 0%,
-    transparent 0.5rem,
-    rgba(249, 247, 241, 0.98) 0.5rem
-  );
-}
-
-.sample-detail-info-tab-dot.is-neutral {
-  background: #8b968b;
-}
-
-.sample-detail-info-tab-dot.is-warning {
-  background: #c56262;
-}
-
-.sample-detail-info-tab-dot.is-pending {
-  background: #cf9f2e;
-}
-
-.sample-detail-info-tab-dot.is-progress {
-  background: #2d82c7;
-}
-
-.sample-detail-info-tab-dot.is-success {
-  background: #3d9a55;
-}
-
-.sample-detail-info-tab-dot.is-danger {
-  background: #b44646;
-}
-
-.sample-detail-info-tab-dot.is-commercial-open {
-  background: #2f9950;
-}
-
-.sample-detail-info-tab-dot.is-commercial-partial {
-  background: #c9951f;
-}
-
-.sample-detail-info-tab-dot.is-commercial-sold {
-  background: #3177c9;
-}
-
-.sample-detail-info-tab-dot.is-commercial-lost {
-  background: #b44646;
-}
-
-.sample-detail-info-switch-body.is-classification {
-  overflow: hidden;
-}
-
 .sample-detail-info-pane {
   display: grid;
   gap: 0.68rem;
   min-height: 0;
   height: 100%;
-}
-
-.sample-detail-main-info.is-editing .sample-detail-inline-input,
-.sample-detail-main-info.is-editing .client-lookup-field input,
-.sample-detail-main-info.is-editing .client-registration-select select {
-  border-bottom-style: dashed;
-  border-bottom-color: rgba(125, 161, 111, 0.45);
-}
-
-.sample-detail-main-info.is-editing .sample-detail-inline-input:focus,
-.sample-detail-main-info.is-editing .client-lookup-field input:focus,
-.sample-detail-main-info.is-editing .client-registration-select select:focus {
-  border-bottom-color: rgba(125, 161, 111, 0.7);
-  background: rgba(244, 247, 239, 0.45);
 }
 
 .sample-detail-commercial-pane {
@@ -2436,10 +2154,6 @@ button:disabled {
 .sample-detail-invalidate-textarea {
   min-height: 6.2rem;
   resize: none;
-}
-
-.sample-detail-invalidate-actions {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .sample-detail-invalidate-submit {
@@ -2479,19 +2193,11 @@ button:disabled {
    sobrescrever o flex/flex-end base de .app-modal.is-themed .app-modal-actions.
    Usado pelo modal de reclassificacao e pelo modal de edicao de Informacoes. */
 .app-modal.is-themed .app-modal-actions.sample-detail-reclassify-actions,
-.app-modal.is-themed .app-modal-actions.sample-detail-reg-edit-actions,
-.app-modal.is-themed .app-modal-actions.sample-detail-invalidate-actions,
-.app-modal.is-themed .app-modal-actions.blend-revert-actions,
 .app-modal.is-themed .app-modal-actions.blend-harvest-propagation-actions,
-.app-modal.is-themed .app-modal-actions.report-harvest-select-actions,
 .app-modal.is-themed .app-modal-actions.client-detail-status-actions,
 .app-modal.is-themed .app-modal-actions.cudm-edit-actions,
 .app-modal.is-themed .app-modal-actions.sample-detail-reclassify-actions,
-.app-modal.is-themed .app-modal-actions.sample-detail-reg-edit-actions,
-.app-modal.is-themed .app-modal-actions.sample-detail-invalidate-actions,
-.app-modal.is-themed .app-modal-actions.blend-revert-actions,
 .app-modal.is-themed .app-modal-actions.blend-harvest-propagation-actions,
-.app-modal.is-themed .app-modal-actions.report-harvest-select-actions,
 .app-modal.is-themed .app-modal-actions.client-detail-status-actions,
 .app-modal.is-themed .app-modal-actions.cudm-edit-actions {
   display: grid;
@@ -2500,223 +2206,15 @@ button:disabled {
 }
 
 .sample-detail-reclassify-actions > button,
-.sample-detail-reg-edit-actions > button,
-.sample-detail-invalidate-actions > button,
-.blend-revert-actions > button,
 .blend-harvest-propagation-actions > button,
-.report-harvest-select-actions > button,
 .client-detail-status-actions > button,
 .cudm-edit-actions > button,
 .sample-detail-reclassify-actions > button,
-.sample-detail-reg-edit-actions > button,
-.sample-detail-invalidate-actions > button,
-.blend-revert-actions > button,
 .blend-harvest-propagation-actions > button,
-.report-harvest-select-actions > button,
 .client-detail-status-actions > button,
 .cudm-edit-actions > button {
   width: 100%;
   min-width: 0;
-}
-
-.sample-detail-main-facts-general .client-lookup-field,
-.sample-detail-main-facts-general .client-registration-select {
-  display: grid;
-  gap: 0;
-  padding: 0;
-  margin: 0;
-  position: relative;
-  width: 100%;
-}
-
-.sample-detail-main-facts-general .client-lookup-shell {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 0;
-  padding: 0;
-  margin: 0;
-}
-
-.sample-detail-main-facts-general .client-lookup-field > label,
-.sample-detail-main-facts-general .client-registration-select > span {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-}
-
-.sample-detail-main-facts-general .client-lookup-field input,
-.sample-detail-main-facts-general .client-registration-select select {
-  min-height: 1.6rem;
-  padding: 0.42rem 0.5rem;
-  border-radius: 0;
-  border: none;
-  border-bottom: 1px solid transparent;
-  background: transparent;
-  font-size: 1.1rem;
-  font-weight: 500;
-  text-align: center;
-  line-height: 1.26;
-  color: #2b3f35;
-  width: 100%;
-  box-sizing: border-box;
-  font-family: inherit;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  appearance: none;
-}
-
-.sample-detail-main-fact .client-lookup-dropdown.is-compact {
-  top: calc(100% + 0.14rem);
-  padding: 0.42rem;
-  max-height: min(10rem, 28vh);
-  border-radius: 12px;
-}
-
-.sample-detail-main-fact .client-lookup-dropdown.is-compact .client-lookup-list {
-  max-height: min(7rem, 18vh);
-}
-
-.sample-detail-main-fact .client-lookup-dropdown.is-compact .client-lookup-option {
-  border-radius: 10px;
-  padding: 0.45rem 0.52rem;
-}
-
-.sample-detail-main-fact .client-lookup-dropdown.is-compact .client-lookup-option-meta {
-  font-size: 0.74rem;
-}
-
-.sample-classification-feedback {
-  width: fit-content;
-}
-
-.sample-classification-start-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
-  border-color: #d8d1c2;
-  background:
-    radial-gradient(circle at 100% 0%, rgba(149, 167, 124, 0.16) 0%, rgba(149, 167, 124, 0) 42%),
-    linear-gradient(180deg, #fcfbf7 0%, #f4f0e7 100%);
-}
-
-.sample-classification-start-copy {
-  display: grid;
-  gap: 0.18rem;
-}
-
-.sample-classification-section-kicker {
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: #707b6c;
-}
-
-.sample-classification-flow {
-  flex: 1 1 auto;
-  min-height: 100%;
-  height: 100%;
-  gap: 0.85rem;
-}
-
-.sample-classification-step-shell {
-  display: flex;
-  flex-direction: column;
-  min-height: 100%;
-  position: relative;
-}
-
-.sample-classification-step-header {
-  display: grid;
-  gap: 0;
-}
-
-.sample-classification-step-switch-row {
-  display: flex;
-  align-items: center;
-  gap: 0;
-}
-
-.sample-classification-step-switch-row .sample-classification-step-switch {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.sample-classification-step-switch {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.25rem;
-  padding: 0.22rem;
-  border: 1px solid #d6d2c5;
-  border-radius: 18px;
-  background: linear-gradient(180deg, #f7f4ee 0%, #f0ece3 100%);
-}
-
-.sample-classification-step-tab {
-  position: relative;
-  border: 0;
-  border-radius: 14px;
-  background: transparent;
-  color: #5f6c61;
-  font-size: 0.84rem;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-  padding: 0.38rem 0.9rem;
-  transition:
-    background 140ms ease,
-    color 140ms ease,
-    box-shadow 140ms ease;
-}
-
-.sample-classification-step-tab:disabled {
-  opacity: 0.46;
-  cursor: not-allowed;
-}
-
-.sample-classification-step-tab:hover {
-  background: rgba(255, 255, 255, 0.68);
-  color: #425748;
-}
-
-.sample-classification-step-tab.is-active {
-  background: #ffffff;
-  color: #294031;
-  box-shadow: 0 6px 12px rgba(42, 57, 41, 0.14);
-}
-
-.sample-classification-step-check {
-  position: absolute;
-  top: 0.18rem;
-  right: 0.22rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 0.82rem;
-  height: 0.82rem;
-  border-radius: 999px;
-  background: #3d9a55;
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9);
-}
-
-.sample-classification-step-check svg {
-  width: 0.48rem;
-  height: 0.48rem;
-  fill: none;
-  stroke: #ffffff;
-  stroke-width: 2.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.sample-classification-step-hint {
-  margin: 0;
-  color: #6f776e;
-  font-size: 0.74rem;
-  line-height: 1.3;
 }
 
 .sample-classification-step-body {
@@ -2733,791 +2231,12 @@ button:disabled {
   display: none;
 }
 
-.sample-classification-step-pane-stack {
-  display: grid;
-  gap: 0.85rem;
-}
-
-.sample-classification-photo-panel {
-  align-content: stretch;
-  grid-template-rows: minmax(0, 1fr);
-  gap: 0;
-  padding: 0.85rem;
-  height: 100%;
-  min-height: 100%;
-}
-
-.sample-classification-photo-shell {
-  min-height: 0;
-  height: 100%;
-  align-self: stretch;
-}
-
-.sample-classification-photo-stage {
-  height: 100%;
-  min-height: 100%;
-  padding: 0.62rem;
-  box-sizing: border-box;
-}
-
-.sample-classification-photo-stage.is-static {
-  cursor: default;
-}
-
-.sample-classification-photo-placeholder {
-  gap: 0.32rem;
-  padding: 0.62rem;
-}
-
-.sample-classification-photo-actions {
-  justify-content: flex-start;
-}
-
-.sample-classification-photo-action {
-  width: 2.18rem;
-  min-width: 2.18rem;
-  height: 2.18rem;
-}
-
-.sample-classification-photo-inline-actions {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  bottom: 2rem;
-  z-index: 4;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.72rem;
-}
-
-.sample-classification-photo-inline-button {
-  min-height: 2.3rem;
-  border-radius: 999px;
-  padding: 0.42rem 0.88rem;
-  font-size: 0.82rem;
-  font-weight: 700;
-  box-shadow: 0 10px 18px rgba(42, 57, 41, 0.12);
-}
-
-.sample-classification-photo-inline-icon {
-  width: 3.3rem;
-  min-width: 3.3rem;
-  height: 3.3rem;
-  min-height: 3.3rem;
-  padding: 0;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(9, 15, 12, 0.28);
-  color: rgba(255, 255, 255, 0.58);
-  backdrop-filter: blur(12px);
-  opacity: 0.35;
-  transition:
-    opacity 160ms ease,
-    background 160ms ease,
-    border-color 160ms ease,
-    color 160ms ease,
-    transform 180ms ease;
-}
-
-.sample-classification-photo-inline-icon svg,
-.sample-classification-photo-inline-spinner {
-  width: 1.14rem;
-  height: 1.14rem;
-  margin: 0 auto;
-}
-
-.sample-classification-photo-inline-icon svg {
-  display: block;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.sample-classification-photo-inline-icon.is-ready {
-  opacity: 1;
-  color: #ffffff;
-}
-
-.sample-classification-photo-inline-icon.is-ready.is-discard {
-  background: rgba(166, 48, 48, 0.92);
-  border-color: rgba(255, 210, 210, 0.18);
-}
-
-.sample-classification-photo-inline-icon.is-ready.is-confirm {
-  background: rgba(54, 134, 88, 0.94);
-  border-color: rgba(224, 255, 236, 0.18);
-}
-
-.sample-classification-photo-inline-icon:disabled {
-  cursor: not-allowed;
-}
-
-.sample-classification-photo-inline-spinner {
-  border: 2px solid rgba(255, 255, 255, 0.35);
-  border-top-color: #ffffff;
-  border-radius: 999px;
-  animation: topbar-mobile-search-spin 680ms linear infinite;
-}
-
-.sample-classification-side-layout {
-  display: grid;
-  grid-template-rows: auto auto;
-  gap: 0.85rem;
-  min-width: 0;
-  height: 100%;
-}
-
-.sample-classification-side-top {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.85rem;
-  align-items: stretch;
-}
-
-.sample-classification-panel-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-}
-
-.sample-classification-panel-head.is-tight {
-  align-items: center;
-}
-
-.sample-classification-meta-block {
-  display: grid;
-  gap: 0.16rem;
-  justify-items: end;
-  text-align: right;
-}
-
-.sample-classification-meta-label {
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: #77806f;
-}
-
-.sample-classification-meta-value {
-  font-size: 0.9rem;
-  color: #32423a;
-}
-
-.sample-classification-meta-value.is-muted {
-  color: #8f8a81;
-}
-
-.sample-classification-chip {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  border: 1px solid transparent;
-  padding: 0.28rem 0.68rem;
-  font-size: 0.76rem;
-  font-weight: 700;
-  line-height: 1;
-}
-
-.sample-classification-chip.is-ready {
-  background: #e4f1e0;
-  border-color: #bfd0ba;
-  color: #35613d;
-}
-
-.sample-classification-chip.is-missing {
-  background: #f7dddd;
-  border-color: #e8b0b0;
-  color: #8f2f2f;
-}
-
-.sample-classification-chip.is-draft {
-  background: #fff1cf;
-  border-color: #ebd18b;
-  color: #7a5811;
-}
-
-.sample-classification-chip.is-progress {
-  background: #ddebfb;
-  border-color: #b3cdea;
-  color: #1f4e81;
-}
-
-.sample-classification-form-panel {
-  gap: 0.72rem;
-  padding: 0.85rem;
-  min-height: 100%;
-  border: 0;
-  box-shadow: none;
-  background: transparent;
-}
-
-.sample-classification-form-panel label {
-  gap: 0.28rem;
-  font-size: 0.84rem;
-}
-
-.sample-classification-field {
-  transition: color 160ms ease;
-}
-
-.sample-classification-form-panel input,
-.sample-classification-form-panel select,
-.sample-classification-form-panel textarea {
-  padding: 0.5rem 0.62rem;
-  font-size: 1rem;
-  box-shadow:
-    inset 0 1px 3px rgba(32, 45, 34, 0.1),
-    0 1px 0 rgba(255, 255, 255, 0.7);
-}
-
-.sample-classification-control {
-  transition:
-    border-color 160ms ease,
-    background-color 160ms ease,
-    color 160ms ease,
-    box-shadow 160ms ease;
-}
-
-.sample-classification-form-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.72rem;
-}
-
-.sample-classification-sieve-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.72rem;
-}
-
-.sample-classification-field-span-full {
-  grid-column: 1 / -1;
-}
-
-.sample-classification-sieve-panel {
-  min-width: 0;
-}
-
-.sample-classification-flow.is-readonly
-  .sample-classification-form-panel
-  input:not([type='file'])[readonly],
-.sample-classification-flow.is-readonly .sample-classification-form-panel textarea[readonly] {
-  cursor: default;
-}
-
-.sample-classification-flow.is-readonly .sample-classification-field.is-filled {
-  color: #53614d;
-}
-
-.sample-classification-flow.is-readonly .sample-classification-field.is-empty {
-  color: #8f887d;
-}
-
-.sample-classification-flow.is-readonly
-  .sample-classification-form-panel
-  .sample-classification-control.is-filled {
-  border-color: #cfdac6;
-  background: #eff5e9;
-  color: #2f4137;
-  box-shadow: none;
-}
-
-.sample-classification-flow.is-readonly
-  .sample-classification-form-panel
-  .sample-classification-control.is-empty {
-  border-style: dashed;
-  border-color: #ddd5c7;
-  background: #f4efe8;
-  color: #9b9589;
-  box-shadow: none;
-}
-
-.sample-classification-flow.is-readonly
-  .sample-classification-form-panel
-  .sample-classification-control.is-empty::placeholder {
-  color: #9b9589;
-  opacity: 1;
-}
-
-.sample-classification-flow.is-editing .sample-classification-form-panel {
-  border-color: #b7c9a0;
-  box-shadow: 0 16px 32px rgba(39, 58, 36, 0.1);
-}
-
-.sample-classification-flow.is-editing .sample-classification-form-panel input:not([type='file']),
-.sample-classification-flow.is-editing .sample-classification-form-panel textarea {
-  border-color: #8ea66f;
-  background: #fcfdf9;
-  box-shadow: 0 0 0 1px rgba(142, 166, 111, 0.14);
-}
-
-.sample-classification-flow.is-editing
-  .sample-classification-form-panel
-  input:not([type='file']):focus,
-.sample-classification-flow.is-editing .sample-classification-form-panel textarea:focus {
-  border-color: #6e8852;
-  box-shadow: 0 0 0 2px rgba(110, 136, 82, 0.14);
-}
-
-.sample-classification-footer-right {
-  display: flex;
-  align-items: center;
-  gap: 0.32rem;
-}
-
-.sample-classification-footer {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 0.6rem;
-  margin-top: auto;
-  position: sticky;
-  bottom: 0;
-  z-index: 3;
-  padding-top: 0.62rem;
-  padding-bottom: 0.12rem;
-  border-top: 1px solid #dfd7c8;
-  background: linear-gradient(
-    180deg,
-    rgba(249, 247, 241, 0.4) 0%,
-    rgba(249, 247, 241, 0.96) 24%,
-    rgba(249, 247, 241, 0.98) 100%
-  );
-  backdrop-filter: blur(12px);
-  flex-shrink: 0;
-}
-
-.sample-classification-footer-actions {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.52rem;
-  flex-wrap: nowrap;
-  min-height: 2.2rem;
-}
-
-.sample-classification-nav-arrow {
-  width: 2.46rem;
-  min-width: 2.46rem;
-  height: 2.46rem;
-  border-radius: 999px;
-  padding: 0;
-  display: inline-grid;
-  place-items: center;
-}
-
-.sample-classification-nav-arrow svg {
-  width: 1rem;
-  height: 1rem;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2.1;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.sample-classification-nav-arrow:disabled {
-  opacity: 0.42;
-}
-
-.sample-classification-edit-floating {
-  position: absolute;
-  top: 0.42rem;
-  right: 0.42rem;
-  z-index: 5;
-  width: 2rem;
-  min-width: 2rem;
-  height: 2rem;
-  border-radius: 999px;
-  padding: 0;
-  display: inline-grid;
-  place-items: center;
-  border: 1px solid rgba(206, 215, 202, 0.92);
-  background: rgba(255, 255, 255, 0.88);
-  color: #466252;
-  box-shadow: 0 4px 10px rgba(42, 57, 41, 0.1);
-}
-
-.sample-classification-edit-floating:hover {
-  background: rgba(255, 255, 255, 0.96);
-}
-
-.sample-classification-edit-floating svg {
-  width: 0.88rem;
-  height: 0.88rem;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.sample-classification-edit-floating:disabled {
-  opacity: 0.4;
-}
-
-.sample-classification-edit-icon {
-  width: 2.2rem;
-  min-width: 2.2rem;
-  height: 2.2rem;
-  border-radius: 999px;
-  padding: 0;
-  display: inline-grid;
-  place-items: center;
-}
-
-.sample-classification-edit-icon svg {
-  width: 0.96rem;
-  height: 0.96rem;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.sample-classification-edit-modal {
-  width: min(520px, 100%);
-}
-
 @media (max-width: 900px) {
-  .sample-classification-step-tab {
-    justify-content: center;
-    text-align: center;
-    font-size: clamp(0.58rem, 2.1vw, 0.72rem);
-    padding: clamp(0.2rem, 0.9vw, 0.3rem) clamp(0.16rem, 0.7vw, 0.24rem);
-  }
 
   .sample-classification-step-body {
     padding-right: 0;
     padding-bottom: 0.3rem;
     display: grid;
-  }
-
-  .sample-classification-photo-panel {
-    padding: clamp(0.48rem, 2vw, 0.72rem);
-    height: 100%;
-    min-height: 100%;
-  }
-
-  .sample-classification-photo-stage {
-    height: 100%;
-    min-height: 100%;
-    padding: clamp(0.35rem, 1.5vw, 0.5rem);
-  }
-
-  .sample-classification-photo-inline-actions {
-    left: 50%;
-    transform: translateX(-50%);
-    bottom: clamp(2rem, 7.5vw, 2.8rem);
-    gap: clamp(0.38rem, 1.7vw, 0.58rem);
-  }
-
-  .sample-classification-photo-inline-icon {
-    width: clamp(2.2rem, 7.5vw, 2.82rem);
-    min-width: clamp(2.2rem, 7.5vw, 2.82rem);
-    height: clamp(2.2rem, 7.5vw, 2.82rem);
-    min-height: clamp(2.2rem, 7.5vw, 2.82rem);
-  }
-
-  .sample-classification-form-panel {
-    gap: clamp(0.42rem, 1.8vw, 0.62rem);
-    padding: clamp(0.48rem, 2vw, 0.72rem);
-  }
-
-  .sample-classification-footer {
-    gap: clamp(0.28rem, 1.2vw, 0.42rem);
-    padding-top: clamp(0.35rem, 1.5vw, 0.5rem);
-    padding-bottom: 0.02rem;
-  }
-
-  .sample-classification-footer-actions {
-    gap: clamp(0.24rem, 1vw, 0.36rem);
-  }
-
-  .sample-classification-nav-arrow {
-    width: clamp(1.7rem, 6vw, 2.12rem);
-    min-width: clamp(1.7rem, 6vw, 2.12rem);
-    height: clamp(1.7rem, 6vw, 2.12rem);
-  }
-
-  .sample-detail-page {
-    height: calc(
-      100dvh - env(safe-area-inset-top) - var(--app-safe-area-bottom, env(safe-area-inset-bottom)) -
-        var(--mobile-shell-top-offset) - var(--mobile-tabbar-clearance) - 0.32rem
-    );
-    gap: clamp(0.18rem, 0.8vw, 0.28rem);
-    overflow: hidden;
-  }
-
-  .sample-detail-page-shell {
-    gap: 0.08rem;
-    flex: 1 1 auto;
-  }
-
-  .sample-detail-top-bar {
-    gap: clamp(0.22rem, 1vw, 0.35rem);
-    padding-inline: 0.02rem;
-  }
-
-  .sample-detail-back-button {
-    width: clamp(1.5rem, 5vw, 1.8rem);
-    min-width: clamp(1.5rem, 5vw, 1.8rem);
-    height: clamp(1.5rem, 5vw, 1.8rem);
-  }
-
-  .sample-detail-hero-panel {
-    padding: clamp(0.28rem, 1.1vw, 0.38rem) clamp(0.38rem, 1.7vw, 0.58rem);
-    gap: clamp(0.28rem, 1.1vw, 0.38rem);
-    border-radius: clamp(10px, 3.5vw, 12px);
-  }
-
-  .sample-detail-hero-action {
-    width: clamp(1.4rem, 4.8vw, 1.7rem);
-    min-width: clamp(1.4rem, 4.8vw, 1.7rem);
-    height: clamp(1.4rem, 4.8vw, 1.7rem);
-  }
-
-  .sample-detail-hero-main {
-    gap: clamp(0.28rem, 1.2vw, 0.42rem);
-  }
-
-  .sample-detail-hero-icon {
-    width: clamp(1.6rem, 5.5vw, 2rem);
-    height: clamp(1.6rem, 5.5vw, 2rem);
-  }
-
-  .sample-detail-hero-icon svg {
-    width: clamp(0.76rem, 2.6vw, 0.92rem);
-    height: clamp(0.76rem, 2.6vw, 0.92rem);
-  }
-
-  .sample-detail-hero-text h2 {
-    font-size: clamp(0.74rem, 2.6vw, 0.88rem);
-  }
-
-  .sample-detail-hero-text p {
-    font-size: clamp(0.56rem, 2vw, 0.68rem);
-  }
-
-  .sample-detail-main-layout {
-    grid-template-columns: minmax(0, 1.12fr) minmax(clamp(6rem, 22vw, 7.8rem), 0.88fr);
-    gap: clamp(0.35rem, 1.5vw, 0.55rem);
-  }
-
-  .sample-detail-main-layout-general {
-    grid-template-columns: 1fr;
-    grid-template-rows: minmax(0, 1fr);
-    align-content: stretch;
-    gap: clamp(0.14rem, 0.6vw, 0.22rem);
-    padding: 0;
-    border: 0;
-    background: transparent;
-    box-shadow: none;
-  }
-
-  .sample-detail-general-qr-block {
-    width: 100%;
-    gap: clamp(0.28rem, 1.1vw, 0.38rem);
-  }
-
-  .sample-detail-general-qr-block .sample-detail-qr-quick-code canvas,
-  .sample-detail-general-qr-block .sample-detail-qr-quick-code svg {
-    width: min(100%, clamp(5.5rem, 19vw, 7rem)) !important;
-    height: auto !important;
-  }
-
-  .sample-detail-edit-tools {
-    width: auto;
-    display: flex;
-    align-items: flex-start;
-  }
-
-  .sample-detail-edit-trigger-slot {
-    justify-content: flex-start;
-  }
-
-  .sample-detail-info-switch-header {
-    width: 100%;
-    padding: 0 0.02rem;
-    gap: clamp(0.1rem, 0.5vw, 0.18rem);
-  }
-
-  .sample-detail-info-tab {
-    min-height: clamp(2.1rem, 7vw, 2.5rem);
-    justify-content: center;
-    text-align: center;
-    font-size: clamp(0.62rem, 2.2vw, 0.76rem);
-    padding: clamp(0.24rem, 1vw, 0.34rem) clamp(0.16rem, 0.7vw, 0.24rem)
-      clamp(0.34rem, 1.4vw, 0.48rem);
-    border-radius: clamp(14px, 4.5vw, 18px) clamp(14px, 4.5vw, 18px) 0 0;
-  }
-
-  .sample-detail-info-switch-body {
-    min-height: 0;
-    max-height: none;
-    overflow: hidden;
-    padding-right: 0;
-  }
-
-  .sample-detail-info-switch-body.is-classification {
-    overflow: hidden;
-  }
-
-  .sample-detail-main-info {
-    padding-right: 0;
-  }
-
-  .sample-detail-main-info-grid {
-    width: 100%;
-    gap: clamp(0.28rem, 1.1vw, 0.38rem);
-    padding: clamp(0.22rem, 0.9vw, 0.32rem) clamp(0.28rem, 1.2vw, 0.42rem)
-      clamp(0.28rem, 1.2vw, 0.42rem);
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-    box-shadow: none;
-  }
-
-  .sample-detail-general-stage {
-    gap: clamp(0.48rem, 2vw, 0.72rem);
-  }
-
-  .sample-detail-edit-tools-general {
-    top: clamp(0.28rem, 1.1vw, 0.38rem);
-    right: clamp(0.28rem, 1.1vw, 0.38rem);
-  }
-
-  .sample-detail-main-facts-columns,
-  .sample-detail-main-facts-general,
-  .sample-detail-general-card-top {
-    width: 100%;
-  }
-
-  .sample-detail-general-card-top {
-    padding: clamp(0.48rem, 2vw, 0.72rem) clamp(0.35rem, 1.5vw, 0.5rem)
-      clamp(0.42rem, 1.8vw, 0.62rem);
-  }
-
-  .sample-detail-main-facts-columns {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0;
-  }
-
-  .sample-detail-main-facts-general .sample-detail-main-fact {
-    padding: 0;
-  }
-
-  .sample-detail-main-facts-general .sample-detail-main-fact span {
-    font-size: clamp(0.46rem, 1.6vw, 0.58rem);
-  }
-
-  .sample-detail-main-facts-general .sample-detail-inline-value,
-  .sample-detail-main-facts-general .sample-detail-inline-input {
-    font-size: clamp(0.64rem, 2.2vw, 0.76rem);
-    min-height: clamp(1.1rem, 3.7vw, 1.3rem);
-    padding: clamp(0.22rem, 0.9vw, 0.32rem) clamp(0.28rem, 1.1vw, 0.38rem);
-  }
-
-  .sample-detail-main-facts-general .client-lookup-field input,
-  .sample-detail-main-facts-general .client-registration-select select {
-    font-size: clamp(0.64rem, 2.2vw, 0.76rem);
-    min-height: clamp(1.1rem, 3.7vw, 1.3rem);
-    padding: clamp(0.22rem, 0.9vw, 0.32rem) clamp(0.28rem, 1.1vw, 0.38rem);
-  }
-
-  .sample-detail-qr-action {
-    width: clamp(3.2rem, 11.5vw, 4.2rem);
-    min-width: clamp(3.2rem, 11.5vw, 4.2rem);
-    height: clamp(1.8rem, 6.5vw, 2.28rem);
-  }
-
-  .sample-detail-qr-quick-actions {
-    justify-content: center;
-    gap: clamp(0.28rem, 1.2vw, 0.42rem);
-  }
-
-  .sample-detail-disclosure-summary {
-    gap: clamp(0.38rem, 1.7vw, 0.58rem);
-  }
-
-  .sample-detail-disclosure-copy strong {
-    font-size: clamp(0.7rem, 2.4vw, 0.84rem);
-  }
-
-  .sample-detail-disclosure-copy span {
-    font-size: clamp(0.58rem, 2vw, 0.7rem);
-  }
-
-  .sample-classification-start-card {
-    align-items: stretch;
-  }
-
-  .sample-classification-start-card button {
-    width: 100%;
-  }
-
-  .sample-classification-meta-block {
-    justify-items: start;
-    text-align: left;
-  }
-
-  .sample-classification-form-grid {
-    grid-template-columns: 1fr;
-    gap: clamp(0.35rem, 1.5vw, 0.52rem);
-  }
-
-  .sample-classification-form-grid-general {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: clamp(0.28rem, 1.2vw, 0.42rem) clamp(0.35rem, 1.5vw, 0.52rem);
-  }
-
-  .sample-classification-measures-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: clamp(0.28rem, 1.1vw, 0.38rem) clamp(0.28rem, 1.2vw, 0.42rem);
-  }
-
-  .sample-classification-measures-grid .sample-classification-field:nth-child(4),
-  .sample-classification-measures-grid .sample-classification-field:nth-child(5) {
-    grid-column: span 1;
-  }
-
-  .sample-classification-sieve-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .sample-classification-sieve-grid-compact {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: clamp(0.28rem, 1.1vw, 0.38rem) clamp(0.28rem, 1.2vw, 0.42rem);
-  }
-
-  .sample-classification-measures-panel {
-    gap: clamp(0.35rem, 1.5vw, 0.52rem);
-  }
-
-  .sample-classification-step-hint {
-    font-size: clamp(0.56rem, 2vw, 0.68rem);
-  }
-
-  .sample-detail-info-tab-dot {
-    top: clamp(0.14rem, 0.6vw, 0.22rem);
-    right: clamp(0.14rem, 0.6vw, 0.22rem);
-    width: clamp(0.46rem, 1.6vw, 0.58rem);
-    height: clamp(0.46rem, 1.6vw, 0.58rem);
-  }
-
-  .sample-classification-footer button {
-    width: auto;
-  }
-}
-
-@media (max-width: 900px) {
-  .sample-detail-hero-text p {
-    white-space: normal;
   }
 }
 
@@ -3574,14 +2293,6 @@ button:disabled {
   gap: 0.5rem;
 }
 
-.topbar-mobile-search {
-  display: none;
-}
-
-.topbar-mobile-create-link {
-  display: none;
-}
-
 .topbar-profile {
   position: relative;
 }
@@ -3611,24 +2322,6 @@ button:disabled {
 
 .topbar-profile-trigger:active {
   transform: scale(0.94);
-}
-
-.topbar-profile-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.42rem;
-  height: 1.42rem;
-}
-
-.topbar-profile-icon svg {
-  width: 100%;
-  height: 100%;
-  fill: none;
-  stroke: #ffffff;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
 }
 
 /* Dropdown de perfil do desktop: mesmo desenho do menu da conta do mobile
@@ -3918,36 +2611,11 @@ button:disabled {
   font-size: 0.88rem;
 }
 
-.kpi-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.9rem;
-}
-
-.kpi-grid-3 {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
 .kpi {
   border: 1px solid var(--line);
   border-radius: 12px;
   padding: 0.8rem;
   background: #fff;
-}
-
-.kpi-button {
-  width: 100%;
-  text-align: left;
-  color: var(--ink);
-}
-
-.kpi-button:hover {
-  background: #f7f2e6;
-}
-
-.kpi-button:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
 }
 
 .kpi h4 {
@@ -4144,37 +2812,6 @@ button:disabled {
   border-radius: 0 3px 3px 0;
 }
 
-.dashboard-op-classification::before {
-  background: #d4a017;
-}
-
-.dashboard-op-classification .dashboard-operation-icon-wrap {
-  background: linear-gradient(135deg, rgba(212, 160, 23, 0.15), rgba(212, 160, 23, 0.08));
-  border: 1.5px solid rgba(212, 160, 23, 0.25);
-}
-.dashboard-op-classification .dashboard-operation-icon-wrap svg {
-  stroke: #d4a017;
-}
-.dashboard-op-classification .dashboard-operation-badge {
-  background: #d4a017;
-  box-shadow: 0 2px 8px rgba(212, 160, 23, 0.5);
-}
-
-.dashboard-op-clients::before {
-  background: #d4a017;
-}
-.dashboard-op-clients .dashboard-operation-icon-wrap {
-  background: linear-gradient(135deg, rgba(212, 160, 23, 0.15), rgba(212, 160, 23, 0.08));
-  border: 1.5px solid rgba(212, 160, 23, 0.25);
-}
-.dashboard-op-clients .dashboard-operation-icon-wrap svg {
-  stroke: #d4a017;
-}
-.dashboard-op-clients .dashboard-operation-badge {
-  background: #d4a017;
-  box-shadow: 0 2px 8px rgba(212, 160, 23, 0.5);
-}
-
 /* ── Badge pill ── */
 
 .dashboard-operation-badge {
@@ -4226,12 +2863,6 @@ button:disabled {
    consumida pelo gradient acima. Mantem a regra original que pinta o
    ::before como solido pro card compacto (sem .is-wide) — o
    `background: linear-gradient(...)` so vale dentro de `.is-wide`. */
-.dashboard-op-clients {
-  --dashboard-op-bar-color: #d4a017;
-}
-.dashboard-op-classification {
-  --dashboard-op-bar-color: #d4a017;
-}
 
 .dashboard-operation-card.is-wide .dashboard-operation-icon-wrap {
   /* Circulo verde solido (brand-green) com icone branco dentro —
@@ -4277,24 +2908,6 @@ button:disabled {
 /* Chevron `>` a direita, vertical-center, cinza-verde suave.
    `margin-left: auto` desnecessario porque o .dashboard-operation-content
    tem `flex: 1` e empurra o chevron pra ponta. */
-.dashboard-operation-chevron {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  color: #a8b3ac;
-  padding-right: clamp(0.1rem, 0.5vw, 0.2rem);
-}
-
-.dashboard-operation-chevron svg {
-  width: clamp(14px, 4vw, 18px);
-  height: clamp(14px, 4vw, 18px);
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
 
 .dashboard-operation-content {
   display: flex;
@@ -4452,15 +3065,6 @@ button:disabled {
     opacity: 1;
     transform: translateX(0);
   }
-}
-
-/* ── Label & sub-status ── */
-
-.dashboard-operation-label {
-  font-size: clamp(12.5px, 3.6vw, 14.5px);
-  font-weight: 500;
-  color: #444;
-  line-height: 1.2;
 }
 
 /* ── Skeleton for loading ── */
@@ -4655,10 +3259,6 @@ button:disabled {
   color: #e8a0a0;
 }
 
-.sample-search-clear {
-  min-width: 5.2rem;
-}
-
 /* ── Hero search bar (shared: dashboard, samples, clients) ── */
 
 .hero-search-wrap {
@@ -4672,172 +3272,6 @@ button:disabled {
    sairam — /contratos foi o ultimo a monta-los, e agora usa a `.fv-toolbar`
    (funil + "Limpar" do kit). O que resta desta chrome legada serve so
    /financeiro: wrap, barra, input, "X" da busca e a lupa. */
-
-/* Expandido: ha filtros aplicados → o "X" aparece e a busca encolhe. */
-
-.hero-search-bar {
-  display: flex;
-  align-items: center;
-  background: rgba(255, 255, 255, 0.95);
-  border: none;
-  /* Border-radius mais quadrado (era 24-30px = pill arredondado). */
-  border-radius: clamp(10px, 3vw, 14px);
-  padding: 0 clamp(12px, 3.5vw, 14px);
-  gap: clamp(6px, 2vw, 8px);
-  box-shadow: 0 4px 14px rgba(10, 30, 18, 0.1);
-}
-
-.hero-search-icon {
-  width: clamp(16px, 4.5vw, 18px);
-  height: clamp(16px, 4.5vw, 18px);
-  flex-shrink: 0;
-  fill: none;
-  stroke: #6b8a74;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-/* Botao submit a direita do input — mesmo pattern visual do
-   .sample-search-icon-button (busca do dashboard). Idle: lupa cinza
-   transparente. Has-input: vira CTA verde com seta. Posicionado como
-   flex item no fim do .hero-search-bar (input flex:1, botao auto). */
-.hero-search-submit {
-  flex-shrink: 0;
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  padding: 0;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  color: #5f7165;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  box-shadow: 0 0 0 0 rgba(31, 93, 67, 0);
-  transition:
-    background 220ms cubic-bezier(0.22, 1, 0.36, 1),
-    color 220ms cubic-bezier(0.22, 1, 0.36, 1),
-    border-radius 220ms cubic-bezier(0.22, 1, 0.36, 1),
-    box-shadow 220ms cubic-bezier(0.22, 1, 0.36, 1),
-    transform 0.1s ease;
-}
-
-.hero-search-submit:active {
-  transform: scale(0.85);
-}
-
-.hero-search-submit:focus,
-.hero-search-submit:focus-visible {
-  outline: none;
-}
-
-/* Wrapper das duas SVGs sobrepostas (lupa + seta). Container tem
-   width fixa (2rem) pra evitar layout shift; icones fazem cross-fade
-   no mesmo espaco. */
-.hero-search-submit svg {
-  position: absolute;
-  display: block;
-  width: 1.15rem;
-  height: 1.15rem;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.9;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  transition:
-    opacity 220ms cubic-bezier(0.22, 1, 0.36, 1),
-    transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-/* Idle: lupa visivel, seta escondida (entra da esquerda). */
-.hero-search-icon-search {
-  opacity: 1;
-  transform: translateX(0) scale(1);
-}
-
-.hero-search-icon-submit {
-  opacity: 0;
-  transform: translateX(-6px) scale(0.85);
-}
-
-/* Has-input: botao vira CTA verde + seta entra/lupa sai. */
-.hero-search-bar.has-input .hero-search-submit {
-  background: linear-gradient(
-    135deg,
-    var(--brand-green, #1f5d43),
-    var(--brand-green-soft, #2f8a5e)
-  );
-  color: #ffffff;
-  border-radius: 999px;
-  box-shadow: 0 4px 12px rgba(15, 64, 41, 0.32);
-}
-
-.hero-search-bar.has-input .hero-search-icon-search {
-  opacity: 0;
-  transform: translateX(6px) scale(0.85);
-}
-
-.hero-search-bar.has-input .hero-search-icon-submit {
-  opacity: 1;
-  transform: translateX(0) scale(1);
-}
-
-/* Botao "x" que SUBSTITUI a lupa quando ha texto na busca (limpa o campo de
-   uma vez). Mesmo padrao visual da lupa (.hero-search-submit) — box 2rem, cinza
-   #5f7165 — porem COM borda pra ler como botao. Vale /samples e /clients,
-   desktop e mobile. */
-.hero-search-clear-input {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  padding: 0;
-  border: 1px solid rgba(95, 113, 101, 0.5);
-  border-radius: 8px;
-  background: transparent;
-  color: #5f7165;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: transform 0.1s ease;
-}
-
-.hero-search-clear-input svg {
-  display: block;
-  width: 1.05rem;
-  height: 1.05rem;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.hero-search-clear-input:active {
-  transform: scale(0.9);
-}
-
-.hero-search-input {
-  flex: 1;
-  border: 0;
-  background: transparent;
-  font-size: clamp(0.88rem, 3vw, 1rem);
-  font-family: inherit;
-  color: #1a3a28;
-  /* Padding-y igualado ao da busca do dashboard (era 0.55-0.7rem,
-     agora 0.45-0.6rem) — mesma altura visual entre as duas barras. */
-  padding: clamp(0.45rem, 1.6vw, 0.6rem) 0;
-  outline: none;
-}
-
-.hero-search-input::placeholder {
-  color: #6b8a74;
-}
 
 /* ── Samples page v2 (layered layout) ── */
 
@@ -5038,74 +3472,6 @@ button:disabled {
 .samples-page-v2 .spv2-list-scroll,
 .clients-page-v2 .spv2-list-scroll {
   padding-bottom: calc(clamp(6.3rem, 27vw, 6.8rem) + clamp(0.6rem, 2vw, 0.9rem));
-}
-
-/* ── spv2: chips ── */
-
-.spv2-chips {
-  flex-shrink: 0;
-  display: flex;
-  gap: clamp(6px, 1.8vw, 8px);
-  padding: 0 clamp(10px, 3vw, 14px);
-  overflow-x: auto;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-  -webkit-overflow-scrolling: touch;
-}
-
-.spv2-chips::-webkit-scrollbar {
-  display: none;
-}
-
-.clients-v2-sheet .spv2-chips {
-  justify-content: center;
-  overflow-x: visible;
-  padding: clamp(4px, 1vw, 6px) clamp(10px, 3vw, 14px);
-}
-
-.spv2-chip {
-  display: flex;
-  align-items: center;
-  gap: clamp(4px, 1.5vw, 6px);
-  padding: clamp(6px, 1.8vw, 8px) clamp(10px, 3vw, 14px);
-  border-radius: 20px;
-  border: 1.5px solid rgba(0, 0, 0, 0.06);
-  background: #ffffff;
-  white-space: nowrap;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition:
-    background 0.2s,
-    border-color 0.2s;
-  flex-shrink: 0;
-}
-
-.spv2-chip:active {
-  transform: scale(0.96);
-}
-
-.spv2-chip-dot {
-  width: clamp(6px, 1.8vw, 7px);
-  height: clamp(6px, 1.8vw, 7px);
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.spv2-chip-label {
-  font-size: clamp(11px, 3vw, 12px);
-  font-weight: 600;
-  color: #888;
-  line-height: 1;
-}
-
-.spv2-chip-count {
-  font-size: clamp(9px, 2.5vw, 10px);
-  font-weight: 700;
-  color: #aaa;
-  padding: 1px clamp(4px, 1.5vw, 6px);
-  border-radius: 8px;
-  background: rgba(0, 0, 0, 0.04);
-  line-height: 1.4;
 }
 
 /* ── spv2: list meta ── */
@@ -5828,64 +4194,6 @@ button:disabled {
   line-height: 1;
 }
 
-/* === UserAvatarStack (Fase 3 multi-user) === */
-.user-avatar-stack {
-  display: inline-flex;
-  align-items: center;
-}
-
-.user-avatar-stack-empty {
-  color: #9ca3af;
-  font-size: 13px;
-}
-
-.user-avatar-stack__item {
-  display: inline-grid;
-  place-items: center;
-  border-radius: 50%;
-  background: var(--avatar-color, #1f5d43);
-  color: #fff;
-  font-weight: 700;
-  border: 2px solid #fff;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
-}
-
-.user-avatar-stack__item + .user-avatar-stack__item,
-.user-avatar-stack__item + .user-avatar-stack__overflow,
-.user-avatar-stack__overflow + .user-avatar-stack__item {
-  margin-left: -8px;
-}
-
-.user-avatar-stack__overflow {
-  display: inline-grid;
-  place-items: center;
-  border-radius: 50%;
-  background: #e5e7eb;
-  color: #374151;
-  font-weight: 700;
-  border: 2px solid #fff;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
-  margin-left: -8px;
-}
-
-.user-avatar-stack.is-size-sm .user-avatar-stack__item,
-.user-avatar-stack.is-size-sm .user-avatar-stack__overflow {
-  width: 26px;
-  height: 26px;
-  font-size: 10px;
-}
-
-.user-avatar-stack.is-size-md .user-avatar-stack__item,
-.user-avatar-stack.is-size-md .user-avatar-stack__overflow {
-  width: 34px;
-  height: 34px;
-  font-size: 12px;
-}
-
-.user-avatar-stack__initials {
-  line-height: 1;
-}
-
 /* === UserMultiSelect (Fase 3) === */
 .user-multi-select-field {
   display: flex;
@@ -6151,103 +4459,6 @@ button:disabled {
   text-align: center;
 }
 
-/* Fase R: campo de fazenda dependente em /samples/new */
-.owner-unit-field {
-  position: relative;
-}
-
-.owner-unit-field__trigger {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  cursor: pointer;
-  text-align: left;
-}
-
-.owner-unit-field__trigger:disabled,
-.owner-unit-field__trigger.is-disabled {
-  cursor: not-allowed;
-  background: #f3f3f0;
-  color: #999;
-}
-
-.owner-unit-field__trigger.is-open {
-  border-color: var(--brand-green-soft);
-}
-
-.owner-unit-field__trigger-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.owner-unit-field__caret {
-  font-size: 14px;
-  color: #9ca3af;
-  flex-shrink: 0;
-}
-
-.owner-unit-field__incomplete-icon,
-.owner-unit-field__option-incomplete {
-  width: 14px;
-  height: 14px;
-  flex-shrink: 0;
-}
-
-.owner-unit-field__dropdown {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
-  max-height: 240px;
-  overflow-y: auto;
-  background: #fff;
-  border: 1px solid #d1d5db;
-  border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
-  z-index: 50;
-}
-
-.owner-unit-field__option {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  padding: 10px 12px;
-  background: #fff;
-  border: 0;
-  border-bottom: 1px solid #f3f4f6;
-  cursor: pointer;
-  text-align: left;
-  font-size: 14px;
-  color: #1a1a1a;
-  transition: background 0.12s ease;
-}
-
-.owner-unit-field__option:hover,
-.owner-unit-field__option:focus-visible {
-  background: #f9fafb;
-  outline: 0;
-}
-
-.owner-unit-field__option.is-selected {
-  background: #ecfdf5;
-}
-
-.owner-unit-field__option-name {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 /* CTA "Adicionar cliente tambem" dentro do dropdown de busca. Visual
    chamativo mas nao agressivo: faixa branca com tint verde + icone "+"
    em quadrado arredondado verde-claro (mesmo pattern dos icones dos
@@ -6342,32 +4553,7 @@ button:disabled {
   transform: scale(0.985);
 }
 
-.owner-unit-field__empty {
-  padding: 14px 12px;
-  font-size: 13px;
-  color: #6b7280;
-  text-align: center;
-}
-
 /* Chips no detalhe do client (modo view) */
-.sdv-commercial-users {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 4px;
-}
-
-.sdv-commercial-user-chip {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 8px;
-  background: #f4f3ef;
-  border: 1px solid #e2dfd6;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 600;
-  color: #5b6158;
-}
 
 .cv2-card-content {
   flex: 1;
@@ -6375,12 +4561,6 @@ button:disabled {
   display: flex;
   flex-direction: column;
   gap: clamp(4px, 1.2vw, 6px);
-}
-
-.cv2-card-top {
-  display: flex;
-  align-items: center;
-  gap: 6px;
 }
 
 /* 14.6.E: novo layout em 2 blocos. Mobile preserva o visual atual via
@@ -6399,10 +4579,6 @@ button:disabled {
   display: none;
 }
 
-.cv2-card-person-type {
-  display: none;
-}
-
 .cv2-card-arrow-btn {
   display: contents;
 }
@@ -6416,32 +4592,6 @@ button:disabled {
   white-space: nowrap;
   /* +10% de largura vs. antes (160px / 42vw) pra o nome cobrir mais do card. */
   max-width: min(176px, 46vw);
-}
-
-.cv2-card-type {
-  font-size: 9px;
-  font-weight: 700;
-  padding: 1px 6px;
-  border-radius: 4px;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.cv2-card-type.is-pf {
-  color: #e67e22;
-  background: #fff7ed;
-}
-
-.cv2-card-type.is-pj {
-  color: #2980b9;
-  background: #eff6ff;
-}
-
-.cv2-card-bottom {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
 }
 
 /* ── FAB ── */
@@ -6582,33 +4732,9 @@ button:disabled {
   gap: var(--search-row-gap);
 }
 
-.clients-page-v2 .hero-search-wrap .hero-search-bar {
-  flex: 1;
-  min-width: 0;
-}
-
 /* Filtro = pilula BRANCA + icone verde (igual /samples; o badge vermelho conta
    filtros ativos). Escopado a /clients — /users segue com o filtro base verde.
    position/z-index + fundo opaco deixam o botao "X" tucar ATRAS ao colapsar. */
-
-/* Lupa da busca de /clients = DECORATIVA (a busca filtra ao vivo; Enter ainda
-   submete via o form). Mesmo override de /samples, escopado a .clients-page-v2
-   pra NAO afetar /users (que mantem a lupa-botao com cross-fade pra seta). */
-.clients-page-v2 .hero-search-submit {
-  width: auto;
-  height: auto;
-  cursor: default;
-}
-
-.clients-page-v2 .hero-search-submit:active {
-  transform: none;
-}
-
-.clients-page-v2 .hero-search-icon-search {
-  position: static;
-  width: 0.95rem;
-  height: 0.95rem;
-}
 
 /* "N clientes" alinhado a DIREITA no mobile (onde ficava o filtro, na mesma
    borda dos cards — espelha /samples). No desktop o meta segue como header
@@ -6654,47 +4780,6 @@ button:disabled {
   box-shadow: 0 2px 8px rgb(from var(--avatar-color, #1f5d43) r g b / 0.3);
 }
 
-/* spv2-chip dynamic colors (clients page chips) */
-.spv2-chip.is-chip-buyer .spv2-chip-dot {
-  background: #2980b9;
-}
-.spv2-chip.is-chip-seller .spv2-chip-dot {
-  background: #27ae60;
-}
-
-.spv2-chip.is-active.is-chip-buyer {
-  background: rgba(41, 128, 185, 0.08);
-  border-color: #2980b9;
-}
-.spv2-chip.is-active.is-chip-buyer .spv2-chip-label,
-.spv2-chip.is-active.is-chip-buyer .spv2-chip-count {
-  color: #2980b9;
-}
-.spv2-chip.is-active.is-chip-buyer .spv2-chip-count {
-  background: rgba(41, 128, 185, 0.1);
-}
-
-.spv2-chip.is-active.is-chip-seller {
-  background: rgba(39, 174, 96, 0.08);
-  border-color: #27ae60;
-}
-.spv2-chip.is-active.is-chip-seller .spv2-chip-label,
-.spv2-chip.is-active.is-chip-seller .spv2-chip-count {
-  color: #27ae60;
-}
-.spv2-chip.is-active.is-chip-seller .spv2-chip-count {
-  background: rgba(39, 174, 96, 0.1);
-}
-
-/* Active state default (sem chip color: 'all') */
-.spv2-chip.is-active:not(.is-chip-buyer):not(.is-chip-seller) {
-  background: rgba(0, 0, 0, 0.05);
-  border-color: rgba(0, 0, 0, 0.18);
-}
-.spv2-chip.is-active:not(.is-chip-buyer):not(.is-chip-seller) .spv2-chip-label {
-  color: #1a1a1a;
-}
-
 /* ── Sample detail v2 (sdv) ── */
 
 @keyframes sdv-header-in {
@@ -6714,17 +4799,6 @@ button:disabled {
     transform: translateY(20px);
   }
   to {
-    transform: translateY(0);
-  }
-}
-
-@keyframes sdv-element-in {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
     transform: translateY(0);
   }
 }
@@ -7296,48 +5370,6 @@ button:disabled {
 /* Botao "Invalidar" no rodape da pagina (migrou do header). Acao destrutiva
    terminal, apresentada como botao rotulado outline vermelho, centralizado no
    fim do conteudo. */
-.sdv-invalidate-footer {
-  display: flex;
-  justify-content: center;
-  padding: clamp(8px, 3vw, 12px) 0 clamp(4px, 2vw, 8px);
-}
-
-.sdv-invalidate-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: clamp(6px, 2vw, 8px);
-  width: 100%;
-  padding: clamp(11px, 3vw, 14px) clamp(18px, 5vw, 28px);
-  border-radius: clamp(10px, 3vw, 12px);
-  border: 1.5px solid var(--danger);
-  background: #ffffff;
-  color: var(--danger);
-  font-size: clamp(13px, 3.6vw, 14.5px);
-  font-weight: 600;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-  transition:
-    transform 0.15s ease,
-    box-shadow 0.15s ease,
-    background 0.15s ease,
-    color 0.15s ease;
-}
-
-.sdv-invalidate-btn:active {
-  transform: scale(0.97);
-}
-
-.sdv-invalidate-btn svg {
-  width: clamp(16px, 4.5vw, 18px);
-  height: clamp(16px, 4.5vw, 18px);
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
 
 @keyframes sdv-print-pulse {
   0% {
@@ -9577,24 +7609,6 @@ body:has(.app-modal-backdrop) .prospector-fab {
   animation: sdv-fadeIn 0.3s cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
 
-/* Detalhe da amostra (mobile): fundo BRANCO no lugar do bege padrao. Como os
-   cards ja sao brancos, reforca um pouco a sombra pra manterem separacao contra
-   o fundo branco. So no mobile (<=900px); no desktop o .sdv-content ja e
-   transparente sobre o body branco. */
-@media (max-width: 900px) {
-  .sdv-page--sample .sdv-content {
-    background: #ffffff;
-  }
-
-  .sdv-page--sample .sdv-card {
-    box-shadow:
-      0 1px 3px rgba(0, 0, 0, 0.09),
-      0 8px 20px rgba(0, 0, 0, 0.15),
-      0 16px 36px rgba(0, 0, 0, 0.11),
-      inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  }
-}
-
 /* Rodada 2 FV: o modal "Documentos" e o esconde-cards morreram — Anexos e
    Contas bancarias sao cards SEMPRE visiveis do painel (a ordem mobile ja os
    previa: order 4 e 5 abaixo). */
@@ -10146,93 +8160,6 @@ body:has(.app-modal-backdrop) .prospector-fab {
   line-height: 1.3;
 }
 
-.sdv-cls-action-save {
-  flex: 1;
-  padding: clamp(12px, 3vw, 14px);
-  border-radius: 13px;
-  border: 1.5px solid rgba(0, 0, 0, 0.08);
-  background: #ffffff;
-  color: #666;
-  font-size: clamp(13px, 3.5vw, 14px);
-  font-weight: 600;
-  font-family: inherit;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: transform 0.15s;
-}
-
-.sdv-cls-action-save:active {
-  transform: scale(0.96);
-}
-.sdv-cls-action-save:disabled {
-  opacity: 0.5;
-}
-
-.sdv-cls-action-complete {
-  flex: 1.3;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: clamp(5px, 1.5vw, 6px);
-  padding: clamp(12px, 3vw, 14px);
-  border-radius: 13px;
-  border: 0;
-  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
-  color: #ffffff;
-  font-size: clamp(13px, 3.5vw, 14px);
-  font-weight: 600;
-  font-family: inherit;
-  box-shadow: 0 4px 20px rgba(27, 94, 32, 0.3);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: transform 0.15s;
-}
-
-.sdv-cls-action-complete:active {
-  transform: scale(0.96);
-}
-.sdv-cls-action-complete:disabled {
-  opacity: 0.5;
-}
-
-.sdv-cls-action-complete svg {
-  width: clamp(14px, 3.8vw, 16px);
-  height: clamp(14px, 3.8vw, 16px);
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-/* Classification block in General tab — card inteiro clicavel */
-.sdv-cls-block-clickable {
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition:
-    transform 140ms ease,
-    box-shadow 140ms ease;
-}
-
-.sdv-cls-block-clickable:active {
-  transform: scale(0.995);
-}
-
-.sdv-cls-block-clickable:focus-visible {
-  outline: 2px solid var(--brand-green-soft);
-  outline-offset: 2px;
-}
-
-.sdv-cls-block-summary {
-  display: flex;
-  gap: clamp(10px, 3vw, 14px);
-  align-items: stretch;
-  /* Iguala o gap cabecalho→foto ao gap cabecalho→"Proprietario" do container de
-     Informacoes: la o primeiro campo tem padding-top clamp(3px,1vw,5px); aqui a
-     foto e flush, entao replicamos esse espaco com margin-top. */
-  margin-top: clamp(3px, 1vw, 5px);
-}
-
 /* Area da foto: largura fixa (um pouco mais larga) e altura que estica do topo
    do Aspecto ate o fim do Classificador (align-self: stretch). Quem dita a
    altura sao os campos ao lado — a div nao tem altura intrinseca, entao a area
@@ -10270,56 +8197,6 @@ body:has(.app-modal-backdrop) .prospector-fab {
   font-weight: 600;
   letter-spacing: 0.3px;
   text-align: center;
-}
-
-.sdv-cls-block-fields {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: clamp(6px, 1.5vw, 8px) clamp(10px, 3vw, 14px);
-  flex: 1;
-  min-width: 0;
-}
-
-/* Classificador sozinho na 1a linha (span das 2 colunas), alinhado a esquerda;
-   Aspecto/Catação dividem a linha de baixo. */
-.sdv-cls-block-fields .sdv-cls-fields-classifier {
-  grid-column: 1 / -1;
-}
-
-/* Campos mais compactos dentro da classificacao pra as 2 linhas (Classificador
-   + Aspecto/Catação) baterem com a altura da foto, sem desperdicar espaco nem
-   estourar a area. */
-.sdv-cls-block-fields .sdv-info-item {
-  padding: clamp(3px, 1vw, 5px) 0;
-}
-
-/* Ficha completa da classificacao (peneiras/defeitos/fundos/observacoes) — so
-   aparece no desktop, onde o card de Classificacao tem o dobro da altura. No
-   mobile o card segue compacto (so o resumo), entao fica escondida. O desktop
-   reativa via .sdv-page--sample .sdv-cls-extra dentro do media query. */
-.sdv-cls-extra {
-  display: none;
-}
-
-/* Estado vazio: labels mais opacos e o tracinho do valor mais suave, pra
-   sinalizar "sem informacao" mantendo posicao e tamanho dos campos. */
-.sdv-cls-block-summary.is-empty .sdv-info-label,
-.sdv-cls-extra.is-empty .sdv-info-label {
-  opacity: 0.55;
-}
-
-.sdv-cls-block-summary.is-empty .sdv-info-value,
-.sdv-cls-extra.is-empty .sdv-info-value {
-  color: #c4c4c4;
-}
-
-.sdv-com-status {
-  font-size: clamp(9px, 2.5vw, 10px);
-  font-weight: 600;
-  padding: 3px clamp(8px, 2.5vw, 10px);
-  border-radius: 6px;
-  border: 1px solid;
-  white-space: nowrap;
 }
 
 /* Mini cards — stat cards sobrios: superficie neutra unica (paleta creme do
@@ -10976,68 +8853,6 @@ body:has(.app-modal-backdrop) .prospector-fab {
   color: rgba(0, 0, 0, 0.45);
 }
 
-/* Liga: modal de selecao da safra do laudo — opcoes de safra como radio cards. */
-.rhs-options {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.rhs-option {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  padding: clamp(12px, 3vw, 15px) clamp(14px, 3.5vw, 16px);
-  background: #ffffff;
-  border: 2px solid rgba(0, 0, 0, 0.12);
-  border-radius: 12px;
-  font-size: clamp(0.95rem, 2.8vw, 1.05rem);
-  font-weight: 600;
-  color: #1a1a17;
-  text-align: left;
-  cursor: pointer;
-  transition:
-    border-color 0.15s ease,
-    background 0.15s ease,
-    transform 0.1s ease;
-}
-
-.rhs-option:active {
-  transform: scale(0.99);
-}
-
-.rhs-option.is-selected {
-  border-color: var(--brand-green);
-  background: rgba(22, 91, 42, 0.06);
-}
-
-.rhs-option-mark {
-  position: relative;
-  width: 20px;
-  min-width: 20px;
-  height: 20px;
-  border: 2px solid rgba(0, 0, 0, 0.25);
-  border-radius: 50%;
-  transition: border-color 0.15s ease;
-}
-
-.rhs-option.is-selected .rhs-option-mark {
-  border-color: var(--brand-green);
-}
-
-.rhs-option.is-selected .rhs-option-mark::after {
-  content: '';
-  position: absolute;
-  inset: 3px;
-  border-radius: 50%;
-  background: var(--brand-green);
-}
-
-.rhs-option-label {
-  flex: 1;
-}
-
 /* Liga B4 Fase 5: modal de venda/perda de liga — linha "vende 100%" (a liga
    vende sempre o lote inteiro, sem campo de quantidade) + lista de origens
    bloqueantes da pre-validacao de viabilidade. */
@@ -11474,48 +9289,6 @@ body:has(.app-modal-backdrop) .prospector-fab {
    saiu do DOM quando a ficha deixou de ser modal — junto sairam o modo desktop
    que escondia foto/acoes e a barra .cld-edit-actions. */
 
-/* Acoes secundarias no header verde (Reclassificar, Editar). Visualmente
-   alinhadas com .app-modal-close.is-themed: pill branco translucido sobre
-   gradient verde brand. */
-.cld-header-actions {
-  display: flex;
-  align-items: center;
-  gap: clamp(6px, 2vw, 8px);
-  flex-shrink: 0;
-}
-
-.cld-header-action {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border: 0;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.16);
-  color: #ffffff;
-  font-size: 0.82rem;
-  font-weight: 600;
-  font-family: inherit;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition:
-    background 0.15s,
-    transform 0.15s;
-}
-
-.cld-header-action:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.28);
-}
-
-.cld-header-action:active:not(:disabled) {
-  transform: scale(0.94);
-}
-
-.cld-header-action svg {
-  width: 14px;
-  height: 14px;
-}
-
 /* Minimalista: secoes neutras (sem cor de accent, sem bolinha), separadas por
    uma borda discreta. O titulo e um header de secao com hairline embaixo. */
 .cld-section {
@@ -11567,24 +9340,10 @@ body:has(.app-modal-backdrop) .prospector-fab {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.cld-grid-4 {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
 /* Q.cls.2.7 cleanup: peneiras na ficha unificada usam 2 linhas de 5
    campos (P18..P14 / P13..P10+MK). */
 .cld-grid-5 {
   grid-template-columns: repeat(5, minmax(0, 1fr));
-}
-
-.cld-grid-6 {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-}
-
-@media (max-width: 500px) {
-  .cld-grid-6 {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
 }
 
 /* Fundo (FD): peneira e percentual juntos com "=" no meio em modo edicao.
@@ -11724,22 +9483,6 @@ body:has(.app-modal-backdrop) .prospector-fab {
   appearance: none;
   -webkit-appearance: none;
   cursor: pointer;
-}
-
-.cld-saved-overlay {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  background: rgba(255, 255, 255, 0.92);
-  border-radius: inherit;
-  z-index: 5;
-  animation: sdv-element-in 0.25s ease-out backwards;
-}
-
-.cld-saved-overlay svg {
-  width: clamp(48px, 14vw, 60px);
-  height: clamp(48px, 14vw, 60px);
 }
 
 /* ── Conferencia no modal full-view (cld-*) ── */
@@ -11920,192 +9663,6 @@ body:has(.app-modal-backdrop) .prospector-fab {
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
-}
-
-.records-mode-switch {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.24rem;
-  width: fit-content;
-  max-width: 100%;
-  padding: 0.22rem;
-  border: 1px solid rgba(216, 223, 212, 0.92);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.78);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.84),
-    0 10px 20px rgba(26, 41, 31, 0.05);
-}
-
-.records-mode-switch-option {
-  min-height: 2.18rem;
-  border-radius: 999px;
-  padding: 0.38rem 0.82rem;
-  border: 0;
-  background: transparent;
-  color: #556558;
-  font-size: 0.82rem;
-  font-weight: 700;
-  box-shadow: none;
-}
-
-.records-mode-switch-option:hover {
-  background: rgba(95, 133, 95, 0.08);
-}
-
-.records-mode-switch-option.is-active {
-  background: linear-gradient(180deg, #6d9463 0%, #4d7651 100%);
-  color: #ffffff;
-  box-shadow: 0 8px 18px rgba(41, 62, 42, 0.16);
-}
-
-.records-client-card {
-  width: 100%;
-  text-align: left;
-  color: inherit;
-  cursor: pointer;
-  grid-template-columns: 1fr;
-}
-
-.records-client-card:focus-visible {
-  outline: 2px solid #5f8c6a;
-  outline-offset: 2px;
-}
-
-.records-client-status-badge {
-  white-space: nowrap;
-}
-
-.records-client-status-label {
-  font-size: 0.72rem;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.records-client-status-label.is-active {
-  color: #3d7a2e;
-}
-
-.records-client-status-label.is-inactive {
-  color: #9a3434;
-}
-
-.records-client-detail-modal {
-  width: min(680px, calc(100vw - 1.5rem));
-  max-height: 90vh;
-}
-
-.records-client-detail-header-copy {
-  display: grid;
-  gap: 0.32rem;
-}
-
-.records-client-detail-header-meta {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
-.records-client-detail-code {
-  color: var(--muted);
-  font-size: 0.84rem;
-}
-
-.records-client-detail-close {
-  min-width: 2.2rem;
-  min-height: 2.2rem;
-  border-radius: 999px;
-  padding: 0;
-  border: 1px solid rgba(214, 214, 214, 0.5);
-  background: rgba(255, 255, 255, 0.4);
-  color: #495046;
-  box-shadow: none;
-}
-
-.records-client-detail-close:hover {
-  background: rgba(255, 255, 255, 0.7);
-}
-
-.records-client-detail-close span {
-  font-size: 1.35rem;
-  line-height: 1;
-}
-
-.records-client-detail-summary {
-  gap: 0.55rem;
-}
-
-.records-client-detail-line {
-  margin: 0;
-  color: #516156;
-  font-size: 0.9rem;
-}
-
-.records-client-detail-line strong {
-  color: #32453a;
-}
-
-.records-client-detail-roles {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-}
-
-.records-client-role-chip {
-  margin: 0;
-}
-
-.records-client-detail-manage-link {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.38rem;
-  padding: 0.62rem 1rem;
-  border-radius: 12px;
-  font-size: 0.84rem;
-  font-weight: 600;
-  color: #fff;
-  background: linear-gradient(180deg, #5caa4f 0%, #3e8438 100%);
-  text-decoration: none;
-  text-align: center;
-  box-shadow: 0 4px 10px rgba(45, 89, 42, 0.14);
-  transition: background 120ms ease;
-}
-
-.records-client-detail-manage-link:hover {
-  background: linear-gradient(180deg, #68b85a 0%, #458f3e 100%);
-}
-
-.records-client-detail-manage-link svg {
-  width: 0.88rem;
-  height: 0.88rem;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2.2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.records-client-detail-registrations {
-  gap: 0.75rem;
-}
-
-.records-client-registration-item {
-  padding: 0.8rem;
-}
-
-.records-client-registration-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 0.75rem;
-}
-
-.records-client-registration-meta {
-  margin: 0.18rem 0 0;
-  color: var(--muted);
-  font-size: 0.84rem;
 }
 
 /* Backdrop ESCURO sem blur — padrao de modal de ACAO (mesmo dos bottom sheets
@@ -12840,47 +10397,6 @@ select.samples-filter-field-input {
    padding horizontal/inferior proprio (o .is-themed so da padding-top + a
    borda separadora; o resto vinha do padding do .app-modal-content canonico). */
 
-@media (max-width: 900px) {
-  .records-mode-switch {
-    gap: clamp(0.18rem, 0.8vw, 0.28rem);
-    padding: clamp(0.16rem, 0.7vw, 0.24rem);
-  }
-
-  .records-mode-switch-option {
-    min-height: clamp(1.8rem, 6vw, 2.1rem);
-    padding: clamp(0.28rem, 1.2vw, 0.38rem) clamp(0.48rem, 2vw, 0.7rem);
-    font-size: clamp(0.68rem, 2.4vw, 0.82rem);
-  }
-
-  .records-client-registration-head {
-    display: grid;
-    gap: clamp(0.28rem, 1.2vw, 0.38rem);
-  }
-
-  .records-client-detail-modal {
-    width: min(100%, calc(100vw - 1rem));
-    max-height: 92vh;
-  }
-}
-
-.export-confirm-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 120;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
-  background: rgba(18, 24, 18, 0.42);
-  backdrop-filter: blur(6px);
-}
-
-.export-confirm-modal {
-  width: min(560px, 100%);
-  max-height: 88vh;
-  overflow: auto;
-}
-
 .label-print-card {
   display: grid;
   grid-template-columns: 148px 1fr;
@@ -12928,38 +10444,6 @@ select.samples-filter-field-input {
   margin: 0;
 }
 
-.sample-search-label-card {
-  position: relative;
-  padding-top: 1.28rem;
-  padding-right: 1rem;
-}
-
-.sample-search-label-status {
-  position: absolute;
-  top: 0.48rem;
-  right: 0.62rem;
-  z-index: 2;
-  display: flex;
-  align-items: flex-start;
-  justify-content: flex-end;
-  gap: 0;
-  max-width: 56%;
-}
-
-.sample-search-label-status .status-badge {
-  padding: 0.22rem 0.58rem;
-  font-size: 0.74rem;
-}
-
-.sample-search-label-status .commercial-status-badge {
-  padding: 0.2rem 0.5rem;
-  font-size: 0.72rem;
-}
-
-.sample-search-label-card .label-meta {
-  padding-right: 10.4rem;
-}
-
 .new-sample-step-body-content {
   min-height: 0;
   flex: 1 1 auto;
@@ -12996,64 +10480,7 @@ select.samples-filter-field-input {
   overflow: hidden;
 }
 
-.sample-search-result-modal .label-print-card {
-  width: min(100%, 820px);
-}
-
-.sample-search-result-modal {
-  width: min(900px, 100%);
-}
-
-.latest-registration-list {
-  display: grid;
-  gap: 0.8rem;
-}
-
-.latest-registration-card {
-  display: grid;
-  grid-template-columns: 116px 1fr auto;
-  gap: 0.75rem;
-  align-items: center;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: #fff;
-  padding: 0.7rem;
-}
-
-.latest-registration-card:hover {
-  background: #f7f2e6;
-}
-
-.latest-registration-qr {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-right: 1px dashed #a8b0a8;
-  padding-right: 0.65rem;
-  min-height: 98px;
-}
-
-.latest-registration-main {
-  display: grid;
-  gap: 0.24rem;
-}
-
-.latest-registration-main p,
-.latest-registration-status p {
-  margin: 0;
-  font-size: 0.86rem;
-  line-height: 1.24;
-}
-
-.latest-registration-status {
-  display: grid;
-  gap: 0.35rem;
-  justify-items: end;
-  text-align: right;
-}
-
-.client-lookup-field,
-.client-registration-select {
+.client-lookup-field {
   display: grid;
   gap: 0.42rem;
   position: relative;
@@ -13116,15 +10543,11 @@ select.samples-filter-field-input {
   cursor: default;
 }
 
-.client-lookup-field.is-compact,
-.client-registration-select.is-compact {
+.client-lookup-field.is-compact {
   gap: 0;
 }
 
-.client-lookup-selection,
-.client-lookup-feedback,
-.client-modal-description,
-.clients-page-subtitle {
+.client-lookup-feedback {
   margin: 0;
   color: var(--muted);
   font-size: 0.92rem;
@@ -13529,27 +10952,6 @@ select.samples-filter-field-input {
     transform: scale(1);
     opacity: 1;
   }
-}
-
-.client-modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 0.8rem;
-}
-
-.client-modal-flags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.9rem;
-}
-
-.client-modal-flag,
-.clients-checkbox {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  color: #45503f;
 }
 
 .client-quick-create-form {
@@ -13999,33 +11401,6 @@ select.samples-filter-field-input {
   padding: clamp(0.7rem, 3vw, 1rem);
 }
 
-.client-reg-modal-header {
-  gap: 0.65rem;
-}
-
-.client-reg-modal-copy {
-  display: grid;
-  gap: 0;
-  min-width: 0;
-}
-
-.client-reg-modal-close {
-  flex: 0 0 auto;
-  min-width: 2rem;
-  min-height: 2rem;
-}
-
-.client-reg-modal-close span {
-  font-size: 1.18rem;
-}
-
-.client-reg-modal-form {
-  min-height: 0;
-  display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
-  gap: clamp(0.5rem, 2vw, 0.72rem);
-}
-
 .client-reg-modal-body {
   min-height: 0;
   overflow-y: auto;
@@ -14035,200 +11410,9 @@ select.samples-filter-field-input {
   padding-right: 0.08rem;
 }
 
-.client-reg-modal-group {
-  display: grid;
-  gap: clamp(0.4rem, 1.5vw, 0.52rem);
-  padding: clamp(0.55rem, 2.2vw, 0.7rem);
-  border: 1px solid rgba(214, 214, 214, 0.46);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.44);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.72),
-    0 8px 14px rgba(18, 24, 20, 0.05);
-}
-
-.client-reg-modal-group-title {
-  margin: 0 0 clamp(0.1rem, 0.6vw, 0.2rem);
-  color: #536152;
-  font-size: clamp(0.66rem, 2.3vw, 0.72rem);
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
-.client-reg-modal-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: clamp(0.4rem, 1.5vw, 0.6rem);
-}
-
-.client-reg-modal-grid-single {
-  grid-template-columns: minmax(0, 1fr);
-}
-
-.client-reg-modal-grid-double {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-}
-
-.client-reg-modal-grid-uf-cep {
-  grid-template-columns: 4.5rem minmax(0, 1fr);
-  align-items: end;
-}
-
-.client-reg-modal-field {
-  display: grid;
-  gap: clamp(0.22rem, 1vw, 0.32rem);
-  font-size: clamp(0.82rem, 2.8vw, 0.88rem);
-  min-width: 0;
-}
-
-.client-reg-modal-field input {
-  padding: clamp(0.5rem, 2vw, 0.62rem) clamp(0.6rem, 2.4vw, 0.78rem);
-  font-size: clamp(0.82rem, 2.8vw, 0.9rem);
-  width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
-}
-
-.client-reg-modal-field.is-field-error {
-  color: inherit;
-}
-
-.client-reg-modal-field.is-field-error input {
-  border-color: rgba(196, 92, 92, 0.4);
-}
-
-.client-reg-modal-actions {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 0.56rem;
-}
-
-.client-reg-modal-actions .app-modal-secondary,
-.client-reg-modal-actions .app-modal-submit {
-  min-height: 2.82rem;
-}
-
-.clients-page-shell {
-  display: grid;
-  gap: 1rem;
-}
-
-.clients-page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 1rem;
-}
-
-.clients-page-title {
-  margin: 0;
-  font-size: 1.3rem;
-  color: #2d4637;
-}
-
-.clients-page-create-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.84rem;
-}
-
-.clients-page-create-btn svg {
-  width: 0.92rem;
-  height: 0.92rem;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2.2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.clients-filters-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.5rem;
-}
-
-.clients-page-layout {
-  display: grid;
-  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
-  gap: 1rem;
-}
-
-.clients-list-panel,
-.clients-detail-column {
-  min-height: 0;
-}
-
-.clients-detail-column {
-  display: grid;
-  gap: 1rem;
-}
-
 .clients-list {
   display: grid;
   gap: 0.55rem;
-}
-
-.clients-list-item {
-  width: 100%;
-  display: grid;
-  gap: 0.18rem;
-  text-align: left;
-  border: 1px solid rgba(114, 128, 111, 0.18);
-  border-radius: 14px;
-  background: #fff;
-  color: #3a4537;
-}
-
-.clients-list-item:hover {
-  background: #f8f3e7;
-}
-
-.clients-list-item.is-active {
-  border-color: rgba(84, 123, 90, 0.42);
-  background: #eef5eb;
-}
-
-.clients-list-item span {
-  font-size: 0.85rem;
-  color: var(--muted);
-}
-
-.clients-registration-list,
-.clients-audit-list {
-  display: grid;
-  gap: 0.7rem;
-}
-
-.sample-commercial-stack {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: 0.78rem;
-  flex: 1 1 auto;
-  height: 100%;
-  min-height: 100%;
-}
-
-.clients-registration-item,
-.clients-audit-item {
-  display: grid;
-  gap: 0.55rem;
-  border: 1px solid rgba(113, 126, 109, 0.22);
-  border-radius: 14px;
-  background: #fff;
-  padding: 0.85rem;
-  box-shadow:
-    0 2px 6px rgba(40, 60, 35, 0.1),
-    0 6px 16px rgba(40, 60, 35, 0.06);
-}
-
-.clients-audit-item-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.75rem;
-  align-items: flex-start;
 }
 
 /* ── Client Detail Page ── */
@@ -14273,84 +11457,7 @@ select.samples-filter-field-input {
   padding: clamp(20px, 5vw, 28px) 0;
 }
 
-.admin-page-layout {
-  display: grid;
-  gap: 1rem;
-  grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
-}
-
 @media (max-width: 900px) {
-  .admin-page-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .clients-page-header {
-    display: flex;
-    flex-wrap: wrap;
-  }
-
-  .clients-audit-item-head {
-    grid-template-columns: 1fr;
-    display: grid;
-  }
-
-  .clients-page-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .clients-list-panel {
-    max-height: 50vh;
-    overflow-y: auto;
-  }
-
-  .clients-detail-column {
-    gap: clamp(0.48rem, 2vw, 0.72rem);
-  }
-
-  .clients-detail-column .grid-2 {
-    grid-template-columns: 1fr;
-  }
-
-  .clients-list-item {
-    padding: clamp(0.42rem, 1.8vw, 0.62rem) clamp(0.48rem, 2vw, 0.72rem);
-    font-size: clamp(0.68rem, 2.4vw, 0.82rem);
-  }
-
-  .clients-filters-grid {
-    grid-template-columns: 1fr;
-    gap: clamp(0.22rem, 1vw, 0.35rem);
-  }
-
-  .sample-commercial-stack {
-    grid-template-rows: auto minmax(0, 1fr);
-    gap: clamp(0.35rem, 1.5vw, 0.55rem);
-  }
-
-  .sample-commercial-summary-card {
-    gap: clamp(0.42rem, 1.8vw, 0.62rem);
-  }
-
-  .sample-commercial-summary-head {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: clamp(0.28rem, 1.2vw, 0.42rem);
-  }
-
-  .sample-commercial-summary-item {
-    padding: clamp(0.46rem, 2vw, 0.68rem);
-    border-radius: clamp(12px, 4vw, 16px);
-  }
-
-  .sample-commercial-summary-item span {
-    font-size: clamp(0.6rem, 2.1vw, 0.74rem);
-    font-weight: 600;
-  }
-
-  .sample-commercial-summary-item strong {
-    font-size: clamp(0.88rem, 3vw, 1.08rem);
-    color: #2a3d26;
-  }
 
   html {
     font-size: 110%;
@@ -14422,8 +11529,7 @@ select.samples-filter-field-input {
     font-size: 1rem;
   }
 
-  .grid-2,
-  .kpi-grid {
+  .grid-2 {
     grid-template-columns: 1fr;
   }
 
@@ -14446,14 +11552,6 @@ select.samples-filter-field-input {
   }
 
   .topbar.topbar--dashboard-only .topbar-logo-slot {
-    display: none;
-  }
-
-  .topbar.topbar--dashboard-only .topbar-mobile-search {
-    display: none;
-  }
-
-  .topbar.topbar--dashboard-only .topbar-mobile-create-link {
     display: none;
   }
 
@@ -14497,167 +11595,6 @@ select.samples-filter-field-input {
     justify-content: flex-end;
     gap: clamp(0.3rem, 1.5vw, 0.55rem);
     overflow: visible;
-  }
-
-  .topbar-mobile-search {
-    display: block;
-    position: relative;
-  }
-
-  .topbar-mobile-create-link {
-    display: inline-grid;
-    place-items: center;
-    width: clamp(2.3rem, 7vw, 2.75rem);
-    min-width: clamp(2.3rem, 7vw, 2.75rem);
-    height: clamp(2.3rem, 7vw, 2.75rem);
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    border-radius: 999px;
-    padding: 0;
-    background: rgba(255, 255, 255, 0.12);
-    color: #ffffff;
-    box-shadow: 0 10px 22px rgba(8, 17, 13, 0.22);
-    transition:
-      background 160ms ease,
-      border-color 160ms ease,
-      transform 180ms ease;
-  }
-
-  .topbar-mobile-create-link:hover {
-    background: rgba(255, 255, 255, 0.2);
-  }
-
-  .topbar-mobile-create-link svg {
-    width: 1.2rem;
-    height: 1.2rem;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 1.9;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
-
-  .topbar-mobile-search-shell {
-    position: relative;
-    display: flex;
-    align-items: center;
-    overflow: visible;
-  }
-
-  .topbar-mobile-search-trigger {
-    position: relative;
-    z-index: 2;
-    display: inline-grid;
-    place-items: center;
-    width: clamp(2.3rem, 7vw, 2.75rem);
-    min-width: clamp(2.3rem, 7vw, 2.75rem);
-    height: clamp(2.3rem, 7vw, 2.75rem);
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    border-radius: 999px;
-    padding: 0;
-    background: rgba(255, 255, 255, 0.12);
-    color: #ffffff;
-    box-shadow: 0 10px 22px rgba(8, 17, 13, 0.22);
-    transition:
-      background 160ms ease,
-      border-color 160ms ease,
-      transform 180ms ease;
-  }
-
-  .topbar-mobile-search-trigger:hover {
-    background: rgba(255, 255, 255, 0.2);
-  }
-
-  .topbar-mobile-search-trigger.is-active {
-    background: rgba(255, 255, 255, 0.18);
-    border-color: rgba(255, 255, 255, 0.24);
-  }
-
-  .topbar-mobile-search-trigger:disabled {
-    cursor: wait;
-    opacity: 0.88;
-  }
-
-  .topbar-mobile-search-trigger svg {
-    width: 1.22rem;
-    height: 1.22rem;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 1.9;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
-
-  .topbar-mobile-search-spinner {
-    width: 1.16rem;
-    height: 1.16rem;
-    border: 2px solid rgba(255, 255, 255, 0.3);
-    border-top-color: #ffffff;
-    border-radius: 999px;
-    animation: topbar-mobile-search-spin 680ms linear infinite;
-  }
-
-  .topbar-mobile-search-panel {
-    position: absolute;
-    top: 50%;
-    right: calc(100% + 0.48rem);
-    z-index: 1;
-    width: var(--topbar-mobile-search-panel-width, 0px);
-    min-width: 0;
-    display: grid;
-    gap: 0.35rem;
-    padding: 0.52rem 0.58rem 0.56rem;
-    border-radius: 18px;
-    border: 1px solid rgba(255, 255, 255, 0.14);
-    background: linear-gradient(180deg, rgba(21, 87, 58, 0.96) 0%, rgba(10, 46, 32, 0.98) 100%);
-    box-shadow: 0 18px 30px rgba(7, 18, 13, 0.24);
-    backdrop-filter: blur(14px);
-    opacity: 0;
-    pointer-events: none;
-    transform: translate3d(14px, -50%, 0) scaleX(0.86);
-    transform-origin: right center;
-    transition:
-      opacity 180ms ease,
-      transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
-  }
-
-  .topbar-mobile-search.is-open .topbar-mobile-search-panel {
-    opacity: 1;
-    pointer-events: auto;
-    transform: translate3d(0, -50%, 0) scaleX(1);
-  }
-
-  .topbar-mobile-search-field {
-    display: block;
-    min-width: 0;
-  }
-
-  .topbar-mobile-search-field input {
-    width: 100%;
-    min-width: 0;
-    padding: 0.42rem 0.14rem;
-    border: 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 0;
-    background: transparent;
-    color: #ffffff;
-    font-size: 1rem;
-    box-shadow: none;
-  }
-
-  .topbar-mobile-search-field input::placeholder {
-    color: rgba(246, 251, 245, 0.72);
-  }
-
-  .topbar-mobile-search-field input:focus {
-    outline: none;
-    border-bottom-color: rgba(255, 255, 255, 0.54);
-  }
-
-  .topbar-mobile-search-error {
-    margin: 0;
-    font-size: 0.72rem;
-    line-height: 1.25;
-    color: #ffd7d7;
   }
 
   .topbar-profile-trigger {
@@ -15268,27 +12205,8 @@ select.samples-filter-field-input {
     gap: 1rem;
   }
 
-  .app-modal-card-indicator {
-    width: 0.42rem;
-    height: 0.42rem;
-  }
-
-  .app-modal-card-title {
-    font-size: 1.05rem;
-  }
-
   .app-modal-card-line {
     font-size: 0.74rem;
-  }
-
-  .app-modal-card-meta {
-    font-size: 0.72rem;
-  }
-
-  /* Bloco F1 (Frente A): botao Classificar mais compacto em mobile. */
-  .app-modal-card-classify-cta {
-    padding: 0.4rem 0.6rem;
-    font-size: 0.8rem;
   }
 
   /* ── Nova Amostra: layered layout ── */
@@ -15326,43 +12244,6 @@ select.samples-filter-field-input {
     padding-bottom: clamp(0.4rem, 1.7vw, 0.6rem);
   }
 
-  .latest-registration-card {
-    grid-template-columns: 1fr;
-  }
-
-  .latest-registration-qr {
-    border-right: 0;
-    border-bottom: 1px dashed #a8b0a8;
-    padding-right: 0;
-    padding-bottom: clamp(0.35rem, 1.5vw, 0.5rem);
-  }
-
-  .latest-registration-status {
-    justify-items: start;
-    text-align: left;
-  }
-
-  .samples-filter-section-list {
-    gap: clamp(0.22rem, 1vw, 0.34rem);
-  }
-
-  .samples-filter-section-trigger {
-    min-height: clamp(2.1rem, 7vw, 2.46rem);
-    padding: clamp(0.34rem, 1.4vw, 0.48rem) clamp(0.42rem, 1.8vw, 0.62rem);
-    gap: clamp(0.38rem, 1.6vw, 0.56rem);
-  }
-
-  .samples-filter-section-label {
-    font-size: clamp(0.6rem, 2.1vw, 0.74rem);
-  }
-
-  .samples-filter-section-body {
-    gap: clamp(0.35rem, 1.5vw, 0.5rem);
-    padding: clamp(0.46rem, 1.9vw, 0.66rem);
-    border-radius: clamp(14px, 4.5vw, 18px);
-    max-height: min(13rem, 38vh);
-  }
-
   .samples-filter-chip {
     min-height: clamp(1.5rem, 5.3vw, 1.86rem);
     padding: clamp(0.22rem, 1vw, 0.34rem) clamp(0.38rem, 1.7vw, 0.58rem);
@@ -15383,28 +12264,6 @@ select.samples-filter-field-input {
     min-height: clamp(2.1rem, 7vw, 2.46rem);
   }
 
-  .sample-detail-top-bar {
-    gap: 0.28rem;
-  }
-
-  .sample-detail-main-layout {
-    grid-template-columns: minmax(0, 1.12fr) minmax(7.8rem, 0.88fr);
-  }
-
-  .sample-detail-main-layout-general {
-    grid-template-columns: 1fr;
-    justify-items: center;
-  }
-
-  .sample-detail-main-info-grid {
-    width: min(100%, 31rem);
-    margin: 0 auto;
-  }
-
-  .sample-detail-hero-statuses {
-    gap: 0.24rem;
-  }
-
   .topbar-inner {
     width: 100%;
   }
@@ -15414,87 +12273,6 @@ select.samples-filter-field-input {
     padding-right: 0.5rem;
     box-sizing: border-box;
   }
-}
-
-.mobile-camera-panel {
-  margin-top: 1.5rem;
-}
-
-.mobile-camera-heading {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-
-.mobile-camera-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
-  gap: 1rem;
-}
-
-.mobile-camera-card {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(246, 242, 235, 0.98) 100%);
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  padding: 1rem;
-}
-
-.mobile-camera-video-shell {
-  overflow: hidden;
-  border-radius: 14px;
-  border: 1px solid rgba(36, 85, 58, 0.16);
-  background:
-    radial-gradient(circle at top, rgba(79, 130, 96, 0.22), rgba(24, 38, 31, 0.9)),
-    linear-gradient(180deg, #1d2c24 0%, #101713 100%);
-  aspect-ratio: 3 / 4;
-}
-
-.mobile-camera-video {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.mobile-camera-status-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.mobile-camera-status-text,
-.mobile-camera-note {
-  margin: 0;
-  color: var(--muted);
-}
-
-.mobile-camera-error {
-  margin: 0;
-  color: var(--danger);
-  font-weight: 700;
-}
-
-.mobile-camera-meta {
-  display: grid;
-  gap: 0.45rem;
-  color: var(--ink);
-  font-size: 0.92rem;
-}
-
-.mobile-camera-capture {
-  width: 100%;
-  display: block;
-  border-radius: 12px;
-  border: 1px solid rgba(36, 85, 58, 0.14);
-}
-
-.mobile-camera-checklist {
-  margin: 0;
-  padding-left: 1.2rem;
-  color: var(--ink);
 }
 
 /* CAM-P3: os containers da antiga pagina /camera (camera-hub-page/panel/
@@ -15775,9 +12553,6 @@ select.samples-filter-field-input {
 }
 
 @media (max-width: 900px) {
-  .mobile-camera-grid {
-    grid-template-columns: 1fr;
-  }
 
   .camera-hub-overlay::before {
     inset: 14% 9% 27%;
@@ -15915,10 +12690,6 @@ select.samples-filter-field-input {
 .review-grid {
   display: grid;
   gap: clamp(6px, 1.8vw, 8px);
-}
-
-.review-grid-1 {
-  grid-template-columns: minmax(0, 1fr);
 }
 
 .review-grid-2 {
@@ -16812,12 +13583,6 @@ select.samples-filter-field-input {
   backdrop-filter: blur(8px);
 }
 
-@keyframes topbar-mobile-search-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 .notice-slot {
   min-height: 1.25rem;
   display: flex;
@@ -16840,31 +13605,6 @@ select.samples-filter-field-input {
 
 .notice-slot-text.is-success {
   color: #3a7d34;
-}
-
-.sample-classification-photo-preview-modal {
-  width: min(92vw, 32rem);
-  max-height: 90vh;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-.sample-classification-photo-preview-body {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.5rem;
-  overflow: auto;
-}
-
-.sample-classification-photo-preview-img {
-  max-width: 100%;
-  max-height: 72vh;
-  object-fit: contain;
-  border-radius: 8px;
 }
 
 /* ================================================================
@@ -17227,29 +13967,6 @@ select.samples-filter-field-input {
   }
 }
 
-.splash-title {
-  margin: 0;
-  font-size: clamp(0.7rem, 3vw, 1.05rem);
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.65);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  animation: splash-title-in 600ms var(--ease-out) 650ms backwards;
-}
-
-@keyframes splash-title-in {
-  from {
-    opacity: 0;
-    transform: translateY(2.5vw);
-    letter-spacing: 0.3em;
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-    letter-spacing: 0.14em;
-  }
-}
-
 /* -- Footer (progress + status) --------------------------------- */
 
 .splash-footer {
@@ -17549,65 +14266,11 @@ select.samples-filter-field-input {
 
 /* Rodapé da etiqueta de aprovação (único consumidor). Era 1fr 1fr por causa do
    par Limpar+Imprimir; o "Limpar" saiu na RC-D101 e o submit ocupa a linha. */
-.nsv2-submit-wrap {
-  flex-shrink: 0;
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: clamp(8px, 2.5vw, 10px);
-  padding: clamp(8px, 2vw, 10px) clamp(16px, 4.5vw, 20px) clamp(8px, 2vw, 10px);
-  background: transparent;
-}
-
-.nsv2-grid-full {
-  grid-column: 1 / -1;
-}
-
-.nsv2-grid-half {
-  position: relative;
-  /* deixa a celula encolher ate a coluna de 50% (sobrepoe o min-width:auto =
-     min-content) pra o conteudo nao empurrar a coluna nem vazar a borda. */
-  min-width: 0;
-}
-
-.nsv2-field {
-  display: flex;
-  flex-direction: column;
-  gap: clamp(3px, 1vw, 4px);
-}
-
-.nsv2-field-label {
-  font-size: clamp(9px, 2.5vw, 9.5px);
-  font-weight: 700;
-  /* Tom AA 5.0:1 no branco (LNW-A2; era #aaa ~2.3:1 em label minuscula). */
-  color: #6f6f6f;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  /* nowrap evita que o " *" (required-star) caia em uma segunda linha
-     quando o container do campo fica apertado (ex: Filial em 320px). */
-  white-space: nowrap;
-}
 
 .nsv2-required-star {
   display: inline;
   color: #c45c5c;
   font-weight: 700;
-}
-
-.nsv2-field-input {
-  width: 100%;
-  padding: clamp(8px, 2.5vw, 10px) clamp(10px, 3vw, 12px);
-  border: 1.5px solid rgba(0, 0, 0, 0.1);
-  border-radius: clamp(8px, 2.5vw, 10px);
-  background: #faf9f6;
-  font-size: clamp(12px, 3.5vw, 13px);
-  font-family: inherit;
-  color: #1a1a1a;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-  transition:
-    background 0.2s,
-    border-color 0.2s,
-    box-shadow 0.2s;
-  outline: none;
 }
 
 /* Input de CHIPS do "Lote de origem" (OriginLotChips): mesma moldura do
@@ -17709,91 +14372,6 @@ select.samples-filter-field-input {
 .olc-empty {
   color: #9a9a9a;
   font-size: clamp(13px, 3.6vw, 15px);
-}
-
-/* Data de chegada: o input[type=date] nativo tem min-width proprio e ignora
-   width:100%, vazando a celula de 50% (campo cortado pela borda do modal). Mesmo
-   fix do .app-modal-input[type=date]: desativa a aparencia nativa (passa a
-   respeitar a largura) e zera o min-width do pseudo do valor. O icone de
-   calendario ja vem pela esquerda via .has-icon-left. */
-.nsv2-field-input[type='date'] {
-  -webkit-appearance: none;
-  appearance: none;
-  min-width: 0;
-}
-
-.nsv2-field-input[type='date']::-webkit-date-and-time-value {
-  text-align: left;
-  min-width: 0;
-}
-
-.nsv2-field-input[type='date']::-webkit-calendar-picker-indicator {
-  opacity: 0;
-  pointer-events: none;
-}
-
-/* Wrapper de input com icone decorativo (Sacas/Safra/Lote/Local/Observ).
-   O icone fica em um quadrado arredondado verde-claro a esquerda (ou
-   direita) do input. Padding-left/right do input reserva o espaco. */
-.nsv2-field-input-wrap {
-  position: relative;
-  display: block;
-}
-
-.nsv2-field-input-icon {
-  position: absolute;
-  left: clamp(6px, 1.8vw, 8px);
-  top: 50%;
-  transform: translateY(-50%);
-  width: clamp(30px, 8.4vw, 36px);
-  height: clamp(30px, 8.4vw, 36px);
-  display: inline-grid;
-  place-items: center;
-  background: rgba(31, 93, 67, 0.08);
-  border-radius: clamp(7px, 2vw, 9px);
-  color: var(--brand-green);
-  pointer-events: none;
-}
-
-.nsv2-field-input-icon.is-right {
-  left: auto;
-  right: clamp(6px, 1.8vw, 8px);
-}
-
-.nsv2-field-input-icon svg {
-  width: 58%;
-  height: 58%;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.nsv2-field-input.has-icon-left {
-  padding-left: calc(clamp(30px, 8.4vw, 36px) + clamp(12px, 3.6vw, 16px));
-}
-
-.nsv2-field-input.has-icon-right {
-  padding-right: calc(clamp(30px, 8.4vw, 36px) + clamp(12px, 3.6vw, 16px));
-}
-
-.nsv2-field-input:focus {
-  background: #ffffff;
-  border-color: var(--brand-green-soft);
-  box-shadow: 0 0 0 2.5px rgba(46, 125, 50, 0.1);
-}
-
-.nsv2-field-input::placeholder {
-  color: rgba(0, 0, 0, 0.18);
-}
-
-.nsv2-field-input.has-error {
-  border-color: rgba(196, 92, 92, 0.4);
-}
-
-.nsv2-field-input.has-error::placeholder {
-  color: #c45c5c;
 }
 
 /* ── Submit Button ── */
@@ -18686,10 +15264,6 @@ select.samples-filter-field-input {
     right: -10px;
   }
 
-  .dashboard-operation-label {
-    font-size: 1rem;
-  }
-
   /* Hover/active nos cards de operacao */
   .dashboard-operation-card {
     transition:
@@ -18988,37 +15562,6 @@ select.samples-filter-field-input {
     letter-spacing: -0.01em;
   }
 
-  .clients-page-v2 .cv2-card-type {
-    font-size: 0.7rem;
-    padding: 3px 10px;
-    border-radius: 999px;
-    font-weight: 700;
-  }
-
-  /* cv2-card-bottom legado (so UserAvatarStack quando fora do meta novo) */
-  .clients-page-v2 .cv2-card-bottom {
-    justify-content: flex-start;
-    gap: 0.3rem;
-  }
-
-  /* Indicador de tipo de pessoa: bullet verde + texto */
-  .clients-page-v2 .cv2-card-person-type {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: 0.85rem;
-    color: #4a4a4a;
-    font-weight: 500;
-  }
-
-  .clients-page-v2 .cv2-card-person-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--brand-green-soft);
-    flex-shrink: 0;
-  }
-
   /* Seta SIMPLES: so o icone cinza, sem fundo/borda/sombra (era um quadrado
      gradiente na cor do avatar com a seta branca por cima). */
   .clients-page-v2 .cv2-card-arrow-btn {
@@ -19046,27 +15589,6 @@ select.samples-filter-field-input {
     stroke-width: 2.2;
   }
 
-  /* Chips: sem padding lateral (container pai cuida) */
-  .clients-page-v2 .spv2-chips {
-    padding: 0;
-    gap: 0.6rem;
-    flex-shrink: 0;
-  }
-
-  .clients-page-v2 .spv2-chip {
-    padding: 0.5rem 1rem;
-    font-size: 0.85rem;
-    border-radius: 10px;
-    transition:
-      transform 0.15s ease,
-      box-shadow 0.15s ease;
-  }
-
-  .clients-page-v2 .spv2-chip:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  }
-
   /* Meta: header do container */
   .clients-page-v2 .spv2-list-meta {
     display: flex;
@@ -19085,45 +15607,11 @@ select.samples-filter-field-input {
     padding: 0.35rem 0.4rem 0.35rem;
   }
 
-  .clients-page-v2 .spv2-list-meta-actions {
-    gap: 0.55rem;
-  }
-
   .clients-page-v2 .spv2-list-count {
     font-size: 1.05rem;
     font-weight: 700;
     color: #555;
     letter-spacing: -0.01em;
-  }
-
-  /* Footer: paginacao no rodape do container */
-  .clients-page-v2 .spv2-footer {
-    padding: 0.6rem 0 0.2rem;
-    border-top: 1px solid rgba(112, 130, 103, 0.12);
-    margin-top: 0.4rem;
-    flex-shrink: 0;
-  }
-
-  .clients-page-v2 .spv2-page-btn {
-    width: 2.5rem;
-    height: 2.5rem;
-    border: 1px solid rgba(112, 130, 103, 0.22);
-    background: #ffffff;
-    box-shadow: 0 2px 4px rgba(19, 35, 24, 0.05);
-    transition:
-      transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
-      box-shadow 0.18s ease,
-      border-color 0.18s ease;
-  }
-
-  .clients-page-v2 .spv2-page-btn:hover:not(:disabled) {
-    transform: translateY(-2px);
-    border-color: rgba(112, 130, 103, 0.4);
-    box-shadow: 0 4px 10px rgba(19, 35, 24, 0.1);
-  }
-
-  .clients-page-v2 .spv2-page-btn:active:not(:disabled) {
-    transform: translateY(0) scale(0.96);
   }
 
   /* 14.6.F: barra de pesquisa + FAB inline lado a lado. Form ocupa o
@@ -19137,23 +15625,6 @@ select.samples-filter-field-input {
     display: flex;
     align-items: center;
     gap: 1rem;
-  }
-
-  .clients-page-v2 .hero-search-wrap .hero-search-bar {
-    flex: 1;
-    min-width: 0;
-    border-radius: 18px;
-    padding: 0 1rem;
-  }
-
-  .clients-page-v2 .hero-search-wrap .hero-search-input {
-    padding: 1rem 0;
-    font-size: 1.05rem;
-  }
-
-  .clients-page-v2 .hero-search-wrap .hero-search-icon {
-    width: 22px;
-    height: 22px;
   }
 
   /* FAB "+" inline a direita do filtro, IGUAL a /samples: 56x56, raio 16,
@@ -19243,7 +15714,6 @@ select.samples-filter-field-input {
      /samples (.samples-page-v2 usa padding-top 0.75rem). O cliente e detectado
      pela .sdv-client-side-col (so existe nesse detalhe). Escopado pra NAO
      afetar perfil/metricas ainda nao revisados no desktop. */
-  .sdv-page--sample .sdv-header,
   .sdv-page:has(.sdv-client-side-col) .sdv-header {
     padding-top: 0.75rem;
   }
@@ -19251,12 +15721,6 @@ select.samples-filter-field-input {
   .sdv-header-title {
     color: var(--ink);
     font-size: 1.4rem;
-  }
-
-  /* Sem o titulo "Detalhes" no desktop da amostra (segue o padrao das outras
-     paginas desktop, que nao exibem titulo de pagina). */
-  .sdv-page--sample .sdv-header-title {
-    display: none;
   }
 
   /* Content: fundo transparente (body beige) — sem verde feio */
@@ -19456,11 +15920,6 @@ select.samples-filter-field-input {
     display: flex;
     flex-direction: column;
   }
-  .sdv-content-inner:has(> .sdv-client-side-col)
-    .sdv-client-commercial-section
-    .client-commercial-card {
-    height: 100%;
-  }
   .sdv-content-inner:has(> .sdv-client-side-col) .sdv-card-info {
     grid-area: info;
     min-width: 0;
@@ -19504,10 +15963,6 @@ select.samples-filter-field-input {
   /* Cards seguintes (historico, invalidada): largura total */
   .sdv-general > .sdv-card:nth-child(n + 3) {
     grid-column: 1 / -1;
-  }
-
-  .sample-classification-measures-grid {
-    max-width: 640px;
   }
 
   /* Commercial v2 (samples detail) — scoped por .sample-detail-commercial-pane
@@ -19562,361 +16017,6 @@ select.samples-filter-field-input {
     > .sdv-card:nth-child(2)
     .sdv-com-movements::-webkit-scrollbar-track {
     background: transparent;
-  }
-
-  /* ════════════════════════════════════════
-     Detalhe da AMOSTRA (desktop) — 2 COLUNAS. ESQUERDA (estreita) = Informacoes
-     no topo + Resumo comercial embaixo; DIREITA (larga) = Classificacao (span das
-     linhas), com o card de liga embaixo dela quando existe. Substitui o modelo
-     antigo de "altura travada + scroll interno do painel": a pagina volta a rolar
-     normalmente. Tudo escopado em .sdv-page--sample; os outros detalhes
-     (cliente/perfil) nao mudam. ════════ */
-  .sdv-page--sample:has(.sample-detail-commercial-pane) {
-    height: auto;
-    overflow: visible;
-    display: block;
-  }
-
-  .sdv-page--sample .sdv-content {
-    display: block;
-    overflow-y: auto;
-    overflow-x: hidden;
-  }
-
-  /* ── Layout 2 colunas (redesign 2026-06-23; colunas trocadas 2026-07-01) ──
-     ESQUERDA (estreita): Informacoes -> Resumo comercial. DIREITA (larga):
-     Classificacao (-> Liga embaixo, quando existe). Reposicionado SO via
-     grid-template-areas: os cards vem do DOM via display:contents e cada um
-     declara seu grid-area (info/comercial/classif/liga) mais abaixo — trocar o
-     mapa basta, sem mexer no JSX nem na ordem do mobile (la o grid nao existe). */
-  .sdv-page--sample .sdv-content > .sdv-content-inner {
-    display: grid;
-    /* col2 (Classificacao) +15% e col1 (Informacoes/Resumo) -15% a partir do
-       50/50 → 42,5% / 57,5% (0.85fr / 1.15fr): a ficha da Classificacao ganha a
-       largura maior. minmax(0,…) mantem o min-width:0 pra nada transbordar na col
-       estreita. */
-    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
-    grid-template-areas:
-      'info      classif'
-      'comercial classif';
-    /* Sem liga (base): 2 linhas. L1 fixa (Informacoes | topo da Classificacao,
-       22rem). L2 = altura do Resumo comercial (col1); a Classificacao (col2) faz
-       span das 2 linhas e acompanha a altura via align-items:stretch. */
-    grid-template-rows: var(--sdv-r1-h) minmax(var(--sdv-r1-h), auto);
-    grid-auto-rows: auto;
-    gap: 1rem;
-    align-items: stretch;
-    flex: none;
-    min-height: 0;
-  }
-
-  /* Rodape "Invalidar": ocupa a largura total (span das 2 colunas) numa linha
-     implicita ao final do grid, abaixo de todo o conteudo. */
-  .sdv-page--sample .sdv-content > .sdv-content-inner > .sdv-invalidate-footer {
-    grid-column: 1 / -1;
-    padding-top: 0.25rem;
-  }
-
-  @media (hover: hover) {
-    .sdv-invalidate-btn:hover {
-      background: var(--danger);
-      color: #ffffff;
-      box-shadow: 0 6px 16px rgba(184, 50, 50, 0.32);
-    }
-  }
-
-  /* Com Liga (composicao OU comprometida presente no DOM): cria a 3a linha pra a
-     Liga (col2/L3), abaixo da Classificacao. O Resumo comercial passa a fazer
-     span L2-L3 (col1) = 45rem; a Classificacao span L1-L2 (col2) = 45rem, com a
-     liga (22rem) embaixo — alinhando as duas colunas (68rem). Linhas fixas pra a
-     altura ser deterministica. */
-  .sdv-page--sample
-    .sdv-content
-    > .sdv-content-inner:has(.sdv-blend-composition, .sdv-blend-compromised) {
-    grid-template-areas:
-      'info      classif'
-      'comercial classif'
-      'comercial liga';
-    grid-template-rows: var(--sdv-r1-h) var(--sdv-r1-h) var(--sdv-r1-h);
-  }
-
-  /* As secoes esquerda/direita viram display:contents pra TODOS os .sdv-card
-     virarem itens diretos do grid 2x3 do .sdv-content-inner (posicionados
-     explicitamente abaixo). So no desktop: fora do media query as secoes
-     seguem empilhadas como no mobile. */
-  .sdv-page--sample .sdv-general,
-  .sdv-page--sample .sdv-content .sample-detail-commercial-pane,
-  .sdv-page--sample .sdv-content .sdv-commercial {
-    display: contents;
-  }
-
-  /* Atribuicao das areas (ver grid-template-areas no .sdv-content-inner). */
-  .sdv-page--sample #sdv-informacoes {
-    grid-area: info;
-  }
-
-  /* Card unico "Resumo comercial": ocupa a col2 inteira (span das 2 linhas via
-     a area "comercial"). Vira coluna flex (header + minis fixos no topo + secao
-     de Movimentacoes preenchendo o resto e rolando) — ver regras mais abaixo. */
-  .sdv-page--sample .sdv-com-summary {
-    grid-area: comercial;
-  }
-
-  /* Classificacao: area "classif" (col esquerda, abaixo de Informacoes).
-     Seletor `.sdv-general > .sdv-card.X` (especificidade 0,4,0) pra VENCER a regra
-     legada `.sdv-general > .sdv-card:nth-child(2)` (0,3,0, feita pro detalhe do
-     CLIENTE) que vazava pra ca e jogava a Classificacao pra col2/linha1. */
-  .sdv-page--sample .sdv-general > .sdv-card.sdv-cls-block {
-    grid-area: classif;
-    min-height: 0;
-  }
-
-  /* Card de liga (composicao XOR comprometida — mutuamente exclusivos) na area
-     "liga" (col DIREITA / linha 3, ABAIXO da Classificacao). So existe quando ha
-     liga — a 3a linha so e criada pelo :has acima. Altura 22rem. Card flex-column
-     (header fixo + lista rolando) pra a lista longa nao estourar os 22rem. Seletor
-     `.sdv-general > .sdv-card.X` (0,4,0) pra VENCER a regra legada
-     `.sdv-general > .sdv-card:nth-child(n+3)` (0,3,0) que a jogava pra largura
-     total. */
-  .sdv-page--sample .sdv-general > .sdv-card.sdv-blend-composition,
-  .sdv-page--sample .sdv-general > .sdv-card.sdv-blend-compromised {
-    grid-area: liga;
-    /* Altura 22rem (L3 da col direita), logo abaixo da Classificacao. Card
-       flex-column: header fixo + lista rolando. */
-    height: var(--sdv-r1-h);
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    overflow: hidden;
-  }
-
-  /* Lista da liga (composicao E comprometida) no desktop — MESMO padrao nos dois:
-     cards mais afastados (gap), respiro lateral pra a sombra reforcada nao ser
-     decepada pelo overflow, e sem o teto de altura da composicao (max-height:none)
-     pra ambas preencherem o card via flex:1. */
-  .sdv-page--sample .sdv-blend-composition .sdv-related-list,
-  .sdv-page--sample .sdv-blend-compromised .sdv-related-list {
-    display: flex;
-    flex-direction: column;
-    gap: clamp(10px, 2.2vw, 14px);
-    flex: 1;
-    min-height: 0;
-    max-height: none;
-    overflow-y: auto;
-    overflow-x: hidden;
-    padding: 0.3rem 0.4rem;
-  }
-
-  /* Minicards dos lotes (composicao/comprometimento): BRANCO puro (era gradiente
-     branco->creme) + sombra reforcada nas bordas pra se destacarem. */
-  .sdv-page--sample .sdv-blend-card {
-    background: #ffffff;
-    box-shadow:
-      0 2px 6px rgba(0, 0, 0, 0.09),
-      0 10px 24px rgba(0, 0, 0, 0.13);
-  }
-
-  /* Cards de status (raros): largura total. Sem grid-row fixo: como as linhas
-     1-3 estao ocupadas, o auto-flow os coloca na linha 4+. */
-  .sdv-page--sample .sdv-card-infeasible,
-  .sdv-page--sample .sdv-card-invalidated {
-    grid-column: 1 / -1;
-  }
-
-  /* ── Card de Classificacao no desktop: BLOCOS nomeados (mockup 2026-06-24) ──
-     .sdv-cls-block = coluna flex: header fixo + .sdv-cls-desktop preenchendo o
-     resto. Sem altura fixa: como agora faz span da col direita (2 linhas), estica
-     via align-items:stretch pra preencher o span (~68rem sem liga / ~45rem com
-     liga); a ficha (.sdv-cls-desktop, flex:1, linhas fracionarias) acompanha.
-     overflow:hidden mantem os blocos contidos. Seletor `.sdv-general > .sdv-card.X`
-     (0,4,0) pra VENCER a regra legada `.sdv-general > .sdv-card:nth-child(2)
-     { display:flex }` (0,3,0). */
-  .sdv-page--sample .sdv-general > .sdv-card.sdv-cls-block {
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-
-  /* Header (titulo + Reclassificar/Editar) fixo no topo. */
-  .sdv-page--sample .sdv-cls-block > .sdv-card-header {
-    flex-shrink: 0;
-    margin-bottom: clamp(8px, 1.4vw, 12px);
-  }
-  .sdv-page--sample .sdv-cls-header-actions {
-    display: flex;
-    align-items: center;
-    gap: clamp(4px, 1.4vw, 8px);
-  }
-
-  /* Grade dos blocos: 2 colunas, 3 linhas. Topo: foto | stats. Abaixo:
-     - PENEIRAS (esq) ocupa as DUAS linhas de baixo (span 'pen'/'pen') => bloco
-       ALTO, cabe os 12 campos (P18..P10 + MK + Fundo + Fundo) em 3 col x 4 linhas.
-     - DEFEITOS (dir, linha do meio): 6 campos (3 col x 2 linhas), mais baixo.
-     - OBSERVACOES (dir, linha de baixo): metade direita, faixa BAIXA (1 linha).
-       Defeitos (row2) ALTO e Observacoes (row3) baixo — a altura que sai do obs
-       entra no Defeitos; row2+row3 constante mantem a Peneiras (span) na mesma
-       altura total. */
-  .sdv-page--sample .sdv-cls-desktop {
-    flex: 1;
-    min-height: 0;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    grid-template-areas:
-      'photo stats'
-      'pen   def'
-      'pen   obs';
-    grid-template-rows: minmax(0, 0.85fr) minmax(0, 0.95fr) minmax(0, 0.27fr);
-    gap: clamp(8px, 1.4vw, 12px);
-  }
-
-  /* Foto: bloco topo-esquerda, preenche a celula (object-fit:cover ja recorta). */
-  .sdv-page--sample .sdv-cls-desktop > .sdv-cls-block-thumb,
-  .sdv-page--sample .sdv-cls-desktop > .sdv-cls-block-thumb-empty {
-    grid-area: photo;
-    width: 100%;
-    height: 100%;
-    min-height: 0;
-  }
-  .sdv-page--sample .sdv-cls-desktop > .sdv-cls-block-thumb[role='button'] {
-    cursor: pointer;
-  }
-
-  /* Area de stats (topo-direita, grid-area:stats) = DOIS blocos empilhados:
-     - MINI (cima): Data + Classificador, fonte reduzida, as 2 linhas somando ~1
-       linha normal (flex:1);
-     - MAIN (baixo): Aspecto/Catacao/Padrao (3col headline) + Certificacao/Bebida
-       (2col), linhas de tamanho padrao (flex:2 = 2 linhas normais). */
-  .sdv-page--sample .sdv-cls-statwrap {
-    grid-area: stats;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    gap: clamp(8px, 1.4vw, 12px);
-  }
-  .sdv-page--sample .sdv-cls-statbox {
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    border: 1px solid rgba(0, 0, 0, 0.08);
-    border-radius: 12px;
-    padding: clamp(4px, 1vw, 8px) clamp(10px, 1.8vw, 14px);
-  }
-  /* Bloco mini = 1 unidade (1 linha normal); bloco main = 2 unidades. */
-  .sdv-page--sample .sdv-cls-statbox--mini {
-    flex: 1;
-    padding-top: clamp(2px, 0.6vw, 4px);
-    padding-bottom: clamp(2px, 0.6vw, 4px);
-  }
-  .sdv-page--sample .sdv-cls-statbox--main {
-    flex: 2;
-  }
-  .sdv-page--sample .sdv-cls-statbox-row {
-    flex: 1;
-    min-height: 0;
-    display: grid;
-    align-content: center;
-    gap: 2px clamp(8px, 1.6vw, 14px);
-    padding: clamp(3px, 0.9vw, 6px) 0;
-    /* Nome e valor centralizados em TODAS as linhas de stats: o valor cresce do
-       meio pras bordas (e trunca com ellipsis se estourar a celula). */
-    text-align: center;
-  }
-  .sdv-page--sample .sdv-cls-statbox-row + .sdv-cls-statbox-row {
-    border-top: 1px solid rgba(0, 0, 0, 0.07);
-  }
-  .sdv-page--sample .sdv-cls-statbox-row--1 {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .sdv-page--sample .sdv-cls-statbox-row--2 {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .sdv-page--sample .sdv-cls-statbox-row--3 {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-  .sdv-page--sample .sdv-cls-statbox-row--3 .sdv-info-value {
-    font-size: clamp(15px, 1.9vw, 18px);
-  }
-  /* Mini (Data/Classificador): fonte reduzida + linhas apertadas pra as 2 caberem
-     na altura de 1 linha normal. */
-  .sdv-page--sample .sdv-cls-statbox--mini .sdv-cls-statbox-row {
-    padding: clamp(1px, 0.4vw, 3px) 0;
-  }
-  .sdv-page--sample .sdv-cls-statbox--mini .sdv-info-label {
-    font-size: clamp(7.5px, 1vw, 8.5px);
-    margin-bottom: 0;
-  }
-  .sdv-page--sample .sdv-cls-statbox--mini .sdv-info-value {
-    font-size: clamp(10px, 1.3vw, 12px);
-  }
-
-  /* Blocos nomeados (Peneiras / Fundos e defeitos / Observacoes): moldura +
-     titulo verde + grade interna 3 colunas, linhas distribuidas (space-between). */
-  .sdv-page--sample .sdv-cls-blk {
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    border: 1px solid rgba(0, 0, 0, 0.08);
-    border-radius: 12px;
-    padding: clamp(7px, 1.5vw, 11px) clamp(10px, 1.8vw, 14px);
-    overflow: hidden;
-  }
-  .sdv-page--sample .sdv-cls-blk--peneiras {
-    grid-area: pen;
-  }
-  .sdv-page--sample .sdv-cls-blk--defeitos {
-    grid-area: def;
-  }
-  .sdv-page--sample .sdv-cls-blk--obs {
-    grid-area: obs;
-  }
-  .sdv-page--sample .sdv-cls-blk-title {
-    flex-shrink: 0;
-    font-size: clamp(11px, 1.5vw, 13px);
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--brand-green);
-    margin-bottom: clamp(4px, 1vw, 8px);
-  }
-  .sdv-page--sample .sdv-cls-blk-grid {
-    flex: 1;
-    min-height: 0;
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    /* space-evenly distribui as linhas com folga IGUAL (topo/entre/baixo) — fica
-       equilibrado tanto na Peneiras (4 linhas) quanto no Defeitos (2 linhas) que
-       agora ocupa um bloco mais alto. */
-    align-content: space-evenly;
-    gap: clamp(3px, 1vw, 9px) clamp(8px, 1.6vw, 14px);
-  }
-
-  /* Campos compactos em toda a area de blocos (reusa .sdv-info-item/label/value). */
-  .sdv-page--sample .sdv-cls-desktop .sdv-info-item {
-    padding: 0;
-    min-width: 0;
-  }
-  .sdv-page--sample .sdv-cls-desktop .sdv-info-label {
-    margin-bottom: 2px;
-  }
-  /* Valor vazio (—): cinza claro. Peneira preenchida: verde (acento do mockup). */
-  .sdv-page--sample .sdv-cls-desktop .sdv-info-value.is-empty {
-    color: #cdcdcd;
-    font-weight: 500;
-  }
-  .sdv-page--sample .sdv-cls-blk--peneiras .sdv-info-value:not(.is-empty) {
-    color: var(--brand-green);
-  }
-
-  /* Observacoes (metade direita, faixa baixa): valor em 1 LINHA so, truncado com
-     reticencias — bloco curto, sem transbordar a moldura nem o card. */
-  .sdv-page--sample .sdv-cls-blk--obs .sdv-cls-obs-value {
-    white-space: normal;
-    display: -webkit-box;
-    -webkit-line-clamp: 1;
-    line-clamp: 1;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    line-height: 1.35;
   }
 
   /* ── Comercial: modais e info maiores ── */
@@ -20021,52 +16121,9 @@ select.samples-filter-field-input {
 
   /* Form scroll: espaco interno generoso */
 
-  /* Labels: maiores e visiveis */
-  .nsv2-field-label {
-    font-size: 0.78rem;
-    color: #444;
-    letter-spacing: 0.8px;
-  }
-
   /* Label do ClientLookupField (Proprietario): alinhar com .nsv2-field-label
      no desktop pra manter o padrao visual com os outros campos. Sem essa
      regra, fica preso no clamp(9px,2.5vw,9.5px) cinza claro do mobile. */
-
-  /* Campos: design alinhado com modal de novo cliente — bordas 2px e mais
-     escuras (rgba 0.3, antes era 1.5px com 0.14 — quase invisivel). */
-  .nsv2-field-input {
-    padding: 1rem 1.15rem;
-    font-size: 1rem;
-    border: 2px solid rgba(0, 0, 0, 0.3);
-    border-radius: 14px;
-    background: #ffffff;
-    box-shadow:
-      0 2px 4px rgba(0, 0, 0, 0.05),
-      0 4px 12px rgba(0, 0, 0, 0.06);
-    transition:
-      border-color 0.2s ease,
-      box-shadow 0.2s ease,
-      transform 0.15s ease;
-  }
-
-  .nsv2-field-input:hover {
-    border-color: rgba(0, 0, 0, 0.45);
-    box-shadow:
-      0 3px 6px rgba(0, 0, 0, 0.08),
-      0 6px 16px rgba(0, 0, 0, 0.08);
-  }
-
-  .nsv2-field-input:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(47, 107, 74, 0.12);
-    transform: scale(1.005);
-  }
-
-  /* Placeholder mais visivel */
-  .nsv2-field-input::placeholder {
-    color: #999;
-    font-size: 0.95rem;
-  }
 
   /* 🪦 RC-D127: as quatro regras da Etiqueta de Aprovação no desktop saíram. Elas
      existiam para dar à etiqueta a caixa GRANDE do "Nova amostra" (2px, 14px de
@@ -20084,11 +16141,6 @@ select.samples-filter-field-input {
      (base ~0.5rem + topo do wrap) — so neste modal. */
   .bottom-sheet.is-fit-content .bottom-sheet-footer {
     padding-top: 0.15rem;
-  }
-
-  .nsv2-submit-wrap {
-    gap: 1rem;
-    padding: 0.5rem 3rem 0.65rem;
   }
 
   .nsv2-submit-btn {
@@ -20234,14 +16286,6 @@ select.samples-filter-field-input {
      MODAIS DESKTOP
      ══════════════════════════════════════════ */
 
-  .sample-classification-edit-modal {
-    width: min(680px, calc(100vw - 3rem));
-  }
-
-  .sample-classification-photo-preview-modal {
-    width: min(52rem, 90vw);
-  }
-
   .client-quick-create-body {
     overflow: visible;
     min-height: auto;
@@ -20275,28 +16319,6 @@ select.samples-filter-field-input {
     min-height: auto;
     gap: 0.9rem;
     padding-right: 0;
-  }
-
-  .client-reg-modal-group {
-    padding: 0.875rem;
-  }
-
-  .client-reg-modal-field {
-    gap: 0.4rem;
-  }
-
-  .client-reg-modal-field input {
-    padding: 0.775rem 0.975rem;
-    font-size: 1.05rem;
-  }
-
-  .client-reg-modal-actions > button {
-    min-height: 3.525rem;
-    font-size: 1.05rem;
-  }
-
-  .client-reg-modal-grid-uf-cep {
-    grid-template-columns: 5.5rem minmax(0, 1fr);
   }
 
   /* ══════════════════════════════════════════
@@ -20420,126 +16442,6 @@ select.samples-filter-field-input {
   /* ══════════════════════════════════════════
      FASE 6 — POLISH GLOBAL (hover audit em classes compartilhadas)
      ══════════════════════════════════════════ */
-
-  /* Acoes de classificacao (save/complete) */
-  .sdv-cls-action-save,
-  .sdv-cls-action-complete {
-    transition:
-      transform 0.15s ease,
-      box-shadow 0.15s ease,
-      filter 0.15s ease;
-  }
-
-  .sdv-cls-action-save:hover:not(:disabled),
-  .sdv-cls-action-complete:hover:not(:disabled) {
-    transform: translateY(-1px);
-    filter: brightness(1.04);
-  }
-
-  /* ════════════════════════════════════════════════════════════════
-     Detalhe da AMOSTRA (desktop) — LINHA 1 travada e ALTURAS IGUAIS.
-     Sessao 2026-06-23. Tres objetivos:
-       1. Botoes Imprimir/Enviar do container de Informacoes mais BAIXOS
-          (sem o card grande de 52px de icone + 1.4rem de padding) e
-          colados na borda inferior do container.
-       2. Container de Informacoes com ALTURA FIXA (--sdv-r1-h): nao muda
-          com campos preenchidos ou vazios.
-       3. Container de Movimentacoes com a MESMA altura: o excesso rola
-          dentro do card; com poucas movimentacoes sobra espaco vazio (o
-          card nao encolhe).
-     Bloco no FIM do media query (min-width:901px) pra sobrescrever, por
-     cascata + especificidade de id, o max-height:22rem da lista de
-     movimentacoes definido no bloco anterior do detalhe. */
-  .sdv-page--sample {
-    /* Altura base da linha 1 do grid; TODAS as alturas do desktop derivam dela
-       (Informacoes = 1x, Resumo comercial = 2x+1rem, Classificacao = span,
-       liga = 1x). Reduzida de 22rem -> 21rem (2026-07-01) pra encolher
-       ligeiramente todos os cards. Cabe o cabecalho + os 5 campos de Informacoes
-       com folga (o botao Imprimir migrou pro header; o NoticeSlot vazio colapsa
-       pela regra abaixo). Ajustavel num so lugar. */
-    --sdv-r1-h: 21rem;
-  }
-
-  /* Informacoes: altura fixa. Sem overflow:hidden de proposito — em estados
-     transitorios (NoticeSlot de edicao) o aviso pode crescer sem ser
-     cortado; no estado normal o conteudo cabe folgado. */
-  .sdv-page--sample #sdv-informacoes {
-    height: var(--sdv-r1-h);
-  }
-
-  /* Padding inferior enxuto: botoes proximos da borda de baixo. */
-  .sdv-page--sample #sdv-informacoes.sdv-info-compact {
-    padding-bottom: 0.85rem;
-  }
-
-  /* NoticeSlot vazio (sem <p> dentro = :empty) sai do fluxo: senao ele soma
-     um gap orfao de 1.2rem (gap do flex-column do card) ABAIXO dos botoes,
-     descolando-os da base e empurrando o conteudo pra fora da altura fixa.
-     Colapsado, os botoes encostam no padding-bottom do card. Quando um aviso
-     aparece (estado de edicao) o slot deixa de ser :empty e volta ao fluxo. */
-  .sdv-page--sample #sdv-informacoes .notice-slot:empty {
-    display: none;
-  }
-
-  /* Reserva uma linha mesmo com valor vazio, pra a grade de campos nao
-     "pular" de altura entre amostras com campos preenchidos vs vazios
-     (o container ja e fixo; isto estabiliza a propria grade). */
-  .sdv-page--sample #sdv-informacoes .sdv-info-value:empty::after {
-    content: '\00a0';
-  }
-
-  /* Card unico "Resumo comercial": coluna flex que preenche a col2 inteira (faz
-     span das 2 linhas via a area "comercial" no grid). Header + minis fixos no
-     topo; a secao de Movimentacoes (#sdv-movimentacoes) preenche o resto e rola
-     por dentro. Altura fixa (45rem) definindo a L2 da col esquerda; a
-     Classificacao (col direita) faz span das 2 linhas e casa com Info + Resumo. */
-  .sdv-page--sample .sdv-com-summary {
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    height: calc(var(--sdv-r1-h) * 2 + 1rem);
-  }
-
-  .sdv-page--sample .sdv-com-summary .sdv-com-minis {
-    flex: 0 0 auto;
-  }
-
-  .sdv-page--sample .sdv-com-summary .sdv-com-mini {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-  }
-
-  /* Minis (Vendidas/Perdidas/Disponiveis): BRANCOS (eram bege var(--surface))
-     com sombra suave pra destacar do card branco. Mantem o acento de cor
-     semantica no icone e no numero (verde/vermelho/azul). */
-  .sdv-page--sample .sdv-com-summary .sdv-com-mini {
-    background: #ffffff;
-    border-color: rgba(0, 0, 0, 0.06);
-    box-shadow:
-      0 1px 3px rgba(0, 0, 0, 0.06),
-      0 4px 10px rgba(0, 0, 0, 0.05);
-  }
-
-  /* Secao de Movimentacoes: preenche o espaco restante do card (abaixo dos minis
-     + divisoria) e rola por dentro, mantendo a altura do card fixa (= altura da
-     Classificacao ao lado). */
-  .sdv-page--sample #sdv-movimentacoes {
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-  }
-
-  /* A lista preenche a secao e rola quando passa da altura; com poucas
-     movimentacoes sobra espaco vazio (o card NAO encolhe). Sobrescreve o
-     max-height do bloco base (especificidade de id). */
-  .sdv-page--sample #sdv-movimentacoes .sdv-com-movements {
-    flex: 1;
-    min-height: 0;
-    max-height: none;
-    overflow-y: auto;
-  }
 }
 
 /* ════════════════════════════════════════════════════════════════
@@ -20589,25 +16491,6 @@ select.samples-filter-field-input {
     justify-self: stretch;
   }
 
-  /* T6: chips sem max-width */
-  .clients-page-v2 .spv2-chips {
-    justify-content: flex-start;
-    gap: 1rem;
-    padding: 0;
-    max-width: none;
-    margin: 0;
-    width: auto;
-  }
-
-  /* T8: footer de paginacao */
-  .clients-page-v2 .spv2-footer {
-    padding: 0.6rem 0 0.2rem;
-    max-width: none;
-    margin: 0.4rem 0 0;
-    width: auto;
-    gap: 1rem;
-  }
-
   /* T8: meta da lista — mantem max-width/margin overrides do layout T8
      mas sem reaplicar padding (padding compacto definido acima nos
      overrides especificos de cada page). */
@@ -20622,11 +16505,6 @@ select.samples-filter-field-input {
      ══════════════════════════════════════════ */
 
   /* 4.1.1: new sample form card edge-to-edge dentro das margens de 300px */
-
-  /* 4.1.3-bis: padding mais generoso nos campos no wide */
-  .nsv2-field-input {
-    padding: 1.2rem 1.4rem;
-  }
 
   /* 🔴 O /profile NAO tem mais nada nesta faixa (RD17). O grid de 2 colunas do
      .stg-content, o form de edicao em 2 colunas, o --content-max-wide e os
@@ -21157,57 +17035,6 @@ select.samples-filter-field-input {
 }
 
 /* === Cancel inactivation dialog === */
-.cancel-inactivation-dialog-backdrop {
-  z-index: 70;
-}
-
-.cancel-inactivation-dialog {
-  width: min(100%, 24rem);
-  padding: 0;
-}
-
-.cancel-inactivation-dialog__header {
-  padding: 18px 22px 12px;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.cancel-inactivation-dialog__header h3 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 700;
-  color: #1a1a1a;
-}
-
-.cancel-inactivation-dialog__body {
-  padding: 16px 22px;
-  font-size: 13px;
-  color: #374151;
-  line-height: 1.55;
-}
-
-.cancel-inactivation-dialog__body p {
-  margin: 0 0 8px 0;
-}
-
-.cancel-inactivation-dialog__body p:last-child {
-  margin-bottom: 0;
-}
-
-.cancel-inactivation-dialog__warning {
-  padding: 10px 12px;
-  background: #fef3c7;
-  border-left: 3px solid #d97706;
-  border-radius: 6px;
-  color: #78350f;
-}
-
-.cancel-inactivation-dialog__footer {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 14px 22px;
-  border-top: 1px solid #e5e7eb;
-}
 
 .app-modal-submit.is-danger {
   background: linear-gradient(180deg, #dc2626, #b91c1c);
@@ -21458,37 +17285,6 @@ select.samples-filter-field-input {
   display: block;
 }
 
-/* Toggle "Só incompletos" no header da listagem. */
-.spv2-list-meta-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.spv2-toggle-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border-radius: 6px;
-  border: 1px solid rgba(245, 158, 11, 0.4);
-  background: rgba(245, 158, 11, 0.08);
-  color: #92400e;
-  font-size: 12px;
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-
-.spv2-toggle-btn:hover {
-  background: rgba(245, 158, 11, 0.18);
-}
-
-.spv2-toggle-btn.is-active {
-  background: #f59e0b;
-  color: white;
-  border-color: #d97706;
-}
-
 /* ── User Avatar (iniciais coloridas, hash deterministico) ──
    Componente reusavel para representar o usuario logado sem foto.
    Cores neutras geradas client-side pelo hash do nome (componente
@@ -21596,15 +17392,6 @@ select.samples-filter-field-input {
   }
 }
 
-/* Pendencias (OperationModal): o scroll fica no .bottom-sheet-body; a lista
-   so cresce. Sem isto o .app-modal-list traz max-height + overflow proprios
-   (heranca do uso antigo no modal central) e criaria duplo scroll no sheet. */
-.bottom-sheet.is-operations .app-modal-list {
-  max-height: none;
-  overflow: visible;
-  padding-right: 0;
-}
-
 /* Sombra dos cards "respirando": o recuo lateral sai do .bottom-sheet (que
    NAO recorta) e passa pro .bottom-sheet-body (que tem overflow-x: hidden).
    Antes os cards encostavam na linha de corte do body, entao a box-shadow era
@@ -21627,12 +17414,6 @@ select.samples-filter-field-input {
 .bottom-sheet.is-operations .bottom-sheet-body {
   padding-left: var(--ops-inset-x);
   padding-right: var(--ops-inset-x);
-}
-
-/* Alinhamento do corpo do card preservado do antigo modal central. */
-.bottom-sheet.is-operations .app-modal-card-body {
-  text-align: left;
-  justify-items: start;
 }
 
 /* O chrome do "Lotes pendentes" (.is-operations) foi PROMOVIDO pro BASE do
@@ -21682,36 +17463,6 @@ select.samples-filter-field-input {
 
 /* CTA classificar: botao quadrado de cantos arredondados com seta pra direita,
    no lugar do chevron. Verde da marca (acao principal). */
-.bottom-sheet.is-operations .spv2-card-classify-arrow {
-  flex-shrink: 0;
-  width: clamp(2.4rem, 9vw, 2.7rem);
-  height: clamp(2.4rem, 9vw, 2.7rem);
-  display: inline-grid;
-  place-items: center;
-  padding: 0;
-  border: 0;
-  border-radius: clamp(0.6rem, 2.6vw, 0.75rem);
-  background: linear-gradient(180deg, var(--brand-green) 0%, var(--brand-green-deep) 100%);
-  color: #ffffff;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  box-shadow: 0 4px 12px rgba(20, 55, 42, 0.24);
-  transition: transform 0.12s ease;
-}
-
-.bottom-sheet.is-operations .spv2-card-classify-arrow:active {
-  transform: scale(0.95);
-}
-
-.bottom-sheet.is-operations .spv2-card-classify-arrow svg {
-  width: clamp(1.2rem, 4.6vw, 1.4rem);
-  height: clamp(1.2rem, 4.6vw, 1.4rem);
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2.2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
 
 .header-avatar-menu {
   display: flex;
@@ -21798,16 +17549,6 @@ select.samples-filter-field-input {
 .header-avatar-menu-row-label {
   flex: 1;
   min-width: 0;
-}
-
-.header-avatar-menu-row-tag {
-  flex-shrink: 0;
-  font-size: clamp(0.68rem, 2.8vw, 0.74rem);
-  font-weight: 600;
-  color: var(--muted, #8a8a8a);
-  background: rgba(0, 0, 0, 0.05);
-  padding: 0.15rem 0.5rem;
-  border-radius: 999px;
 }
 
 .header-avatar-menu-row.is-disabled {
@@ -23063,120 +18804,6 @@ body.is-selection-mode .mobile-tabbar {
    .samples-page-v2-sheet + .spv2-list-scroll. Pagina ja continua tanto
    em modo normal quanto selecao.) */
 
-/* Entrada do modo liga: o header verde DESLIZA de cima (opaco) em vez de surgir
-   com fade a partir do transparente (que dava flash/gap no topo) — mais natural
-   e coerente com a saida. */
-@keyframes samples-selection-header-in {
-  from {
-    transform: translateY(-100%);
-  }
-  to {
-    transform: translateY(0);
-  }
-}
-
-.samples-selection-header {
-  /* Grid simetrico [X] | 1fr | spacer: o spacer invisivel à direita tem
-     a mesma largura do botao [X] pra manter o titulo opticamente
-     centralizado na linha. 44px = alvo minimo de toque (LOT-R1). */
-  display: grid;
-  grid-template-columns: 44px 1fr 44px;
-  align-items: center;
-  gap: 1rem;
-  padding: calc(var(--app-safe-area-top, env(safe-area-inset-top)) + 0.85rem) 1.1rem 0.85rem;
-  background: var(--brand-green);
-  color: #ffffff;
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  animation: samples-selection-header-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) backwards;
-}
-
-.samples-selection-header__exit {
-  /* Botao 44x44 (alvo minimo de toque, LOT-R1) com SVG 18px centralizado
-     via grid place-items — o peso visual continua leve. */
-  display: inline-grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  padding: 0;
-  border-radius: 10px;
-  border: 0;
-  background: rgba(255, 255, 255, 0.16);
-  color: #ffffff;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  /* So transform na transition (LOT-L1, skill button-press-effect §5). */
-  transition: transform 0.15s;
-}
-
-@media (hover: hover) {
-  .samples-selection-header__exit:hover {
-    background: rgba(255, 255, 255, 0.24);
-  }
-}
-
-.samples-selection-header__exit:focus-visible {
-  background: rgba(255, 255, 255, 0.24);
-  outline: none;
-}
-
-.samples-selection-header__exit:active {
-  transform: scale(0.92);
-}
-
-.samples-selection-header__exit svg {
-  display: block;
-  width: 18px;
-  height: 18px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2.5;
-  stroke-linecap: round;
-}
-
-.samples-selection-header__title {
-  font-size: 1.05rem;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  margin: 0;
-  text-align: center;
-}
-
-/* Spacer invisivel à direita do titulo — mantem grid simetrico e o
-   titulo opticamente centralizado mesmo sem botao do lado direito. */
-.samples-selection-header__spacer {
-  display: block;
-  width: 36px;
-  height: 36px;
-  pointer-events: none;
-}
-
-/* Modo selecao de liga — DESKTOP: barra TRANSPARENTE com tipografia verde e
-   botao X verde-ESCURO (icone branco, via currentColor), no lugar do verde
-   full-width com fonte branca do mobile. Mobile intacto. */
-@media (min-width: 901px) {
-  .samples-selection-header {
-    background: transparent;
-    color: var(--brand-green);
-  }
-
-  .samples-selection-header__title {
-    color: var(--brand-green);
-    font-size: 1.5rem;
-  }
-
-  .samples-selection-header__exit {
-    background: var(--brand-green-deep);
-    color: #ffffff;
-  }
-
-  .samples-selection-header__exit:hover,
-  .samples-selection-header__exit:focus-visible {
-    background: var(--brand-green);
-  }
-}
-
 /* Contador "N selecionadas" — na mesma linha do "X registros"
    (.spv2-list-meta), aparecendo no lugar do botao filtro durante o
    modo selecao. Usa pill verde da marca pra contrastar com fundo
@@ -23289,32 +18916,6 @@ body.is-selection-mode .mobile-tabbar {
   white-space: nowrap;
 }
 
-.spv2-selection-counter__num {
-  font-size: clamp(13.5px, 3.8vw, 15px);
-  font-weight: 700;
-}
-
-.spv2-selection-counter__label {
-  opacity: 0.94;
-}
-
-.spv2-selection-counter__chevron {
-  width: 12px;
-  height: 12px;
-  margin-left: 4px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2.5;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  transition: transform 0.18s ease;
-  align-self: center;
-}
-
-.spv2-selection-counter[aria-expanded='true'] .spv2-selection-counter__chevron {
-  transform: rotate(-180deg);
-}
-
 /* Quando o popover esta aberto, eleva o contador acima do backdrop full-screen
    (z=var(--z-popover)) pra que o click no proprio botao chegue no contador
    (toggle do dropdownOpen) em vez de ser capturado pelo backdrop. Sem isso,
@@ -23332,11 +18933,6 @@ body.is-selection-mode .mobile-tabbar {
 /* Liga B1.5 — Popover de revisao das amostras selecionadas. Anchored
    ao .spv2-selection-counter via wrapper relative. Backdrop transparente
    fixed pra captar click-outside (pattern do FAB radial). */
-
-.spv2-selection-counter-wrap {
-  position: relative;
-  display: inline-flex;
-}
 
 .selected-samples-dropdown-backdrop {
   position: fixed;
@@ -24651,134 +20247,11 @@ body.is-selection-mode .mobile-tabbar {
 @media (min-width: 901px) {
   /* Botao de filtro: VERDE com icone branco (era branco + icone verde),
      igual /samples. */
-
-  /* 3. Campo de busca com sombra mais forte e SIMETRICA (mesmas camadas
-     espelhadas pra cima), igual /samples. */
-  .clients-page-v2 .hero-search-wrap .hero-search-bar {
-    box-shadow:
-      0 2px 6px rgba(10, 30, 18, 0.1),
-      0 12px 28px rgba(10, 30, 18, 0.16),
-      0 -2px 6px rgba(10, 30, 18, 0.1),
-      0 -12px 28px rgba(10, 30, 18, 0.16);
-  }
 }
 
 /* ============================================================
    Fechamento Fase 0 — contas bancárias + anexos no detalhe do cliente
    ============================================================ */
-
-/* Seletor de banco (BankSelectField) */
-.bsf-root {
-  position: relative;
-}
-.bsf-trigger {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  text-align: left;
-  cursor: pointer;
-}
-.bsf-trigger:disabled {
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-.bsf-placeholder {
-  color: rgba(0, 0, 0, 0.52);
-}
-.bsf-caret {
-  flex: 0 0 auto;
-  color: var(--brand-muted);
-  font-size: 0.8rem;
-}
-.bsf-dropdown {
-  position: absolute;
-  z-index: 30;
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
-  background: #fff;
-  border: 1px solid var(--brand-cream-line);
-  border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(19, 35, 24, 0.18);
-  padding: 0.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-.bsf-search {
-  font-size: 0.9rem;
-  padding: 0.55rem 0.8rem;
-}
-.bsf-options {
-  max-height: 220px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.bsf-empty {
-  padding: 0.6rem 0.4rem;
-  color: var(--brand-muted);
-  font-size: 0.85rem;
-}
-.bsf-option {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.6rem;
-  width: 100%;
-  text-align: left;
-  background: transparent;
-  border: 0;
-  border-radius: 8px;
-  padding: 0.5rem 0.6rem;
-  cursor: pointer;
-  font-size: 0.92rem;
-  color: var(--brand-green-ink);
-}
-.bsf-option:hover,
-.bsf-option.is-selected {
-  background: rgba(var(--brand-green-rgb), 0.08);
-}
-.bsf-option-code {
-  flex: 0 0 auto;
-  color: var(--brand-muted);
-  font-variant-numeric: tabular-nums;
-  font-size: 0.82rem;
-}
-.bsf-add-toggle {
-  background: transparent;
-  border: 0;
-  border-top: 1px solid var(--brand-cream-line);
-  padding: 0.55rem 0.4rem 0.2rem;
-  margin-top: 0.2rem;
-  color: var(--brand-green);
-  font-weight: 600;
-  font-size: 0.88rem;
-  text-align: left;
-  cursor: pointer;
-}
-.bsf-add {
-  display: grid;
-  grid-template-columns: 1fr 80px auto;
-  gap: 0.4rem;
-  align-items: center;
-  border-top: 1px solid var(--brand-cream-line);
-  padding-top: 0.5rem;
-}
-.bsf-add .app-modal-input {
-  padding: 0.5rem 0.7rem;
-  font-size: 0.9rem;
-}
-.bsf-add-save {
-  padding: 0.5rem 0.9rem;
-  font-size: 0.88rem;
-  white-space: nowrap;
-}
-.bsf-add-error {
-  grid-column: 1 / -1;
-}
 
 /* Anexos — grade de miniaturas */
 .sdv-attachment-grid {
@@ -26674,8 +22147,7 @@ body.is-selection-mode .mobile-tabbar {
   .spv2-card,
   .spv2-card-wrap,
   .cv2-card,
-  .samples-page-v2 .spv2-card.is-blend-selectable,
-  .samples-selection-header {
+  .samples-page-v2 .spv2-card.is-blend-selectable {
     animation: none;
   }
 
@@ -26709,7 +22181,6 @@ body.is-selection-mode .mobile-tabbar {
   .sdv-content-inner,
   .sdv-card,
   .rsm-card,
-  .cld-saved-overlay,
   .sdv-x-effect-mark {
     animation: none;
   }
@@ -32544,13 +28015,6 @@ body.is-selection-mode .mobile-tabbar {
   .app-shell-root:has(.fv-mtopbar) .dashboard-hero {
     padding-top: 1.1rem;
   }
-
-  /* Header do modo selecao de liga: era o topo absoluto da pagina (por isso
-     somava a safe area) e agora fica ABAIXO da faixa. Saiu de /samples no M2 do
-     RD16 (la a barra de acoes desceu pra base); segue servindo /contratos. */
-  .app-shell-root:has(.fv-mtopbar) .samples-selection-header {
-    padding-top: 0.85rem;
-  }
 }
 
 /* ── RD16: tabbar no kit institucional ──────────────────────────────────────
@@ -32651,17 +28115,5 @@ body.is-selection-mode .mobile-tabbar {
 
   .app-shell-root:has(.fv-mtopbar) .stg-header-user-role {
     color: var(--brand-green);
-  }
-
-  /* ── Busca: hairline no lugar da sombra flutuante ────────────────────
-     A pill era branca translucida com sombra difusa porque flutuava sobre o
-     verde. Sobre branco a sombra vira borrao cinza e a borda some: o kit
-     institucional define a caixa por HAIRLINE (`--fv-line`), nao por sombra.
-     Em /samples a barra virou `.fv-input` de verdade no M2 e esta regra nao a
-     alcanca mais; ela segue valendo pras listas que ainda usam a hero. */
-  .app-shell-root:has(.fv-mtopbar) .hero-search-bar {
-    background: var(--fv-surface);
-    border: 1px solid var(--fv-line);
-    box-shadow: none;
   }
 }
