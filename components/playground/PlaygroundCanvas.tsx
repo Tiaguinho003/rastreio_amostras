@@ -73,9 +73,19 @@ const COMPATIBLE_TARGETS: Partial<Record<PgNodeType, PgNodeType[]>> = {
   mistura: ['mistura', 'resultado'],
 };
 
-function initialNodeData(type: PgNodeType): Record<string, unknown> {
-  if (type === 'lote') return { sampleId: null, sacks: null, sample: null };
-  return {};
+/**
+ * PG60: só Lote tem configuração, e ela chega PRONTA de quem cria o node — a
+ * escolha do lote no 2º passo do painel. O `initialNodeData` que devolvia
+ * `{sampleId: null, sacks: null, sample: null}` morreu com o node vazio.
+ */
+function loteNodeData(sample: SampleSnapshot): LoteNodeData {
+  return {
+    sampleId: sample.id,
+    sample,
+    // Default = saldo físico total, como a liga real (F2.1). O `?? 0` não
+    // acontece: a busca só oferece lote com saldo > 0.
+    sacks: sample.availableSacks ?? 0,
+  };
 }
 
 let nodeIdCounter = 0;
@@ -104,8 +114,9 @@ function collectLots(nodes: Node[]): ReadonlyMap<string, SampleSnapshot> {
   const lots = new Map<string, SampleSnapshot>();
   for (const node of nodes) {
     if (node.type !== 'lote') continue;
+    // PG60: todo node de Lote nasce com lote — não há mais o caso do node vazio.
     const { sample } = node.data as LoteNodeData;
-    if (sample) lots.set(sample.id, sample);
+    lots.set(sample.id, sample);
   }
   return lots;
 }
@@ -154,9 +165,7 @@ export function PlaygroundCanvas({ session }: { session: SessionData }) {
       // vez de ser oferecido e recusado depois — e libera de volta quando o
       // node que o segurava é apagado.
       usedSampleIds: new Set(
-        nodes.flatMap((node) =>
-          node.type === 'lote' ? ((node.data as LoteNodeData).sample?.id ?? []) : []
-        )
+        nodes.flatMap((node) => (node.type === 'lote' ? (node.data as LoteNodeData).sample.id : []))
       ),
     }),
     [lotSource, nodes]
@@ -186,17 +195,21 @@ export function PlaygroundCanvas({ session }: { session: SessionData }) {
   }, [nodes, toast]);
 
   const createNode = useCallback(
-    (type: PgNodeType, position: { x: number; y: number }): Node => ({
+    (
+      type: PgNodeType,
+      position: { x: number; y: number },
+      data: Record<string, unknown> = {}
+    ): Node => ({
       id: nextNodeId(type),
       type,
       position,
-      data: initialNodeData(type),
+      data,
     }),
     []
   );
 
   const addNodeAtCenter = useCallback(
-    (type: PgNodeType) => {
+    (type: PgNodeType, data?: Record<string, unknown>) => {
       const bounds = hostRef.current?.getBoundingClientRect();
       if (!bounds) return;
       // Stagger leve pra nodes consecutivos não nascerem empilhados. Conta o que
@@ -208,7 +221,7 @@ export function PlaygroundCanvas({ session }: { session: SessionData }) {
         x: bounds.left + bounds.width / 2 + offset,
         y: bounds.top + bounds.height / 2 + offset,
       });
-      setNodes((current) => [...current, createNode(type, position)]);
+      setNodes((current) => [...current, createNode(type, position, data)]);
     },
     [createNode, nodes.length, screenToFlowPosition, setNodes]
   );
@@ -234,9 +247,20 @@ export function PlaygroundCanvas({ session }: { session: SessionData }) {
     }, 0);
   }, []);
 
-  const onPickNode = useCallback(
+  // PG60: dois jeitos de sair do painel com um node. Mistura e Resultado não têm
+  // o que perguntar e saem do passo 1; o Lote sai do passo 2, e quem o cria é a
+  // ESCOLHA do lote — por isso são duas funções e não uma com `if`.
+  const onPickType = useCallback(
     (type: PgNodeType) => {
       addNodeAtCenter(type);
+      closePalette();
+    },
+    [addNodeAtCenter, closePalette]
+  );
+
+  const onPickLot = useCallback(
+    (sample: SampleSnapshot) => {
+      addNodeAtCenter('lote', loteNodeData(sample));
       closePalette();
     },
     [addNodeAtCenter, closePalette]
@@ -373,7 +397,12 @@ export function PlaygroundCanvas({ session }: { session: SessionData }) {
               paleta. A PG54 segue valendo no que ela disse: nada de FRASE no
               vazio. */}
           {nodes.length === 0 ? <AddNodeButton variant="center" onOpen={openPalette} /> : null}
-          <NodePaletteSheet open={paletteOpen} onClose={closePalette} onPick={onPickNode} />
+          <NodePaletteSheet
+            open={paletteOpen}
+            onClose={closePalette}
+            onPickType={onPickType}
+            onPickLot={onPickLot}
+          />
           {connectMenu ? (
             <ConnectMenu
               state={connectMenu}

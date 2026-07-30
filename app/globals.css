@@ -29392,28 +29392,8 @@ body.is-selection-mode .mobile-tabbar {
   font-size: 0.76rem;
   font-weight: 600;
 }
-.pg-node-sacks {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-}
-.pg-node-sacks span {
-  color: var(--brand-muted);
-  font-size: 0.76rem;
-}
-.pg-node-sacks input {
-  width: 5.5rem;
-  padding: 0.3rem 0.45rem;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-sm);
-  font: inherit;
-  font-size: 0.82rem;
-  color: var(--color-ink);
-  background: var(--pg-surface);
-}
-.pg-node.has-error .pg-node-sacks input {
-  border-color: var(--color-danger);
-}
+/* 🪦 `.pg-node-sacks*` (4 regras) morreu na PG60 junto com o `<input>` sempre
+   aberto no node — ver `.pg-sacks-chip`/`.pg-sacks-pop` mais abaixo. */
 
 /* Tooltip de hover do node Lote (PG29) — só onde hover existe de verdade. */
 .pg-node-tooltip {
@@ -29443,43 +29423,168 @@ body.is-selection-mode .mobile-tabbar {
   }
 }
 
-/* ── Busca embutida do node Lote (PG30) ── */
-.pg-lot-search input {
+/* ── Edição das sacas no node (PG60) ──
+   Era um `<input>` sempre aberto dentro do node. Virou um chip que abre um
+   dropdown — `containers` §1: editar 1–2 campos de um card é dropdown inline.
+
+   O dropdown pode passar da caixa do node, e passa mesmo: o `.pg-node` não tem
+   `overflow` de propósito. Quem garante que ele não fica atrás do node vizinho é
+   o React Flow, que sobe o node selecionado (`elevateNodesOnSelect`, ligado por
+   padrão) — e clicar no chip seleciona o node. */
+.pg-sacks-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  margin-top: 0.35rem;
+  padding: 0.2rem 0.4rem 0.2rem 0.5rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-muted);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-ink);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform var(--duration-instant) var(--ease-out);
+}
+.pg-sacks-chip:active {
+  transform: scale(0.94);
+}
+.pg-sacks-chip svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: var(--brand-muted);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.pg-sacks-pop {
+  position: absolute;
+  top: calc(100% - 0.2rem);
+  left: 0.6rem;
+  z-index: 2;
+  min-width: 168px;
+  padding: 0.45rem;
+  background: var(--pg-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+}
+.pg-sacks-pop-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.pg-sacks-pop input {
   width: 100%;
-  padding: 0.35rem 0.5rem;
+  min-width: 0;
+  padding: 0.3rem 0.45rem;
   border: 1px solid var(--color-line);
   border-radius: var(--radius-sm);
   font: inherit;
-  font-size: 0.8rem;
+  font-size: 0.82rem;
+  text-align: right;
+}
+/* Erro DENTRO do campo (regra do projeto): vermelho suave na moldura, e a linha
+   de texto só embaixo. Some sozinho ao digitar um valor que cabe. */
+.pg-sacks-pop input.has-error {
+  border-color: var(--color-danger);
+  background: rgba(197, 48, 48, 0.04);
+}
+.pg-sacks-pop-unit {
+  font-size: 0.76rem;
+  color: var(--brand-muted);
+}
+.pg-sacks-confirm {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--brand-green);
+  color: #ffffff;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform var(--duration-instant) var(--ease-out);
+}
+.pg-sacks-confirm svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.pg-sacks-confirm:active {
+  transform: scale(0.9);
+}
+/* "Ativado ao editar": sem mudança válida a aplicar, o botão está apagado e não
+   afunda — clicar nele não faria nada, e o toque não deve prometer que faz. */
+.pg-sacks-confirm:disabled {
+  background: var(--color-line);
+  cursor: default;
+}
+.pg-sacks-confirm:disabled:active {
+  transform: none;
+}
+.pg-sacks-pop-error {
+  margin: 0.35rem 0 0;
+  font-size: 0.72rem;
+  color: var(--color-danger);
+}
+
+/* ── Busca de lotes (PG30, mudada de casa na PG60) ──
+   Nasceu embutida no node de Lote recém-criado, numa caixinha de 180px de altura
+   com moldura própria. Hoje é o 2º passo do painel de nodes, e o passo inteiro é
+   a lista: a moldura saiu, as linhas cresceram e quem rola é o passo.
+
+   O campo fica PARADO no topo enquanto a lista corre — `sticky` no passo, que é
+   o scrollport (o corpo do sheet parou de rolar para poder recortar a trilha). */
+.pg-lot-search {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.pg-lot-search input {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--fv-line-strong, var(--color-line));
+  border-radius: var(--fv-radius, var(--radius-sm));
+  background: var(--pg-surface);
+  font: inherit;
+  font-size: 0.88rem;
 }
 .pg-lot-search-list {
   list-style: none;
-  margin: 0.35rem 0 0;
+  margin: 0.5rem 0 0;
   padding: 0;
-  max-height: 180px;
-  overflow-y: auto;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-sm);
-  background: var(--pg-surface);
 }
 .pg-lot-search-list button {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 0.1rem;
+  gap: 0.15rem;
   width: 100%;
-  padding: 0.4rem 0.55rem;
+  padding: 0.55rem 0.6rem;
   border: 0;
+  border-radius: var(--radius-sm);
   background: transparent;
   font: inherit;
-  font-size: 0.78rem;
   text-align: left;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   transition: transform var(--duration-instant) var(--ease-out);
 }
 .pg-lot-search-list button:active {
-  transform: scale(0.98);
+  transform: scale(0.985);
 }
 @media (hover: hover) {
   .pg-lot-search-list button:hover {
@@ -29487,17 +29592,21 @@ body.is-selection-mode .mobile-tabbar {
   }
 }
 .pg-lot-search-list strong {
-  font-size: 0.82rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.9rem;
 }
 .pg-lot-search-list span {
+  font-size: 0.76rem;
   color: var(--brand-muted);
 }
 /* Estados da lista da busca real: "Buscando…", falha e vazio dividem a mesma
    caixa; só o erro muda de cor. */
 .pg-lot-search-status {
-  padding: 0.5rem 0.55rem;
+  padding: 0.6rem;
   color: var(--brand-muted);
-  font-size: 0.78rem;
+  font-size: 0.8rem;
 }
 .pg-lot-search-status.is-error {
   color: var(--color-danger);
@@ -29783,6 +29892,76 @@ body.is-selection-mode .mobile-tabbar {
 }
 .pg-nodes-picker .fv-choice {
   border-left-width: 3px;
+}
+/* PG60: só o Lote aprofunda (passo 2). O chevron avisa isso ANTES do toque — os
+   outros dois resolvem na hora e fecham o painel. O rótulo e a dica ficam na 1ª
+   coluna, o chevron na 2ª, centrado nas duas linhas. */
+.pg-nodes-picker .fv-choice.has-chevron {
+  grid-template-columns: minmax(0, 1fr) auto;
+  /* O `gap` do `.fv-choice` é o das LINHAS (0.16rem) e vale para os dois eixos —
+     coladíssimo para separar texto de chevron. */
+  column-gap: 0.6rem;
+}
+.pg-nodes-picker .fv-choice.has-chevron > :not(svg) {
+  grid-column: 1;
+}
+.pg-nodes-picker .fv-choice.has-chevron > svg {
+  grid-column: 2;
+  grid-row: 1 / -1;
+  align-self: center;
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* A trilha de dois passos (PG60), no molde do painel do contrato
+   (`containers` §1-A): o corpo do sheet vira a janela que RECORTA e para de
+   rolar; quem rola é cada passo, na mesma célula do grid, deslocado para fora.
+   O padding desce para o passo — se ficasse no corpo, o passo que sai apareceria
+   por baixo dele. */
+.bottom-sheet.pg-nodes-sheet .bottom-sheet-body {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  overflow: hidden;
+  padding: 0;
+}
+.pg-nodes-step {
+  grid-area: 1 / 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding: clamp(0.7rem, 3vw, 1rem) 0 clamp(0.25rem, 1vw, 0.4rem);
+  transition:
+    transform 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 200ms ease,
+    visibility 0s;
+}
+/* `visibility` com delay igual à duração: o passo sai do tab order DEPOIS de
+   animar, não no primeiro quadro. */
+.pg-nodes-step.is-past,
+.pg-nodes-step.is-next {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition-delay: 0s, 0s, 280ms;
+}
+.pg-nodes-step.is-past {
+  transform: translateX(-100%);
+}
+.pg-nodes-step.is-next {
+  transform: translateX(100%);
+}
+/* O título não pode encolher no passo que virou flex-column por causa da lista. */
+.pg-nodes-step > .pg-panel-title {
+  flex: none;
 }
 
 @media (min-width: 901px) {
