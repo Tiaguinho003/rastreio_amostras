@@ -12984,10 +12984,13 @@ select.samples-filter-field-input {
   opacity: 1;
 }
 
-/* Fase P3: step "created" foca o usuario no lote pra anotar na saca. */
-
-/* Botao "Ir para amostra": full-width, reusa o estilo do submit verde. */
-
+/* 🪦 2026-07-30: as ~91 classes `.new-sample-*` da PAGINA de nova amostra
+   sairam — o `NewSampleModal` foi migrado para o kit FV (`app-modal*` +
+   `fv-form-*`) e nenhuma delas tinha consumidor. Sobreviveram CINCO, cada uma
+   conferida no componente dono: `.new-sample-sheet` e `.new-sample-step-content`
+   (esta tambem no `CameraSheet`), `.new-sample-step-body-content{,-details}`
+   (usadas como STRING DE SELETOR no `AppShell`/`ViewportDebugOverlay`, para achar
+   o scroller) e esta aqui. Junto foram 12 `@keyframes` que so elas animavam. */
 .new-sample-label-print-card {
   position: relative;
   overflow: hidden;
@@ -21038,19 +21041,12 @@ select.samples-filter-field-input {
   }
 }
 
-/* === Fase 4: Modal de inativação de user com reatribuição === */
-
-/* Header */
-
-/* Body */
-
-/* Tabela */
-
-/* Inline toast */
-
-/* Action bar */
-
-/* Footer */
+/* 🪦 2026-07-30: `.inactivate-user-modal*` (33 classes) saiu. O responsavel do
+   cliente virou OPCIONAL, e com isso a tela de REATRIBUICAO — a tabela de
+   clientes, o seletor de destinatario, o toast inline e a barra de acoes —
+   deixou de existir: inativar virou motivo + confirmar. O
+   `InactivateUserModal.tsx` e hoje um wrapper de 49 linhas com ZERO `className`.
+   O que ficou abaixo e o dialogo que ele monta, vivo e inteiro. */
 
 /* === Pop-up de confirmação final === */
 .inactivate-confirm-dialog-backdrop {
