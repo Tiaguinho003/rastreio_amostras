@@ -55,6 +55,7 @@ import type {
 } from '../../lib/types';
 import { DetailOverlay } from '../DetailOverlay';
 import { ApprovalLabelForm } from './ApprovalLabelForm';
+import { ContractDocumentView, useContractDocumentPages } from './ContractDocumentView';
 import { ContractEspelhoTab, StoredEspelhoFrame } from './ContractEspelhoTab';
 import {
   agendaColor,
@@ -191,8 +192,10 @@ export function SaleContractDetailsModal({
     setMounted((prev) => (prev[activeTab] ? prev : { ...prev, [activeTab]: true }));
   }, [activeTab]);
 
-  // Documento (PDF on-demand, D126) — mesmo pipeline do antigo "Visualizar".
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  // Documento (PDF on-demand, D126) — mesmo pipeline do antigo "Visualizar". O blob
+  // (e não uma object URL) porque quem desenha é o `ContractDocumentView`, que
+  // rasteriza — RC-D130.
+  const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<{ blob: Blob; fileName: string } | null>(null);
@@ -258,19 +261,21 @@ export function SaleContractDetailsModal({
     };
   }, [open, session, contract.id, reloadNonce]);
 
+  // 🔴 O `reloadNonce` está aqui de propósito: o "Gerar etiqueta" da aba Aprovação
+  // grava o **Nº compra** no contrato, e o PDF IMPRIME o Nº compra. Sem esta
+  // dependência, voltar para a aba Detalhes mostrava o documento anterior à gravação —
+  // o papel dizendo uma coisa e a etiqueta que acabou de sair dizendo outra.
   useEffect(() => {
     if (!open) return;
     let aborted = false;
-    let objectUrl: string | null = null;
     (async () => {
       setPdfError(null);
-      setPdfUrl(null);
+      setPdfBlob(null);
       try {
         const { blob, fileName } = await downloadSaleContractPdf(session, contract.id);
         if (aborted) return;
         fileRef.current = { blob, fileName };
-        objectUrl = URL.createObjectURL(blob);
-        setPdfUrl(objectUrl);
+        setPdfBlob(blob);
       } catch (cause) {
         if (!aborted) {
           setPdfError(
@@ -281,9 +286,13 @@ export function SaleContractDetailsModal({
     })();
     return () => {
       aborted = true;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [open, session, contract.id]);
+  }, [open, session, contract.id, reloadNonce]);
+
+  // RC-D130: o documento vira imagem de página. Antes era `<iframe src={blobUrl}>`, que
+  // entrega o PDF embrulhado no visualizador do navegador — barra escura, miniaturas e
+  // fundo cinza em volta da folha.
+  const contractDocument = useContractDocumentPages(pdfBlob);
 
   const view = fresh ?? contract;
   const meta = STATUS_META[view.status];
@@ -291,8 +300,11 @@ export function SaleContractDetailsModal({
   const agendaTone = agendaColor(agenda);
 
   // RC-D126: o prefill só existe quando a aprovação foi pedida — o endpoint responde 409
-  // quando não (é a mesma pré-condição, não um erro a mostrar).
-  const wantsPrefill = mounted.aprovacao && canManage && view.requiresApproval;
+  // quando não (é a mesma pré-condição, não um erro a mostrar). O `status === 'EMITIDO'`
+  // entra pelo mesmo motivo: o gate AP21 do prefill é o mesmo do envio, então buscar num
+  // contrato finalizado só produziria um 409 a exibir. A aba escreve a frase em vez disso.
+  const wantsPrefill =
+    mounted.aprovacao && canManage && view.requiresApproval && view.status === 'EMITIDO';
   useEffect(() => {
     if (!open || !wantsPrefill) return;
     let aborted = false;
@@ -545,7 +557,7 @@ export function SaleContractDetailsModal({
                   onClick={() =>
                     fileRef.current && downloadFile(fileRef.current.blob, fileRef.current.fileName)
                   }
-                  disabled={!pdfUrl}
+                  disabled={!pdfBlob}
                 >
                   Baixar
                 </button>
@@ -553,37 +565,45 @@ export function SaleContractDetailsModal({
                   type="button"
                   className="ctr-btn"
                   onClick={() => void handleExport()}
-                  disabled={!pdfUrl || busy}
+                  disabled={!pdfBlob || busy}
                 >
                   {busy ? 'Exportando...' : 'Exportar'}
                 </button>
               </div>
             </div>
 
-            {pdfError ? <p className="sdv-modal-error">{pdfError}</p> : null}
-            {pdfUrl ? (
-              <iframe
-                className="ctr-doc-frame"
-                src={pdfUrl}
-                title={`Documento do contrato ${view.contractNumber}`}
+            {pdfError ? (
+              <p className="sdv-modal-error">{pdfError}</p>
+            ) : (
+              <ContractDocumentView
+                document={contractDocument}
+                label={`o contrato ${view.contractNumber}`}
+                loadingLabel="Gerando o documento..."
+                onFallbackDownload={
+                  fileRef.current
+                    ? () =>
+                        fileRef.current &&
+                        downloadFile(fileRef.current.blob, fileRef.current.fileName)
+                    : null
+                }
               />
-            ) : !pdfError ? (
-              <p className="ctr-modal-loading">Gerando o documento...</p>
-            ) : null}
-            {/* O <iframe> de PDF não renderiza em todo aparelho — Baixar e Exportar são
-                a saída, e dizer isso evita a leitura de que a aba veio vazia. */}
-            <p className="ctr-doc-hint">
-              Se o documento não aparecer no seu aparelho, use Baixar ou Exportar.
-            </p>
+            )}
           </div>
 
           {/* ── Aprovação (RC-D126/D127) ── */}
           {mounted.aprovacao ? (
             <div {...panelProps('aprovacao')}>
               {view.requiresApproval ? (
-                view.status === 'WASH_OUT' ? (
+                // 🔴 A etiqueta só sai em EMITIDO (AP21, `APPROVAL_ELIGIBLE_STATUSES`) — e o
+                // prefill é gateado pelo MESMO enum: fora dele o endpoint responde 409. Como
+                // a busca acontece ao ativar a aba, e não num clique, um 409 aqui viraria um
+                // banner de erro cru que ninguém pediu. Cada situação escreve a própria
+                // frase, ANTES de qualquer busca (o `wantsPrefill` também confere o status).
+                view.status !== 'EMITIDO' ? (
                   <p className="ctr-details-empty">
-                    Contrato cancelado — a etiqueta de aprovação não sai mais.
+                    {view.status === 'WASH_OUT'
+                      ? 'Contrato cancelado — a etiqueta de aprovação não sai mais.'
+                      : 'Contrato finalizado — a etiqueta de aprovação só sai enquanto ele está emitido. Reabra o contrato para gerá-la.'}
                   </p>
                 ) : !canManage ? (
                   <p className="ctr-details-empty">Este contrato exige aprovação.</p>

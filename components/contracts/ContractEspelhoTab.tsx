@@ -14,6 +14,7 @@ import {
 import { downloadFile, shareOrDownloadFile } from '../../lib/share-blob';
 import type { SaleContract, SaleContractTimelineItem, SessionData } from '../../lib/types';
 
+import { ContractDocumentView, useContractDocumentPages } from './ContractDocumentView';
 import { snapshotName } from './SaleContractCard';
 
 // Aba ESPELHO do detalhe do contrato (RC-D124/D125). Ela absorveu as DUAS superfícies
@@ -126,7 +127,7 @@ function EspelhoSideBlock({
   // sobre um que ficou desatualizado). Enquanto vale, o bloco mostra a PRÉVIA — que ainda
   // não é entrega nenhuma.
   const [generating, setGenerating] = useState(false);
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -146,17 +147,16 @@ function EspelhoSideBlock({
 
   useEffect(() => {
     if (showsFields) {
-      setPdfUrl(null);
+      setPdfBlob(null);
       setError(null);
       fileRef.current = null;
       return;
     }
     let aborted = false;
-    let objectUrl: string | null = null;
     (async () => {
       setLoading(true);
       setError(null);
-      setPdfUrl(null);
+      setPdfBlob(null);
       fileRef.current = null;
       try {
         const { blob, fileName } = await downloadEspelhoPdf(
@@ -167,8 +167,7 @@ function EspelhoSideBlock({
         );
         if (aborted) return;
         fileRef.current = { blob, fileName };
-        objectUrl = URL.createObjectURL(blob);
-        setPdfUrl(objectUrl);
+        setPdfBlob(blob);
       } catch (cause) {
         if (!aborted) {
           setError(cause instanceof ApiError ? cause.message : 'Não foi possível gerar o espelho.');
@@ -179,9 +178,12 @@ function EspelhoSideBlock({
     })();
     return () => {
       aborted = true;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [session, contract.id, side, showsFields, showsPreview, deliveredId]);
+
+  // RC-D130: o espelho também deixa de ser `<iframe>` e vira página rasterizada — o
+  // mesmo desenho do contrato e da conferência da emissão.
+  const espelhoDocument = useContractDocumentPages(pdfBlob);
 
   // D127: audita ("Espelho exportado" no timeline) SÓ na ENTREGA concluída — não na
   // intenção.
@@ -258,14 +260,15 @@ function EspelhoSideBlock({
         />
       ) : (
         <>
-          {loading ? <p className="ctr-modal-loading">Gerando o espelho...</p> : null}
-          {pdfUrl ? (
-            <iframe
-              className="ctr-doc-frame"
-              src={pdfUrl}
-              title={`Espelho de Corretagem do contrato ${contract.contractNumber} — ${espelhoSideLabel(side)}`}
+          {loading ? (
+            <p className="ctr-modal-loading">Gerando o espelho...</p>
+          ) : (
+            <ContractDocumentView
+              document={espelhoDocument}
+              label={`o espelho de ${espelhoSideLabel(side).toLowerCase()} do contrato ${contract.contractNumber}`}
+              onFallbackDownload={fileRef.current ? () => void handleDownload() : null}
             />
-          ) : null}
+          )}
           {stale ? (
             <p className="ctr-doc-warning">
               O contrato mudou depois deste espelho. Os valores aqui são os que foram entregues;
@@ -275,8 +278,8 @@ function EspelhoSideBlock({
           <p className="ctr-doc-hint">
             {showsStored
               ? delivered?.expiresAt
-                ? `Espelho guardado. Disponível até ${brtDateOnly(delivered.expiresAt)} — 15 dias depois do fim do contrato. Se a prévia não aparecer no seu aparelho, use Exportar ou Baixar.`
-                : 'Espelho guardado enquanto o contrato estiver em andamento; sai 15 dias depois de ele terminar. Se a prévia não aparecer no seu aparelho, use Exportar ou Baixar.'
+                ? `Espelho guardado. Disponível até ${brtDateOnly(delivered.expiresAt)} — 15 dias depois do fim do contrato.`
+                : 'Espelho guardado enquanto o contrato estiver em andamento; sai 15 dias depois de ele terminar.'
               : 'Ainda não foi entregue: o espelho só fica guardado depois de Baixar ou Exportar.'}
           </p>
           <div className="ctr-details-actions">
@@ -290,11 +293,25 @@ function EspelhoSideBlock({
                 Gerar de novo
               </button>
             ) : null}
+            {/* 🔴 A VOLTA do "Gerar de novo". Ele liga o `generating`, que só desliga
+                quando o `deliveredId` MUDA — e sobre um espelho já entregue ele não
+                muda. Sem esta saída, mudar de ideia obrigava a fechar o detalhe
+                inteiro. Só aparece quando há um guardado atrás da prévia. */}
+            {showsPreview && deliveredId ? (
+              <button
+                type="button"
+                className="ctr-btn"
+                disabled={busy}
+                onClick={() => setGenerating(false)}
+              >
+                Voltar ao guardado
+              </button>
+            ) : null}
             <button
               type="button"
               className="ctr-btn"
               onClick={() => void handleDownload()}
-              disabled={!pdfUrl || busy}
+              disabled={!pdfBlob || busy}
             >
               Baixar
             </button>
@@ -302,7 +319,7 @@ function EspelhoSideBlock({
               type="button"
               className="ctr-btn"
               onClick={() => void handleExport()}
-              disabled={!pdfUrl || busy}
+              disabled={!pdfBlob || busy}
             >
               {busy ? 'Exportando...' : 'Exportar'}
             </button>
@@ -332,24 +349,22 @@ export function StoredEspelhoFrame({
   side: EspelhoSide;
   contractNumber: string;
 }) {
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<{ blob: Blob; fileName: string } | null>(null);
 
   useEffect(() => {
     let aborted = false;
-    let objectUrl: string | null = null;
     (async () => {
       setError(null);
-      setPdfUrl(null);
+      setPdfBlob(null);
       fileRef.current = null;
       try {
         const { blob, fileName } = await downloadEspelhoPdf(session, contractId, side, { logId });
         if (aborted) return;
         fileRef.current = { blob, fileName };
-        objectUrl = URL.createObjectURL(blob);
-        setPdfUrl(objectUrl);
+        setPdfBlob(blob);
       } catch (cause) {
         if (!aborted) {
           setError(cause instanceof ApiError ? cause.message : 'Não foi possível abrir o espelho.');
@@ -358,27 +373,33 @@ export function StoredEspelhoFrame({
     })();
     return () => {
       aborted = true;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [session, contractId, logId, side]);
 
+  const storedDocument = useContractDocumentPages(pdfBlob);
+
   return (
     <div className="ctr-tl-espelho">
-      {error ? <p className="sdv-modal-error">{error}</p> : null}
-      {pdfUrl ? (
-        <iframe
-          className="ctr-doc-frame"
-          src={pdfUrl}
-          title={`Espelho de Corretagem do contrato ${contractNumber} — ${espelhoSideLabel(side)}`}
+      {error ? (
+        <p className="sdv-modal-error">{error}</p>
+      ) : (
+        <ContractDocumentView
+          document={storedDocument}
+          label={`o espelho de ${espelhoSideLabel(side).toLowerCase()} do contrato ${contractNumber}`}
+          loadingLabel="Abrindo o espelho..."
+          onFallbackDownload={
+            fileRef.current
+              ? () =>
+                  fileRef.current && downloadFile(fileRef.current.blob, fileRef.current.fileName)
+              : null
+          }
         />
-      ) : !error ? (
-        <p className="ctr-modal-loading">Abrindo o espelho...</p>
-      ) : null}
+      )}
       <div className="ctr-details-actions">
         <button
           type="button"
           className="ctr-btn"
-          disabled={!pdfUrl || busy}
+          disabled={!pdfBlob || busy}
           onClick={() => {
             if (fileRef.current) downloadFile(fileRef.current.blob, fileRef.current.fileName);
           }}
@@ -388,7 +409,7 @@ export function StoredEspelhoFrame({
         <button
           type="button"
           className="ctr-btn"
-          disabled={!pdfUrl || busy}
+          disabled={!pdfBlob || busy}
           onClick={() => {
             if (!fileRef.current) return;
             setBusy(true);

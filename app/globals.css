@@ -28204,9 +28204,9 @@ body.is-selection-mode .mobile-tabbar {
    que so existiam para empilhar aquilo: `.ctr-details-cols`, `.ctr-details-doc`,
    `.ctr-details-info`, `.ctr-details-doc-actions` e `.ctr-details-text` (as
    secoes Textos/Identificacao/partes sairam — o PDF ja as imprime).
-   O `.ctr-details-doc-frame` tambem: agora ha UM molde de previa de PDF nesta
-   tela, o `.ctr-doc-frame`, que o contrato, os blocos do espelho e a releitura
-   do historico compartilham. ── */
+   O `.ctr-details-doc-frame` tambem: ha UM molde de documento nesta tela, e
+   desde a RC-D130 ele nao e mais um `<iframe>` — sao as paginas rasterizadas
+   (`.ctr-doc-pages`/`.ctr-doc-page`), as mesmas da conferencia da emissao. ── */
 .ctr-details-head {
   display: flex;
   align-items: center;
@@ -28427,18 +28427,16 @@ body.is-selection-mode .mobile-tabbar {
 }
 
 /* 🪦 RC-D125: `.ctr-doc-modal` e `.ctr-doc-content` sairam com o
-   EspelhoCorretagemModal — o espelho deixou de ser um modal central e virou o
-   conteudo da aba. O `.ctr-doc-frame` FICOU e passou a ser o molde UNICO de
-   previa de PDF do detalhe: o contrato (aba Detalhes), cada bloco da aba Espelho
-   e a releitura aberta pelo historico usam este. Mais alto que na epoca do modal
-   porque agora ele e o conteudo da aba, nao um trecho dentro de um dialogo. */
-.ctr-doc-frame {
-  width: 100%;
-  height: clamp(320px, 58vh, 700px);
-  border: 1px solid var(--brand-cream-line);
-  border-radius: 12px;
-  background: #fff;
-}
+   EspelhoCorretagemModal. 🪦 RC-D130 (2026-07-30): o `.ctr-doc-frame` foi atras
+   deles — o detalhe usava `<iframe src={blobUrl}>` e isso entrega o PDF dentro do
+   VISUALIZADOR DO NAVEGADOR: barra escura com zoom/girar/imprimir, painel de
+   miniaturas e fundo cinza-escuro em volta da folha. Chrome de aplicativo por
+   cima de um papel, e chrome que nao se tematiza. Os tres lugares do detalhe (o
+   contrato, cada bloco do espelho e a releitura do historico) passaram a usar
+   `.ctr-doc-pages`/`.ctr-doc-page`, as paginas rasterizadas que a conferencia da
+   emissao ja usava desde a RC-D28. **Nao ha mais `<iframe>` de PDF no dominio de
+   contratos.** (Sobrou um fora dele: o preview de anexo do cliente,
+   `ClientAttachmentPreviewModal` — outra tela, outra rodada.) */
 .ctr-doc-hint {
   margin: 0;
   font-size: 0.74rem;
@@ -28458,9 +28456,12 @@ body.is-selection-mode .mobile-tabbar {
   line-height: 1.35;
   color: #7a6220;
 }
-/* RC-D27/D28: confirmacao PELO DOCUMENTO antes de emitir. Diferente da previa do
-   Espelho (iframe), aqui o PDF vem RASTERIZADO em <img> pelo pdfjs — aparece em
-   qualquer aparelho, inclusive onde o iframe de PDF nao renderiza.
+/* RC-D27/D28: confirmacao PELO DOCUMENTO antes de emitir — e, desde a RC-D130, o
+   molde de TODO documento do dominio (o contrato na aba Detalhes, cada bloco do
+   Espelho e a releitura do Historico). O PDF vem RASTERIZADO em <img> pelo pdfjs:
+   aparece em qualquer aparelho, inclusive onde o `<iframe>` de PDF nao renderiza,
+   e sem a barra/miniaturas/fundo escuro do visualizador do navegador. Componente
+   unico: `components/contracts/ContractDocumentView.tsx`.
 
    🪦 RC-D53 (2026-07-28): as quatro regras do `.ctr-confirm-doc` sairam daqui. A
    conferencia deixou de ser um modal central por cima do painel e virou o 2o
@@ -28471,9 +28472,7 @@ body.is-selection-mode .mobile-tabbar {
    backdrop nenhum aqui** — e com isso morre a excecao de "backdrop cheio sobre
    painel" que a skill `containers` §2 registrava.
 
-   O que sobrou abaixo (`.ctr-doc-pages`, `.ctr-doc-page`, `.ctr-doc-fallback`)
-   segue vivo, agora dentro do passo. Ja `.ctr-doc-frame`, `.ctr-doc-hint` e
-   `.ctr-doc-warning` sao do DETALHE (RC-D125), nao desta tela. */
+   `.ctr-doc-hint` e `.ctr-doc-warning` sao do DETALHE (RC-D125). */
 .ctr-doc-pages {
   display: flex;
   flex-direction: column;
@@ -28485,6 +28484,13 @@ body.is-selection-mode .mobile-tabbar {
   border-radius: 12px;
   background: var(--fv-canvas);
   -webkit-overflow-scrolling: touch;
+}
+/* Mesmo motivo do `.ctr-step-doc` acima: quem rola e o corpo do overlay. Um
+   scroller de paginas dentro dele poria duas barras aninhadas, e a de dentro
+   pararia de rolar assim que o dedo saisse da folha. */
+.ctr-details-panels .ctr-doc-pages {
+  overflow: visible;
+  min-height: 0;
 }
 .ctr-doc-page {
   display: block;
@@ -29028,15 +29034,22 @@ body.is-selection-mode .mobile-tabbar {
   background: var(--pg-surface);
   border: 2px solid var(--brand-green);
   border-radius: 18px;
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-md);
   transition:
     border-color var(--duration-fast) var(--ease-out),
     box-shadow var(--duration-fast) var(--ease-out);
 }
-/* Estados são da MOLDURA — a frase que explicava cada um saiu na PG61. */
+/* Sem porta de ENTRADA o node é uma fonte, e a forma diz isso: lado esquerdo
+   muito mais arredondado, molde do node-gatilho do n8n (PG62). Hoje só o Lote —
+   nada pode ser conectado NELE, então ali não há círculo nem o que ancorar. */
+.pg-node-box.is-trigger {
+  border-radius: 32px 18px 18px 32px;
+}
+/* Estados são da MOLDURA — a frase que explicava cada um saiu na PG61. O
+   tracejado saiu na PG62: a borda é sempre verde e sempre em linha; o que muda
+   no incompleto é a INTENSIDADE do verde, não o traço. */
 .pg-node-box.is-incomplete {
-  border-style: dashed;
-  border-color: var(--color-line);
+  border-color: color-mix(in srgb, var(--brand-green) 38%, var(--pg-surface));
 }
 .pg-node-box.has-error {
   border-color: var(--color-danger);
@@ -29044,7 +29057,7 @@ body.is-selection-mode .mobile-tabbar {
 /* Só o Resultado usa `is-ready`, e nele o quadrado inteiro abre a ficha
    (`onNodeClick` do canvas) — daí o cursor. */
 .pg-node-box.is-ready {
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-lg);
   cursor: pointer;
 }
 .pg-node-icon {
@@ -29105,50 +29118,60 @@ body.is-selection-mode .mobile-tabbar {
   line-height: 1.3;
 }
 
-/* ── Portas (PG61) ──
-   A da esquerda é um ponto discreto. A da DIREITA é o coto com "+": ela É a
-   porta, não um enfeite ao lado dela, e por isso o arraste começa no próprio
-   "+" — que é o ponto grande e óbvio de onde puxar. Consequência de ser a porta:
-   é dali que a edge nasce, então o coto PERMANECE depois de conectado (esconder
-   faria o ponto de ancoragem saltar de volta para a borda do quadrado) e segue
-   servindo, porque um node pode alimentar mais de um destino. */
-.pg-node-box .react-flow__handle-right {
-  display: grid;
-  place-items: center;
-  right: -34px;
-  width: 20px;
-  height: 20px;
+/* ── Portas e coto de conexão (PG61, redesenhados na PG62) ──
+   A PORTA é o círculo pousado na borda — dos dois lados, e sempre presente
+   enquanto o node tiver aquela porta. É dela que a edge nasce e é dela que se
+   puxa a próxima, porque um node pode alimentar mais de um destino.
+
+   O COTO (linha curta + "+") é outra coisa: é a OFERTA de conectar, e some no
+   instante em que a saída ganha destino — fica só a linha da edge, saindo do
+   círculo. Na PG61 o "+" era a própria porta e por isso não podia sumir: a
+   âncora da edge saltaria de volta para a borda do quadrado. Separar os dois é
+   o que destrava o comportamento. */
+.pg-node-box .react-flow__handle {
+  width: 11px;
+  height: 11px;
+  border: 2px solid var(--brand-green);
   background: var(--pg-surface);
-  border: 1.5px solid var(--brand-green);
+  border-radius: 50%;
+  transition:
+    background var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out);
 }
-.pg-node-box .react-flow__handle-right svg {
-  width: 12px;
-  height: 12px;
-  fill: none;
-  stroke: var(--brand-green);
-  stroke-width: 2.4;
-  stroke-linecap: round;
-  pointer-events: none;
+.pg-node-box .react-flow__handle-left {
+  left: -6px;
 }
-/* A linha do coto, ligando a borda do quadrado ao "+". Mesma cor da edge, pra
-   ler como o começo dela. */
-.pg-node-box .react-flow__handle-right::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  right: 100%;
-  width: 26px;
-  height: 2px;
-  background: var(--pg-edge);
-  transform: translateY(-50%);
+.pg-node-box .react-flow__handle-right {
+  right: -6px;
+}
+.pg-node-box.is-incomplete .react-flow__handle {
+  border-color: color-mix(in srgb, var(--brand-green) 38%, var(--pg-surface));
 }
 @media (hover: hover) {
-  .pg-node-box .react-flow__handle-right:hover {
+  /* Cresce e enche: o alvo real de arrasto é maior que os 11px que se veem, e
+     o hover confirma que é dali que se puxa. */
+  .pg-node-box .react-flow__handle:hover {
     background: var(--brand-green);
+    transform: scale(1.25);
   }
-  .pg-node-box .react-flow__handle-right:hover svg {
-    stroke: var(--pg-surface);
-  }
+}
+
+/* O coto: a linha (o `::before`) e o "+" na ponta. Começa depois do círculo —
+   `calc(100% + 6px)` é a borda direita dele — para não roubar o mousedown que
+   inicia a conexão. */
+.pg-node-stub {
+  position: absolute;
+  top: 50%;
+  left: calc(100% + 6px);
+  display: flex;
+  align-items: center;
+  transform: translateY(-50%);
+}
+.pg-node-stub::before {
+  content: '';
+  width: 22px;
+  height: 2px;
+  background: var(--pg-edge);
 }
 
 /* ── Barra de ações no hover (PG61) ──
@@ -29441,20 +29464,25 @@ body.is-selection-mode .mobile-tabbar {
   border-left-color: var(--pg-node-resultado);
 }
 
-/* ── Os dois "+" que abrem o painel de nodes (PG58/PG59) ──
-   Substituem a paleta docada na esquerda (`.pg-palette*`, apagada junto com o
-   arraste que ela servia).
+/* ── Os "+" do Simulador (PG58/PG59, unificados na PG62) ──
+   Substituíram a paleta docada na esquerda (`.pg-palette*`, apagada junto com o
+   arraste que ela servia). São TRÊS lugares e UM desenho: quadradinho de papel
+   branco, cantos suaves, sombra e o "+" verde. Muda só o tamanho.
 
-   Por que os dois não são iguais: o do canto divide o topo do canvas com o
-   "▶ Executar" e com os Controls, então usa a pele dos flutuantes (papel branco,
-   hairline, sombra) pra não disputar a atenção com a ação principal. O do centro
-   é a ÚNICA coisa clicável num canvas vazio — ali não há com quem competir, e um
-   círculo branco sobre papel branco não se ofereceria. */
+   Até a PG61 eram dois desenhos — o do centro era um círculo verde de 64px, o do
+   canto um círculo branco de 34px. Fazem a mesma pergunta ("qual node?"), e dois
+   desenhos obrigavam a aprender dois botões para o mesmo ato. O branco também é
+   o que faz o coto (`is-stub`) parecer o que ele é: um alvo POUSADO sobre a
+   linha, não um pedaço dela. */
 .pg-add-node {
   display: grid;
   place-items: center;
   padding: 0;
-  border-radius: 50%;
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+  background: var(--pg-surface);
+  color: var(--brand-green);
+  box-shadow: var(--shadow-md);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   transition: transform var(--duration-fast) var(--ease-out);
@@ -29462,25 +29490,35 @@ body.is-selection-mode .mobile-tabbar {
 .pg-add-node svg {
   fill: none;
   stroke: currentColor;
+  stroke-width: 2.2;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
+/* 🔴 O `background` precisa ser reafirmado no hover: o reset global tem um
+   `button:hover { background: transparent }` (0,1,1) que vence uma classe
+   (0,1,0) e apagaria o papel branco. Vale para todo botão colorido do canvas. */
+@media (hover: hover) {
+  .pg-add-node:hover {
+    background: var(--pg-surface);
+    transform: scale(1.08);
+  }
+  .pg-add-node.is-center:hover {
+    transform: translate(-50%, -50%) scale(1.08);
+  }
+}
+
 .pg-add-node.is-corner {
-  width: 34px;
-  height: 34px;
-  border: 1px solid var(--color-line);
-  background: var(--pg-surface);
-  color: var(--brand-green);
-  box-shadow: var(--shadow-md);
+  width: 32px;
+  height: 32px;
 }
 .pg-add-node.is-corner svg {
-  width: 18px;
-  height: 18px;
-  stroke-width: 2;
+  width: 17px;
+  height: 17px;
 }
 .pg-add-node.is-corner:active {
   transform: scale(0.92);
 }
+
 .pg-add-node.is-center {
   position: absolute;
   top: 50%;
@@ -29492,23 +29530,36 @@ body.is-selection-mode .mobile-tabbar {
      Sem o token o pane ganharia e comeria o clique — o botão apareceria (o pane
      é transparente) e não responderia. Mesmo token que a paleta docada usava. */
   z-index: var(--z-dropdown);
-  /* O `translate` fica NO transform base porque o :active o reescreve inteiro —
-     um `scale` sozinho ali jogaria o botão pro canto de baixo à direita. */
+  /* O `translate` fica NO transform base porque :hover e :active o reescrevem
+     inteiro — um `scale` sozinho ali jogaria o botão pro canto de baixo. */
   transform: translate(-50%, -50%);
-  width: 64px;
-  height: 64px;
-  border: 0;
-  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
-  color: var(--pg-surface);
-  box-shadow: var(--shadow-lg);
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
 }
 .pg-add-node.is-center svg {
-  width: 30px;
-  height: 30px;
-  stroke-width: 1.9;
+  width: 22px;
+  height: 22px;
 }
 .pg-add-node.is-center:active {
   transform: translate(-50%, -50%) scale(0.94);
+}
+
+/* O da ponta do coto: o menor dos três, para não competir com o quadrado do
+   node que o carrega. */
+.pg-add-node.is-stub {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  box-shadow: var(--shadow-sm);
+}
+.pg-add-node.is-stub svg {
+  width: 13px;
+  height: 13px;
+  stroke-width: 2.6;
+}
+.pg-add-node.is-stub:active {
+  transform: scale(0.9);
 }
 
 /* ── Menu de compatíveis (PG26) ── */
@@ -29553,14 +29604,17 @@ body.is-selection-mode .mobile-tabbar {
   }
 }
 
-/* ── Pill de execução (PG28/PG36) ── */
+/* ── Botão de execução (PG28/PG36, reformado na PG62) ──
+   Era uma pílula (`--radius-pill`). Virou um botão de cantos suaves: a pílula
+   pedia leitura de "chip/filtro", e este é o gatilho do ritual da página. O
+   nome da classe fica — renomear custaria o JSX e o CSS por nada. */
 .pg-execute-pill {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.65rem 1.7rem;
+  padding: 0.6rem 1.5rem;
   border: 0;
-  border-radius: var(--radius-pill);
+  border-radius: 10px;
   background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
   color: var(--pg-surface);
   font: inherit;
@@ -29570,6 +29624,21 @@ body.is-selection-mode .mobile-tabbar {
   box-shadow: var(--shadow-lg);
   -webkit-tap-highlight-color: transparent;
   transition: transform var(--duration-fast) var(--ease-out);
+}
+/* 🔴 O hover CRESCE, não troca de cor — e o `background` tem que ser repetido
+   aqui: o reset global (`button:hover { background: transparent }`, 0,1,1)
+   vencia a classe (0,1,0) e apagava o verde, deixando o botão branco. Era o
+   único lugar onde a regra do `button-press-effect` estava sendo quebrada, e
+   por um reset, não por escolha. */
+@media (hover: hover) {
+  /* Sem `:not(:disabled)` no background: desabilitado ele fica apagado por
+     `opacity`, e é o VERDE apagado que se quer ver — não um branco. */
+  .pg-execute-pill:hover {
+    background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
+  }
+  .pg-execute-pill:hover:not(:disabled) {
+    transform: scale(1.05);
+  }
 }
 .pg-execute-pill:active {
   transform: scale(0.96);
@@ -29699,24 +29768,52 @@ body.is-selection-mode .mobile-tabbar {
    arquivo e, com especificidade igual, venceria pela ordem. */
 .pg-nodes-picker.fv-choice-group {
   grid-template-columns: minmax(0, 1fr);
+  gap: 0.6rem;
 }
+/* PG62: o cartão virou uma LINHA de três colunas — ícone · (rótulo + dica) ·
+   chevron —, mais alta e com ar. O ícone é o mesmo glifo que o node vai ter no
+   canvas (`NODE_ICONS`), então o cartão é o retrato do que o toque produz e não
+   só o nome dele. O `grid-column: 1` genérico do `.fv-choice` empilharia tudo
+   numa coluna só; por isso cada peça declara a sua. */
 .pg-nodes-picker .fv-choice {
   border-left-width: 3px;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-content: center;
+  column-gap: 0.75rem;
+  min-height: 62px;
+  padding: 0.7rem 0.8rem;
+}
+.pg-nodes-icon {
+  grid-column: 1;
+  grid-row: 1 / -1;
+  align-self: center;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: var(--color-surface-muted);
+}
+.pg-nodes-icon svg {
+  width: 21px;
+  height: 21px;
+  fill: none;
+  stroke: var(--brand-green);
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.pg-nodes-picker .fv-choice-label,
+.pg-nodes-picker .fv-choice-hint {
+  grid-column: 2;
 }
 /* PG60: só o Lote aprofunda (passo 2). O chevron avisa isso ANTES do toque — os
-   outros dois resolvem na hora e fecham o painel. O rótulo e a dica ficam na 1ª
-   coluna, o chevron na 2ª, centrado nas duas linhas. */
+   outros dois resolvem na hora e fecham o painel. */
 .pg-nodes-picker .fv-choice.has-chevron {
-  grid-template-columns: minmax(0, 1fr) auto;
-  /* O `gap` do `.fv-choice` é o das LINHAS (0.16rem) e vale para os dois eixos —
-     coladíssimo para separar texto de chevron. */
-  column-gap: 0.6rem;
-}
-.pg-nodes-picker .fv-choice.has-chevron > :not(svg) {
-  grid-column: 1;
+  grid-template-columns: auto minmax(0, 1fr) auto;
 }
 .pg-nodes-picker .fv-choice.has-chevron > svg {
-  grid-column: 2;
+  grid-column: 3;
   grid-row: 1 / -1;
   align-self: center;
   width: 18px;
@@ -29726,6 +29823,27 @@ body.is-selection-mode .mobile-tabbar {
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+@media (hover: hover) {
+  .pg-nodes-picker .fv-choice:hover {
+    /* Reafirmado por causa do `button:hover { background: transparent }` do
+       reset global, que vence a classe do kit por especificidade. */
+    background: #ffffff;
+    border-color: var(--brand-green);
+    border-left-color: var(--brand-green);
+    box-shadow: var(--shadow-sm);
+  }
+  /* O acento por tipo (PG34) volta a mandar na borda esquerda no hover — sem
+     isto o `border-color` acima apagaria a única cor do cartão. */
+  .pg-nodes-picker .fv-choice.pg-accent-lote:hover {
+    border-left-color: var(--pg-node-lote);
+  }
+  .pg-nodes-picker .fv-choice.pg-accent-mistura:hover {
+    border-left-color: var(--pg-node-mistura);
+  }
+  .pg-nodes-picker .fv-choice.pg-accent-resultado:hover {
+    border-left-color: var(--pg-node-resultado);
+  }
 }
 
 /* A trilha de dois passos (PG60), no molde do painel do contrato
