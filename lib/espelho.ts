@@ -1,4 +1,9 @@
-import type { EspelhoSide, SaleContract, SaleContractStatus } from './types';
+import type {
+  EspelhoSide,
+  SaleContract,
+  SaleContractStatus,
+  SaleContractTimelineItem,
+} from './types';
 
 // O tipo mora em types.ts (folha da árvore de imports) e é re-exportado aqui, que é
 // onde os consumidores do espelho o buscam.
@@ -105,4 +110,38 @@ export function espelhoSideEligibility(
     };
   }
   return { eligible: true };
+}
+
+/** Um espelho ENTREGUE que ainda se pode reabrir: o item da timeline com `logId` e
+ *  `side` já estreitados, que é o que o leitor do documento guardado exige. */
+export type DeliveredEspelho = SaleContractTimelineItem & {
+  logId: string;
+  side: EspelhoSide;
+};
+
+// RC-D124: o espelho MAIS RECENTE de cada lado que ainda se pode abrir — é o que a aba
+// Espelho mostra, um bloco por lado.
+//
+// 🔴 Não é "o primeiro item ESPELHO de cada lado". São três filtros, e cada um tira uma
+// coisa diferente:
+//   - `available`  — o snapshot existe E a retenção não venceu (RC-D105). Sem ele a aba
+//     tentaria abrir um documento que o servidor já apagou (410).
+//   - `superseded` — há um mais novo do MESMO lado (derivado da ordem, RC-D104). Sem ele
+//     um lado que gerou duas vezes mostraria o antigo se a ordem chegasse invertida.
+//   - `logId`/`side` — os marcos legados de espelho vêm sem os dois, e sem eles não há
+//     como reler nem em que bloco pôr.
+// Quem lista TODOS os exports, inclusive os substituídos e os já expirados, é o Histórico
+// (RC-D128) — o fato auditado não expira, o documento sim.
+export function latestEspelhoBySide(
+  items: readonly SaleContractTimelineItem[] | null | undefined
+): Partial<Record<EspelhoSide, DeliveredEspelho>> {
+  const found: Partial<Record<EspelhoSide, DeliveredEspelho>> = {};
+  for (const item of items ?? []) {
+    if (item.kind !== 'ESPELHO') continue;
+    if (!item.available || item.superseded) continue;
+    if (!item.logId || !item.side) continue;
+    // A timeline já vem decrescente; o primeiro de cada lado é o mais recente.
+    if (!found[item.side]) found[item.side] = item as DeliveredEspelho;
+  }
+  return found;
 }
