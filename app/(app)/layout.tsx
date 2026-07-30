@@ -39,12 +39,16 @@ function PersistentShell({ children }: { children: ReactNode }) {
   // pagina — aqui o Suspense e UM SO, no layout.)
   const activeSubTab = searchParams.get('tab') ?? undefined;
 
-  // Mesmo gate `null` de antes, agora em UM lugar em vez de oito. O shell nao
-  // pode pintar sem sessao: a nav e filtrada por papel e o avatar mostra o
-  // usuario. O page loader (camada 2) ainda cobre esta espera — quem a elimina
-  // e a F3, inicializando a sessao do cache local (SN-D8/SN-D1).
+  // Mesmo gate de antes, agora em UM lugar em vez de oito. O shell nao pode
+  // pintar sem sessao: a nav e filtrada por papel e o avatar mostra o usuario.
+  //
+  // F5: o gate devolvia `null`, e com o page loader ja apagado (F3) isso
+  // significava BRANCO — a `.fv-boot` do layout raiz sai na hidratacao, e quem
+  // abre SEM cache de sessao fica esperando o servidor com a tela em branco.
+  // A mesma superficie verde cobre a espera; `is-hold` tira a saida por tempo,
+  // porque quem a substitui e o shell.
   if (loading || !session) {
-    return null;
+    return <div className="fv-boot is-hold" aria-hidden="true" />;
   }
 
   return (

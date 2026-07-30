@@ -286,6 +286,91 @@ body {
   flex-direction: column;
 }
 
+/* ══════════════════════════════════════════════════════════════
+   F5 (SN-D2) — a CAIXA DE BOOT: a entrada do app
+   ══════════════════════════════════════════════════════════════
+   Vem no HTML SERVIDO (components/BootScreen.tsx, montado no layout raiz),
+   entao a PRIMEIRA PINTURA do documento ja e verde. Antes dela a sequencia
+   era [verde do SO] -> [DOCUMENTO BRANCO] -> [shell]: o `body` e branco de
+   proposito e a faixa de status bar (`.mobile-edge-shell-auth::after`) so
+   existe DENTRO do `.app-shell-root`, que ainda nao montou. Este e o mesmo
+   #1f5d43 do `background_color` do manifest — a tela do SO e esta viram uma
+   tela so, sem costura (SN-D2: casar, nao neutralizar).
+
+   🔴 O atalho errado seria pintar o `body` de verde: o `.app-shell-root` e
+   TRANSPARENTE, quem pinta o fundo do app e o `body` — verde ali deixaria o
+   app INTEIRO verde.
+
+   z-index por token. `calc(var(--z-tooltip) + 10)` fica abaixo do 9999 legado
+   da tira de status bar, e tudo bem: a tira e o MESMO verde e nao recebe
+   toque, entao ela some dentro desta caixa. */
+.fv-boot {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-tooltip) + 10);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(32px, 12vw, 64px);
+  background: var(--brand-green);
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 260ms ease-out;
+  /* 🔴 REDE DE SEGURANCA, nao enfeite: se o JS nunca rodar (hidratacao
+     quebrada, JS desligado), sem isto a caixa prenderia o app atras de uma
+     tela verde eterna. 1ms de animacao com 6s de atraso. */
+  animation: fv-boot-failsafe 1ms linear 6s forwards;
+}
+
+.fv-boot.is-leaving {
+  opacity: 0;
+}
+
+/* O gate `null` do layout do route group (app) vira esta variante enquanto a
+   sessao resolve SEM cache — e o unico trecho em que o branco voltava depois
+   da hidratacao. Some quando o shell a substitui, nao por tempo: por isso sem
+   a rede de seguranca (aqui ela esconderia a caixa no meio de uma espera
+   legitima) e sem transicao de saida. */
+.fv-boot.is-hold {
+  animation: none;
+  transition: none;
+}
+
+.fv-boot-logo {
+  width: min(62%, 260px);
+  height: auto;
+  animation: fv-boot-logo-in 320ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+@keyframes fv-boot-logo-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fv-boot-failsafe {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+/* 🔴 A rede de seguranca fica FORA deste bloco de proposito — ela nao e
+   movimento, e a saida de emergencia. Desligar movimento reduzido nao pode
+   significar ficar presa na tela verde. */
+@media (prefers-reduced-motion: reduce) {
+  .fv-boot {
+    transition: none;
+  }
+
+  .fv-boot-logo {
+    animation: none;
+  }
+}
+
 .mobile-edge-shell-auth {
   --mobile-edge-fill: #1f5d43;
   --mobile-page-bg: var(--mobile-page-bg-base);

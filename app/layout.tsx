@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter, Poppins } from 'next/font/google';
 
+import { BootScreen } from '../components/BootScreen';
 import { PwaRegistration } from '../components/PwaRegistration';
 import { RouteHistoryTracker } from '../components/RouteHistoryTracker';
 import { ViewportDebugOverlay } from '../components/ViewportDebugOverlay';
@@ -65,6 +66,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="pt-BR" className={`${inter.variable} ${poppins.variable}`}>
       <body>
+        {/* F5 do ciclo SN (SN-D2): a entrada do app. Primeiro filho do <body> e
+            FORA de todos os providers — onde o <SplashScreen> morava antes da
+            F1 —, porque ela precisa estar na marcacao SERVIDA: e isso que faz a
+            primeira pintura ser verde em vez de branca, casando com a tela
+            nativa do SO. Diferente da antiga, esta nao segura nada: o app
+            carrega por baixo dela, e o logo so aparece uma vez a cada 4h. */}
+        <BootScreen />
         <PwaRegistration />
         <RouteHistoryTracker />
         <ViewportSync />
