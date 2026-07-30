@@ -2025,20 +2025,20 @@ O #1 já existia antes desta rodada (o efeito nunca teve `reloadNonce`), mas só
 em um clique. O #2 era um **toast** no clique do botão e virou banner sem ninguém pedir. O #3 é novo: o
 modal tinha a seta ← para voltar; a aba não tem.
 
-### 16.3 Código morto (levantado, decisão dele)
+### 16.3 Código morto (levantado, decisão dele) — ✅ RESOLVIDO na §18
 
 - 🔴 **A worklist de aprovação** — `/sale-contracts/approvals` → `listApprovalContracts` (~165 linhas)
-  - os 3 helpers de cursor + rota + handler + tipos + `listApprovals` + **6 testes de integração**.
+  - os 3 helpers de cursor + rota + handler + tipos + `listApprovals` + os testes de integração.
     Sem consumidor desde a RC-F4. **A RC-F3 pode querer o recorte de volta** — por isso não foi tocada.
 - `uploadSamplePhoto`/`uploadClassificationPhoto` (`lib/api-client.ts`), únicos consumidores de
   `POST /samples/[id]/photos`. A foto de classificação sobe hoje por `/classification/extract-and-prepare`.
   ⚠️ Confirmar que nenhum agente externo posta nessa rota antes de apagar.
 - Órfãs pequenas: `espelhoEligibility` (substituída pela `espelhoSideEligibility`, RC-D111),
   `lastBusinessDayIso` (era o default do seletor de embarque), `CONTRACT_AGENDA_KINDS`, `.ctr-btn-primary`.
-- **CSS: 545 classes com regra viva e nenhuma menção no código.** As famílias grandes não são de
-  contrato — `new-sample` (104), `sample-classification` (51), `sample-detail` (37), `inactivate-user`
-  (33). O prefixo `.ctr-*` está **limpo**: 101 classes vivas, 1 órfã. A `.nsv2-field*` (8 classes)
-  segue órfã de propósito — §15.7.
+- **CSS: ~545 classes com regra viva e nenhuma menção no código.** As famílias grandes não são de
+  contrato — `new-sample`, `sample-classification`, `sample-detail`, `inactivate-user`. O prefixo
+  `.ctr-*` está **limpo**: 101 classes vivas, 1 órfã. A `.nsv2-field*` (8 classes) segue órfã de
+  propósito — §15.7.
 
 ## 17. As três inconsistências, e o documento sem o visualizador (RC-D130) — 2026-07-30
 
@@ -2091,6 +2091,75 @@ scrollers aninhados param de rolar assim que o dedo sai da folha.
 
 _(Fora do domínio sobrou um `<iframe>` de PDF: o preview de anexo do cliente,
 `ClientAttachmentPreviewModal` — outra tela, não tocada.)_
+
+## 18. O código morto sai (decisões dele) — 2026-07-30
+
+Sem decisão de produto: executa o que a **§16.3** levantou e ele decidiu, item a item. Commits
+`1e9f7aa` · `2daf388` · `389ba4b` · `2842c70`.
+
+### 18.1 A worklist de aprovação — **apagada**
+
+O "mas" dela era _"a RC-F3 pode querer o recorte de volta"_. Três coisas derrubaram a espera:
+
+1. **O grupo `a_enviar` já está no ar.** É a MESMA query do `getDashboardAvisos` — mesmo `WHERE`
+   (`requires_approval` + `EMITIDO` + `NOT EXISTS(approval_label_log)`), mesma ordem
+   (`invoice_date ASC NULLS LAST, contract_seq ASC`). O card de **Avisos** é a fila.
+2. **O encanamento da RC-F3 é o da lista**, não o dela: busca, paginação keyset e filtro no servidor
+   já existem em `/contratos` (RC-D45/D117).
+3. 🔴 **E o recorte não nasce como 5º cartão.** Os quatro estados de `contractStateWhere` são uma
+   **partição** dos três status — é isso que faz os quatro números somarem o total. "Aprovação a
+   enviar" **cruza** os estados em vez de particioná-los: é outro tipo de controle (um chip que
+   convive com o filtro), e isso é decisão de design da RC-F3, não algo que um endpoint guardado
+   responderia.
+
+Saíram juntos a rota, o handler, os 5 helpers do support, o `listApprovals`, os 4 tipos e os 5 testes.
+O teste do AP33 não deixou buraco: o predicado `washoutBillable` segue coberto pelo Financeiro e pela
+lista.
+
+### 18.2 O upload de foto por HTTP — **apagado**
+
+`POST /samples/:id/photos` → `addLabelPhoto` era o caminho legado. **A câmera não passa por ele:**
+`detect-form`/`extract-and-prepare` gravam em `_temp/temp-{token}.jpg` e o
+`confirmClassificationFromCamera` chama `addSamplePhoto` **direto**, sem rede.
+
+O argumento que decidiu não foi a limpeza: **endpoint de escrita que aceita upload e ninguém chama é
+superfície de ataque.** Por isso saiu a rota, e não só as duas funções do api-client.
+
+**Fica intacto o que lê:** `GET /samples/:id/photos/:attachmentId` — o detalhe da amostra e o laudo em
+PDF dependem dele (o laudo recusa exportar `CLASSIFIED` sem `CLASSIFICATION_PHOTO`).
+
+### 18.3 CSS: os dois blocos com dono verificado
+
+🔴 **O método importa mais que o número.** A varredura automática **não decide** — ela levanta
+candidatos, e quem confirma é o **componente dono**. Prova: existe
+`` `is-role-${role.toLowerCase()}` `` no `UserMultiSelect`, nome montado em runtime que nenhum `grep`
+de `className` acha. Por isso a rodada ficou nos dois blocos que dá para conferir lendo um arquivo:
+
+| Bloco                     | Por que morreu                                                          | Saldo                           |
+| ------------------------- | ----------------------------------------------------------------------- | ------------------------------- |
+| `.new-sample-*`           | o `NewSampleModal` foi migrado para o kit FV (`app-modal*`/`fv-form-*`) | 91 de 96 — **cinco ficaram**    |
+| `.inactivate-user-modal*` | o responsável do cliente virou opcional; a tela de reatribuição sumiu   | 33 de 33 (o modal é um wrapper) |
+
+~2140 linhas, mais 12 `@keyframes` que só elas animavam.
+
+⚠️ **As cinco que ficaram** só se acham lendo o componente: duas delas
+(`.new-sample-step-body-content{,-details}`) aparecem no código **como string de seletor**, no
+`AppShell`/`ViewportDebugOverlay`, que procuram o scroller por elas.
+
+_(As outras ~350 órfãs ficam para uma rodada própria. O grupo `is-*` é onde os nomes montados em
+runtime se concentram, e apagar um errado não quebra build nem teste — só aparece na tela.)_
+
+### 18.4 As quatro órfãs pequenas
+
+`espelhoEligibility` (a RC-D124 fez cada bloco perguntar pelo SEU lado — a pergunta agregada era a
+errada da RC-D111) · `lastBusinessDayIso` (default do seletor de embarque, RC-D65) ·
+`CONTRACT_AGENDA_KINDS` (a precedência segue em prosa no comentário) · `.ctr-btn-primary`.
+
+### O que NÃO saiu, de propósito
+
+- **`getRecentApprovalSends`** — órfã desde que a rota saiu, mas o consumidor natural dela é a
+  **RC-F2**, a próxima fase do roteiro.
+- **`addClassificationPhoto`** — parece morta, é **helper de teste**: 10+ chamadas na integração.
 
 ## Apêndice A — Ledger de decisões (condensado)
 

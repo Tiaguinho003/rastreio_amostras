@@ -178,8 +178,11 @@ Duas verificações que fecham o buraco:
    senão um comentário citando a classe a "ressuscita" (o caso do `.sdv-header-top`, vivo por uma
    menção em comentário no `AppShell`).
 2. **Depois de casar em `className`, procure o token cru em TODAS as formas textuais** — é o único
-   jeito de pegar classe montada em runtime (`` `sdv-edit-btn${small ? '-small' : ''}` ``), que
-   nenhuma varredura de `className` literal enxerga.
+   jeito de pegar classe montada em runtime (`` `sdv-edit-btn${small ? '-small' : ''}` `` ou
+   `` `is-role-${role.toLowerCase()}` ``), que nenhuma varredura de `className` literal enxerga. E há
+   uma segunda forma, mais fácil de esquecer: **classe que existe para o JS ACHAR**, não para pintar.
+   `.new-sample-step-body-content-details` só aparece no código dentro de um `querySelector` no
+   `AppShell`/`ViewportDebugOverlay`, procurando o scroller — nenhum JSX a escreve, e ela está viva.
 
 E confirme o resultado por **diferença de conjuntos de seletores** antes/depois (`postcss.parse`),
 não pelo diff: o número que importa é "saiu algo que não continha token morto?".
@@ -208,6 +211,26 @@ else if (alive.length !== rule.selectors.length) rule.selectors = alive;
 Duas consequências práticas: a poda relata **dois** números (regras removidas **e** regras
 _aparadas_), e o `git checkout` que conserta um estrago desses leva junto qualquer adição feita no
 mesmo arquivo na mesma sessão — reaplique-as depois de reverter.
+
+⚠️ **Use `rule.selectors`, nunca `rule.selector.split(',')`.** A vírgula dentro de `:is(input,
+select)`, de `:where()` ou de um `[attr="a,b"]` não separa seletor nenhum, e o split cru devolve
+pedaços quebrados (`select, textarea)`) que passam calados por `postcss.parse`. O getter do postcss
+usa `list.comma`, que respeita parênteses e colchetes.
+
+### 🔴 O que a poda de REGRAS não leva junto
+
+`walkRules` só vê regras. Depois de remover um bloco inteiro, três coisas ficam para trás e nenhuma
+delas quebra build, teste ou `postcss.parse`:
+
+| Sobra              | Como achar                                                                             |
+| ------------------ | -------------------------------------------------------------------------------------- |
+| **`@keyframes`**   | é at-rule, não regra: colete os nomes e case contra todos os valores de `animation*`   |
+| **`@media` vazia** | um `while` removendo at-rule sem `nodes` até estabilizar (uma pode esvaziar a de fora) |
+| **Comentários**    | cabeçalho de seção e sub-cabeçalhos que agora não descrevem regra nenhuma              |
+
+Meça as três **por diferença antes/depois**, não pelo valor absoluto: senão você adota órfãos que já
+existiam. Numa poda de 264 regras (2026-07-30, `.new-sample-*` + `.inactivate-user-modal*`), foram 12
+keyframes e 8 comentários **novos** — e 3 keyframes órfãos que já estavam lá e não eram da rodada.
 
 ---
 

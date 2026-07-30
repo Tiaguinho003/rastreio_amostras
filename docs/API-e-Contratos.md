@@ -51,31 +51,36 @@ Regra consolidada:
    Reverte a liga: emite `BLEND_REVERTED`, leva a liga a `INVALIDATED` e devolve as origens ao estado anterior. Composicao preservada no evento.
 4. `POST /api/v1/samples/:sampleId/registration/update`
    Edita os campos declarados do lote. Guards de liga: 422 `BLEND_HARVEST_READ_ONLY` (safra) e `BLEND_SACKS_READ_ONLY` (sacas); o lote de origem, ao contrario, e editavel e a edicao **fixa** a origem (`blendOriginLotPinned`).
-5. `POST /api/v1/samples/:sampleId/photos`
-6. `POST /api/v1/samples/:sampleId/qr/print/request`
-7. `POST /api/v1/samples/:sampleId/qr/print/failed`
-8. `POST /api/v1/samples/:sampleId/qr/printed`
-9. `POST /api/v1/samples/:sampleId/classification/update`
+5. `POST /api/v1/samples/:sampleId/qr/print/request`
+6. `POST /api/v1/samples/:sampleId/qr/print/failed`
+7. `POST /api/v1/samples/:sampleId/qr/printed`
+8. `POST /api/v1/samples/:sampleId/classification/update`
    (Nao existem `classification/start` nem `/partial` — cortados no Q.cls.1; `classification/complete` era DEPRECATED e foi REMOVIDA em 2026-07-13, CL13 — classificacao nova e exclusiva de `POST /api/v1/classification/confirm`. Tambem nao existem `registration/start`, `registration/confirm` nem `qr/reprint/request`: a criacao emite `REGISTRATION_CONFIRMED` direto e a reimpressao reusa `qr/print/request`.)
-10. `POST /api/v1/samples/:sampleId/edits/revert`
-11. `POST /api/v1/samples/:sampleId/commercial-status`
-12. `POST /api/v1/samples/:sampleId/movements`
+9. `POST /api/v1/samples/:sampleId/edits/revert`
+10. `POST /api/v1/samples/:sampleId/commercial-status`
+11. `POST /api/v1/samples/:sampleId/movements`
     Registra venda (`SALE`) ou perda (`LOSS`). Gate de status: so em `REGISTRATION_CONFIRMED` ou `CLASSIFIED`. Numa liga a perda e sempre 100% (sem campo de quantidade) e dispara a cascata nas ligas que a contem.
-13. `PATCH /api/v1/samples/:sampleId/movements/:movementId`
+12. `PATCH /api/v1/samples/:sampleId/movements/:movementId`
     Edita uma movimentacao ativa (exige motivo). **Sem consumidor de UI hoje** — a superficie que a chamava era o `SampleMovementModal`, deletado no redesenho.
-14. `POST /api/v1/samples/:sampleId/movements/:movementId/cancel`
+13. `POST /api/v1/samples/:sampleId/movements/:movementId/cancel`
     Cancela a movimentacao (exige motivo) e recalcula o status comercial.
-15. `POST /api/v1/samples/:sampleId/physical-send`
+14. `POST /api/v1/samples/:sampleId/physical-send`
     Registra o envio fisico. Um POST **por destinatario** (a UI itera a lista de clientes). Gate de status: `REGISTRATION_CONFIRMED` ou `CLASSIFIED`.
-16. `PATCH /api/v1/samples/:sampleId/physical-send/:sendEventId`
+15. `PATCH /api/v1/samples/:sampleId/physical-send/:sendEventId`
     Edita destinatario e data do envio (`PHYSICAL_SAMPLE_SEND_UPDATED`).
-17. `DELETE /api/v1/samples/:sampleId/physical-send/:sendEventId`
+16. `DELETE /api/v1/samples/:sampleId/physical-send/:sendEventId`
     Cancela o envio (`PHYSICAL_SAMPLE_SEND_CANCELLED`) e **revoga o laudo publico** vinculado (`revokeReportShareBySendEvent`).
-18. `POST /api/v1/samples/:sampleId/export/pdf`
-19. `POST /api/v1/samples/:sampleId/invalidate`
+17. `POST /api/v1/samples/:sampleId/export/pdf`
+18. `POST /api/v1/samples/:sampleId/invalidate`
     Encerra o lote em `INVALIDATED` (soft-delete que libera o numero). A UI do detalhe rotula essa acao como **"Deletar"** (LDT-D2) — o endpoint continua `/invalidate`. 409 `SAMPLE_HAS_CONTRACT` se houver contrato vinculado; 409 `SAMPLE_HAS_ACTIVE_BLENDS` se o lote for origem de liga ativa.
 
-### Leitura de anexo (foto)
+### Anexo (foto) — so LEITURA
+
+🪦 **`POST /api/v1/samples/:sampleId/photos` foi removida em 2026-07-30.** Era o caminho legado de
+upload; a camera nao passava por ela (o `confirmClassificationFromCamera` le o `_temp/temp-{token}.jpg`
+e chama o `addSamplePhoto` direto, sem rede). Rota de escrita que aceita upload e ninguem chama e
+superficie de ataque — por isso saiu a rota, e nao so o cliente. O `addSamplePhoto` do command service
+continua, e e por ele que a foto entra.
 
 - `GET /api/v1/samples/:sampleId/photos/:attachmentId`
   Serve o binario da foto da classificacao. **Exige sessao valida** (LDT-D4, 2026-07-08): a autorizacao passa por `getSampleAttachmentDescriptor` (`resolveActorContext` → 401 sem sessao, 403 PROSPECTOR pela allowlist), e so entao a rota le o arquivo do disco (com guard de path-traversal). `Cache-Control: private, max-age=3600, immutable`. O `<img>` same-origin ja envia o cookie httpOnly, entao o carregamento normal nao muda.
