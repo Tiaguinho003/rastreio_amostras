@@ -1,6 +1,6 @@
 # Shell, Navegação e Carregamento — Plano de Trabalho
 
-Status: **8 decisões TRAVADAS · F1 e F2 IMPLEMENTADAS (2026-07-30)** — próxima é a F3 (estrutura aprovada 2026-07-24)
+Status: **9 decisões TRAVADAS · F1, F2 e F3 IMPLEMENTADAS (2026-07-30)** — próxima é a F4 (estrutura aprovada 2026-07-24)
 Escopo (1 linha): remover a atual "página de carregamento verde", tornar o **navbar/shell persistente** (nunca desmonta), fazer a transição entre páginas **sem loader full-screen** (só o conteúdo carrega), e definir a **política de cache/estado/atualização por página**.
 Prefixo de decisões: **SN** (Shell & Navegação)
 Documentos relacionados: `Redesign-Plano-de-Trabalho.md` (redesign visual página-a-página), `Dashboard-Visao-Geral.md`, `Lotes-Visao-Geral.md`, `Auditoria-Navegacao-por-Papel.md`, skill `page-redesign-cycle`.
@@ -16,9 +16,11 @@ Este doc tem **duas metades**:
 - **Metade A — Contexto estável (§1–§3 + §9):** a fotografia de como o app funciona hoje e a arquitetura-alvo. Muda pouco. **Leia para se situar.**
 - **Metade B — Decisões evolutivas (§4–§8):** o ledger de decisões, o mapa de páginas, a política de estado, o faseamento. **É onde o trabalho acontece.**
 
-**Estado em 2026-07-30:** a reconciliação da Metade A com o código entregue pelo ciclo de redesign **foi feita** (§2 inteira re-verificada), a varredura encontrou **7 fatos que não estavam no doc** (§2.4, §2.7, §2.8) e **8 decisões foram travadas** (§4.1). Restam **2 em aberto** (SN-D2, SN-D11) e **2 derivadas a confirmar** (SN-D9, SN-D12) — a SN-D6 saiu da lista ao ser implementada na F2.
+**Estado em 2026-07-30:** a reconciliação da Metade A com o código entregue pelo ciclo de redesign **foi feita** (§2 inteira re-verificada), a varredura encontrou **7 fatos que não estavam no doc** (§2.4, §2.7, §2.8) e **9 decisões estão travadas** (§4.1 — a SN-D14 nasceu na F3). Restam **2 em aberto** (SN-D2 e SN-D11, esta empurrada para a F4) e **1 derivada a confirmar** (SN-D12) — a SN-D6 saiu da lista na F2 e a SN-D9 na F3.
 
-**A F1 e a F2 foram implementadas no mesmo dia.** O boot splash não existe mais (F1) e o shell parou de remontar (F2, com o `PageTransition` apagado junto). As marcas 🪦 na Metade A indicam o que caiu; o texto do "antes" fica porque é ele que explica **por que** as decisões seguintes são como são. **Próxima fase: F3** (§6) — sessão do cache, barramento de invalidação e fim do page loader. É a fase que resolve a queixa do dado velho (§2.7) e a única com um **alerta de ordem interna**: snapshot só depois do barramento.
+**A F1, a F2 e a F3 foram implementadas no mesmo dia.** O boot splash não existe mais (F1), o shell parou de remontar (F2, com o `PageTransition` apagado junto) e a queixa do dado velho foi curada (F3: barramento de invalidação, sessão lida do cache e o page loader verde apagado). As marcas 🪦 na Metade A indicam o que caiu; o texto do "antes" fica porque é ele que explica **por que** as decisões seguintes são como são — a §2.7 em especial: ela é o diagnóstico que desenhou o barramento.
+
+**Próxima fase: F4** (§6) — a camada 4 (skeleton) vira sistema, e é onde a **SN-D11** finalmente se decide, com o kit na mão. **Nada da F1–F3 foi validado no device ainda**; a lista do que só o Flavio vê está no fim do §8.
 
 Fluxo para uma sessão futura: ler §1–§3 → conferir §4.1 (travadas × abertas) → se for implementar, entrar pela fase correspondente no §6 → registrar no ledger o que mudar de plano.
 
@@ -176,7 +178,9 @@ Como **cada página monta o seu próprio `useRequireAuth`**, **toda navegação 
 
 **Os 8 gates `null`** (o principal impacto visual — hoje cobertos pelo page loader): linhas na tabela do §2.3. Sem o loader e sem outra solução, esse instante vira **tela branca** — é o que a SN-D8 + SN-D1 resolvem.
 
-### 2.7 🔴 O que não atualiza, e por quê (seção nova — 2026-07-30)
+### 2.7 🪦 O que não atualiza, e por quê (seção nova — 2026-07-30; **curada pela F3 no mesmo dia**)
+
+> 🪦 **Esta seção é a fotografia de ANTES da F3.** Tudo abaixo descreve o estado que a fase corrigiu, e fica pelo diagnóstico — é ele que justifica o desenho do barramento. **O estado de hoje:** existe um canal de invalidação (`lib/revalidation/`), a publicação é automática no ponto único (`request()` do `api-client`, **SN-D14**), os dois hooks paralelos viraram um (`useRevalidate`, que absorveu o `useListRevalidation`) e **as 5 superfícies sem revalidação nenhuma passaram a ter**. Ver §4.1 (SN-D13, SN-D14) e a linha F3 do §6.
 
 Origem: relato do Flavio de que **algumas ações não se refletem na tela — só ao sair e voltar da página, e em alguns casos só ao sair e voltar do app**. A varredura confirmou a causa.
 
@@ -196,6 +200,8 @@ Isso explica os **dois** sintomas distintos:
 - **"só ao sair e voltar do app"** — são as superfícies sem hook nenhum. Voltar do background **não** remonta; só um restart de processo (o SO matando a aba) limpa o estado.
 
 **🔴 O alerta que sustenta a SN-D13:** o que hoje disfarça a obsolescência é **exatamente a remontagem que a F2 elimina**. Entregar shell persistente sem canal de invalidação **piora** o problema: a página fica viva e velha, e nem sair-e-voltar resolve mais. Por isso o barramento é **pré-requisito da F3**, não melhoria futura — e o §6 ganhou um segundo alerta de sequência.
+
+_(O alerta foi respeitado: a F3 saiu em três commits nesta ordem — barramento, sessão + morte do loader, snapshots.)_
 
 ### 2.8 🔴 A camada 4 existe, mas não é sistema (seção nova — 2026-07-30)
 
@@ -289,6 +295,10 @@ Toda decisão SN passa por este rito — **uma situação por vez** — antes de
 **Decisão:** **snapshot estendido às 8 páginas** — scroll, filtros e busca, com TTL, no molde de `/samples`.
 **Descartadas:** _abas montadas em memória_ — feel mais nativo, mas segura `/samples`, o simulador React Flow e as demais vivos ao mesmo tempo, e **some ao reabrir o app** (o snapshot não); _nada_ — regressão em relação ao que `/samples` e `/cadastros` já fazem bem.
 **Impacto:** (a) compatível; **(b) depende da SN-D13** — sozinho, o snapshot serviria dado velho; com o barramento, ele vira só a primeira pintura; (c) preenche a §5.2 e entra na F3; (d) nenhuma.
+**Implementada na F3** em `/contratos`, `/financeiro`, `/relatorios` e `/users` (as 4 que faltavam; `/samples` e `/cadastros` já tinham, `/dashboard` e `/profile` não levam — §5.2). Duas coisas que a implementação descobriu e que valem para qualquer página nova:
+
+- **Mount restaurado refaz o fetch em silêncio.** Sem isso a página pinta a lista do snapshot e imediatamente a cobre com skeleton para repintar quase o mesmo conteúdo. Em `/users` isso ia além do skeleton: o `success-initial` zerava o `firstNewIndex` e **reanimava a cascata de entrada dos cards** a cada revalidação silenciosa (defeito que o barramento tinha acabado de introduzir, corrigido no mesmo commit).
+- **A lista restaurada encolhe para a 1ª página no primeiro refetch**, porque a revalidação silenciosa refaz só a página 1 e o snapshot pode ter 3 acumuladas. **É o comportamento que `/samples` já tinha** (`success-initial` substitui o array); as 4 novas seguem o mesmo precedente de propósito, em vez de cada uma inventar o seu. Se um dia incomodar, o conserto é do molde inteiro, não de uma página.
 
 #### SN-D13 · Canal de invalidação _(nova)_
 
@@ -296,6 +306,14 @@ Toda decisão SN passa por este rito — **uma situação por vez** — antes de
 **Cobertura obrigatória:** ao absorver os dois hooks, o barramento passa a dar **revalidação ao voltar ao primeiro plano para TODO assinante** — não só para os 4 lugares que a têm hoje (§2.7). Isto não é um extra: é o que sustenta a **SN-D3** ao matar o resume 30/60min. Sem essa universalização, as 5 superfícies sem revalidação nenhuma ficariam **pior** do que antes.
 **Descartadas:** _TanStack Query_ (~13KB gz) — resolve invalidação, dedup e SWR de uma vez e é o padrão da indústria, **mas** exigiria reescrever como as 8 páginas pedem dado (incluindo a `/samples` e seu snapshot maduro) dentro da fase mais arriscada do ciclo; fica como **porta aberta**, um ciclo próprio no futuro, se o trabalho manual incomodar. _Só completar os callbacks_ — nunca resolve entre páginas, que é justamente o caso que piora com o shell persistente.
 **Impacto:** (a) sustenta o princípio novo "sem trocar pisca por dado velho"; (b) habilita a SN-D7; **(c) vira pré-requisito da F3 e acrescenta o 2º alerta de sequência no §6**; (d) restringe a SN-D9 (o dono da política passa a ser o barramento + um registro de chaves).
+**Implementada na F3** (`lib/revalidation/`): `subjects.ts` (o tipo + o mapa caminho→assunto), `bus.ts` (pub/sub singleton, sem React, com coalescedor de 120ms) e `use-revalidate.ts`, que absorveu o `useListRevalidation` — a origem virou `'publish' | 'foreground' | 'poll'`, e `publish` **não** passa pelo throttle. O `useRecentSendsFeed` foi reescrito por cima dele (mantendo o gate `matchMedia` de desktop que lhe é próprio) em vez de ser apagado.
+
+#### SN-D14 · Quem publica no barramento _(nova — decidida com o Flavio ao iniciar a F3)_
+
+**Decisão:** **publicação automática no ponto único.** O `request()` de `lib/api-client.ts` publica o assunto derivado do caminho após qualquer resposta OK de método ≠ GET. Nenhum dos **77 pontos de escrita** é tocado.
+**Descartada:** _cada ponto de escrita publica na mão_ — era a regra 3 do §5.2 original. Dá controle fino (dá pra publicar assunto que o caminho não revela), **mas** são 77 lugares para lembrar, um a um, e esquecer não quebra nada na hora: só deixa aquela ação sem atualizar, que é exatamente o defeito relatado no §2.7 voltando pela porta dos fundos.
+**Impacto:** (a) atende "sem trocar pisca por dado velho" sem depender de disciplina; (b) **altera a regra 3 do §5.2** (registro explícito, não silencioso); (c) não muda o faseamento; (d) nenhuma.
+**A assimetria que o desenho assume:** o **publicador é estreito** (um caminho → um assunto, o mapa em `subjects.ts` não faz leque) e o **assinante é largo** (cada superfície declara todos os assuntos que exibe — `/contratos` assina `contratos` + `clientes` + `lotes` porque o card mostra os três). O leque mora na declaração de quem exibe, não em quem escreve: é lá que dá pra conferir olhando a tela.
 
 #### SN-D1 · O que aparece na espera real
 
@@ -318,20 +336,20 @@ Toda decisão SN passa por este rito — **uma situação por vez** — antes de
 
 ### §4.2 Decisões EM ABERTO
 
-| ID         | Questão                                                                                                                                            | Status        | Nota                                                             |
-| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | ---------------------------------------------------------------- |
-| **SN-D2**  | A tela verde **nativa do SO** (manifest `background_color`/`theme_color`) — neutralizar também?                                                    | **EM ABERTO** | Adiada de propósito: decidir junto do visual da splash nova (F5) |
-| **SN-D11** | **Indicador de navegação** — hoje não existe nenhum. Com shell instantâneo e conteúdo assíncrono, o que sinaliza "vindo" quando o conteúdo demora? | **EM ABERTO** | Decidir na F3, com o comportamento real na mão                   |
+| ID         | Questão                                                                                                                                            | Status        | Nota                                                                                                                                                                           |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **SN-D2**  | A tela verde **nativa do SO** (manifest `background_color`/`theme_color`) — neutralizar também?                                                    | **EM ABERTO** | Adiada de propósito: decidir junto do visual da splash nova (F5)                                                                                                               |
+| **SN-D11** | **Indicador de navegação** — hoje não existe nenhum. Com shell instantâneo e conteúdo assíncrono, o que sinaliza "vindo" quando o conteúdo demora? | **EM ABERTO** | **Empurrada para a F4** — a F3 entregou snapshot nas listas, então o caso "conteúdo demora" ficou raro demais para decidir por cima dele. Decidir com o kit de skeleton na mão |
 
 ### §4.3 Decisões DERIVADAS (a confirmar antes de implementar)
 
 Seguem das travadas, mas **não foram confirmadas explicitamente** — confirmar ao entrar na fase correspondente.
 
-| ID            | Derivação                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| ~~**SN-D6**~~ | 🪦 _Onde a sessão é resolvida._ **CONFIRMADA E IMPLEMENTADA na F2 (2026-07-30).** O provider é `AuthProvider` em `lib/auth/AuthProvider.tsx`, montado em `app/(app)/layout.tsx`. **Contrato exposto:** `{ session, loading, logout, setSession }` — de propósito, a mesma forma que o antigo `useRequireAuth` devolvia, o que tornou a migração das 8 páginas mecânica. O `isAuthorized` **não** entrou no contexto: virou o hook separado `useRequireRole(allowedRoles)`, porque autorização é por rota e o layout não sabe (nem deve saber) quais papéis cada rota aceita. Falta só o init síncrono do cache, que é da F3 (SN-D8). |
-| **SN-D9**     | _Dono da política de cache._ Segue de D13 + D7: **primitivo compartilhado + registro de chaves de snapshot**, substituindo a lista hardcoded de chaves no logout — que na F2 mudou de casa (`lib/use-auth.ts` → `lib/auth/AuthProvider.tsx:146-148`) mas continua hardcoded, e apodrece a cada página nova.                                                                                                                                                                                                                                                                                                                          |
-| **SN-D12**    | _Restauração de scroll por aba._ Segue de D7: restaurado via snapshot. Falta decidir o comportamento no **voltar do navegador** vs. **tocar na aba**. _Atualizado na F2:_ o `isPopState` morava dentro do `PageTransition` (para escolher a direção da animação) e **foi apagado com ele** — hoje **nenhum código do app escuta `popstate` para navegação de página** (só o `BottomSheet`, para o back do Android, e o `ContratosPanel`). Ou seja, a D12 parte do zero em vez de herdar mecanismo.                                                                                                                                   |
+| ID            | Derivação                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| ~~**SN-D6**~~ | 🪦 _Onde a sessão é resolvida._ **CONFIRMADA E IMPLEMENTADA na F2 (2026-07-30).** O provider é `AuthProvider` em `lib/auth/AuthProvider.tsx`, montado em `app/(app)/layout.tsx`. **Contrato exposto:** `{ session, loading, logout, setSession }` — de propósito, a mesma forma que o antigo `useRequireAuth` devolvia, o que tornou a migração das 8 páginas mecânica. O `isAuthorized` **não** entrou no contexto: virou o hook separado `useRequireRole(allowedRoles)`, porque autorização é por rota e o layout não sabe (nem deve saber) quais papéis cada rota aceita. Falta só o init síncrono do cache, que é da F3 (SN-D8).                                                                                                 |
+| ~~**SN-D9**~~ | 🪦 _Dono da política de cache._ **CONFIRMADA E IMPLEMENTADA na F3 (2026-07-30).** O primitivo é `lib/snapshots/` — `registry.ts` (chaves + TTL + `readSnapshot`/`writeSnapshot`/`clearSnapshot`/`clearAllSnapshots`, leitura **pura**: não consome, porque a página re-salva continuamente e consumir na leitura perderia o estado no primeiro refetch) e `scroll.ts` (o par de leitura/aplicação de scroll **e** o `restoreListScrollTop`, ambos extraídos de `/samples`). O logout **itera o registro** em vez da lista hardcoded, e o `storageKey` do `ClientsBrowser` deixou de ser `string`: só aceita chave registrada (`SnapshotKey`) — chave inventada não existiria no registro e portanto sobreviveria à troca de usuário. |
+| **SN-D12**    | _Restauração de scroll por aba._ Segue de D7: restaurado via snapshot. Falta decidir o comportamento no **voltar do navegador** vs. **tocar na aba**. _Atualizado na F2:_ o `isPopState` morava dentro do `PageTransition` (para escolher a direção da animação) e **foi apagado com ele** — hoje **nenhum código do app escuta `popstate` para navegação de página** (só o `BottomSheet`, para o back do Android, e o `ContratosPanel`). Ou seja, a D12 parte do zero em vez de herdar mecanismo.                                                                                                                                                                                                                                   |
 
 ### §4.4 Mudança de ordem do ledger (registro)
 
@@ -373,25 +391,26 @@ A ordem combinada em 2026-07-24 era **D4 → D6 → D1 → D3** (D5/D2 por últi
 
 ### 5.2 Política de estado, cache e atualização por página
 
-> **Proposta derivada de SN-D7 + SN-D13** — confirmar por linha ao entrar na F3. O molde é o que `/samples` **já implementa**: `SAMPLES_SNAPSHOT_KEY` (`app/samples/page.tsx:429`), `SAMPLES_SNAPSHOT_TTL_MS = 30min` (`:431`), snapshot com itens + cursor + scroll + busca + filtros + `savedAt`, descarte explícito (`clearSamplesSnapshot`) em deep-link conflitante e mudança de busca/filtro, e revalidação silenciosa via `useListRevalidation`.
+> ✅ **IMPLEMENTADA na F3 (2026-07-30).** A tabela abaixo deixou de ser proposta: é o que está no código. O molde é o de `/samples` (`SAMPLES_SNAPSHOT_KEY`, TTL 30min, itens + cursor + scroll + busca + filtros + `savedAt`, descarte explícito em deep-link conflitante e mudança de busca/filtro) e as partes reusáveis dele viraram `lib/snapshots/`. A coluna de assuntos é o que cada superfície **declara** em `useRevalidate` — foi confirmada superfície a superfície, não presumida.
 
-| Rota          | Carrega                              | Snapshot (o que restaura)                              | TTL   | Assuntos que a invalidam           |
-| ------------- | ------------------------------------ | ------------------------------------------------------ | ----- | ---------------------------------- |
-| `/dashboard`  | cards agregados (avisos, calendário) | — (agregados, sem scroll longo)                        | —     | `lotes`, `contratos`, `relatorios` |
-| `/samples`    | lista por cursor + stats             | itens, cursor, scroll, busca, filtros ✅ **já existe** | 30min | `lotes`, `clientes`                |
-| `/cadastros`  | clientes por cursor + corretores     | idem, por sub-aba ✅ **já existe** (2 chaves)          | 30min | `clientes`, `corretores`           |
-| `/contratos`  | lista de contratos                   | itens, scroll, filtros                                 | 30min | `contratos`, `clientes`            |
-| `/financeiro` | carteira de corretagem               | itens, scroll                                          | 30min | `contratos`, `corretagem`          |
-| `/relatorios` | feed                                 | itens, scroll                                          | 30min | `relatorios`                       |
-| `/users`      | lista por cursor (caps 30/60)        | itens, cursor, scroll, busca                           | 30min | `usuarios`                         |
-| `/profile`    | dados do próprio usuário             | —                                                      | —     | `sessao`                           |
+| Rota          | Carrega                              | Snapshot (o que restaura)                               | TTL   | Assuntos que a invalidam                                          |
+| ------------- | ------------------------------------ | ------------------------------------------------------- | ----- | ----------------------------------------------------------------- |
+| `/dashboard`  | cards agregados (avisos, calendário) | — (agregados, sem scroll longo)                         | —     | avisos: `lotes`+`contratos`+`relatorios`; calendário: `contratos` |
+| `/samples`    | lista por cursor + stats             | itens, cursor, scroll, busca, filtros ✅ **já existia** | 30min | `lotes`, `clientes`                                               |
+| `/cadastros`  | clientes por cursor + corretores     | idem, por sub-aba ✅ **já existia** (2 chaves)          | 30min | `clientes`, `corretores`                                          |
+| `/contratos`  | lista de contratos                   | itens, cursor, `counts`, scroll, busca, filtros ✅ F3   | 30min | `contratos`, `clientes`, `lotes`                                  |
+| `/financeiro` | carteira de corretagem               | itens, cursor, KPIs, scroll, busca, filtro ✅ F3        | 30min | `corretagem`, `contratos`                                         |
+| `/relatorios` | feed                                 | itens, página, scroll, busca, tipo ✅ F3                | 30min | `relatorios`                                                      |
+| `/users`      | lista por cursor (caps 30/60)        | itens, cursor, scroll, busca ✅ F3                      | 30min | `usuarios`                                                        |
+| `/profile`    | dados do próprio usuário             | —                                                       | —     | `sessao`                                                          |
 
 **Regras transversais:**
 
 1. **O snapshot é só a primeira pintura.** Nunca é fonte de verdade: o fetch roda silencioso por baixo (stale-while-revalidate), como `/samples` já faz.
-2. **Registro de chaves.** As chaves de snapshot passam a viver num registro único, consultado no logout — substituindo a lista hardcoded de `lib/use-auth.ts:202-204`, que hoje precisa ser editada à mão a cada página nova (e por isso apodrece).
-3. **Mutação publica assunto.** Todo ponto de escrita publica o assunto afetado; nenhuma tela precisa saber quem mais o exibe.
-4. **Trocar de usuário limpa tudo.** O logout já limpa os snapshots; o registro do item 2 garante que nenhum fique para trás.
+2. **Registro de chaves.** As chaves vivem em `lib/snapshots/registry.ts`, e o logout **itera o registro** — a lista hardcoded morreu. Página nova = uma linha no registro, e a limpeza vem de graça.
+3. ~~**Mutação publica assunto.** Todo ponto de escrita publica o assunto afetado~~ → **revogada pela SN-D14.** Quem publica é o `request()` do `api-client`, automaticamente, para todo método ≠ GET. Nenhum ponto de escrita publica na mão — eram 77 lugares para lembrar. Uma tela **assina** os assuntos que exibe; nenhuma precisa saber quem mais os exibe.
+4. **Trocar de usuário limpa tudo.** O logout limpa os snapshots via o registro do item 2, então nenhum fica para trás.
+5. **Revalidação silenciosa não pisca** _(acrescentada na F3)_. Quem revalida por baixo — barramento, foreground, poll ou mount restaurado — **não** acende skeleton, **não** rola para o topo, **não** reanima entrada de item e **não** derruba a lista da tela em caso de falha (o usuário fica com o último dado bom). Skeleton é para carga real e troca de filtro, onde o conteúdo de fato muda.
 
 ## §6. Faseamento
 
@@ -408,19 +427,26 @@ A ordem combinada em 2026-07-24 era **D4 → D6 → D1 → D3** (D5/D2 por últi
 > **A SN-D5' foi além do previsto: caiu também o `scale`.** A decisão previa "cross-fade só na entrada"; na implementação a animação ficou **só opacidade 0→1, 300ms**, sem `transform` e sem `will-change`. Isso apaga o **containing block** que o wrapper criava para descendentes `position: fixed` — o motivo original de `MobileTabbar`, modais centrais e `ResultDrawer` escaparem por portal. **Os portais ficam** (o `.bottom-sheet` tem `transform` permanente e páginas têm animação própria de entrada — a regra continua valendo), mas a **justificativa** foi reescrita na skill `modals` e nos 4 comentários de código que citavam o `PageTransition` como causa. Efeito colateral bom: a superfície de `innerHTML` do clone sumiu — **não há mais nenhuma atribuição a `innerHTML` no código** (`SECURITY-threat-model.md` e `SECURITY-audit.md` atualizados).
 >
 > **Diferença de comportamento aceita:** a animação agora roda também na **primeira pintura** (o `PageTransition` só animava a partir da 2ª rota), e `/login`, `/offline` e `/maintenance` ficam **sem** transição — nunca estiveram dentro do shell. Coberta por `prefers-reduced-motion: reduce`.
+>
+> **🔴 Descobertas da F3 (2026-07-30) — três coisas que a fase achou e que valem para o resto do ciclo:**
+>
+> 1. **O page loader tinha uma fonte só.** `useGlobalLoading` era chamado em **exatamente um lugar** (o provider de auth). O comentário da skill `design-system` que falava em "páginas de detalhe também registram" estava obsoleto — os detalhes viraram overlay há tempos. Resolvida a sessão pelo cache, o `LoadingProvider` ficou sem fonte e **caiu inteiro**, junto com o `SplashVisual` e 366 linhas de CSS. **O `public/logo-safras-branco.png` FICOU** — tem 8 consumidores. É a lição da F1 se repetindo: conferir quem mais consome, sempre.
+> 2. **O `/login` não gravava o cache de sessão** — quem gravava era o provider, depois do próprio fetch. Ou seja: **a primeira tela depois de todo login** caía no caminho lento. Sem corrigir isso, a SN-D8 não valeria justamente onde mais aparece.
+> 3. **A hidratação é o gotcha desta fase, e tem dois casos distintos.** O cache de sessão é lido em **layout effect** (não no inicializador do `useState`): `readCachedSession()` devolve `null` no servidor e a sessão no cliente, e as 8 rotas são pré-renderizadas — o inicializador daria mismatch. Já os **snapshots de página** podem ser lidos no inicializador com segurança, porque o layout do grupo devolve `null` até a sessão resolver: as páginas **nunca renderizam no servidor**. Distinção que parece sutil e decide onde cada leitura mora.
 
-| Fase            | Objetivo                                                       | Entra                                                                                                                            | NÃO tocar                                                                                | Risco                                                                     | Pronto quando                                                                                      |
-| --------------- | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| **F1** ✅       | Remover o **boot splash** e sua lógica                         | **só** `SplashScreen.tsx` + os 2 pontos no `app/layout.tsx`                                                                      | `SplashVisual`, `LoadingProvider`, o CSS e o logo — **todos compartilhados**, saem na F3 | deep-link e offline mudam de comportamento (SN-D3, intencional)           | **código feito e gates verdes 2026-07-30; falta o 🖥️/📱 do Flavio**                                |
-| **F2** ✅       | **Shell persistente** no route group                           | 8 dirs → `app/(app)/` (85 imports), `AuthProvider` + `AppShell` no layout do grupo, `PageTransition` **apagado** (SN-D5')        | dados por página                                                                         | perda de estado, hidratação                                               | **código feito e gates verdes 2026-07-30; falta o 🖥️/📱 do Flavio**                                |
-| **F3**          | **Sessão do cache + invalidação + fim do page loader**         | init síncrono via `readCachedSession`; **barramento (SN-D13)**; snapshots (SN-D7); registro de chaves; deletar `LoadingProvider` | —                                                                                        | tela branca se F2 incompleta; dado velho se o barramento ficar incompleto | navegação instantânea, sem verde nem branco; **ação numa página reflete em outra sem sair da aba** |
-| **F4**          | **Camada 4 vira sistema** (SN-D10)                             | primitivo único de skeleton (absorve as 6 famílias); vocabulário de "Carregando"; SN-D11                                         | arquitetura da F3                                                                        | —                                                                         | um kit, um vocabulário; skill `design-system` atualizada                                           |
-| **F5** (futura) | **Nova splash de entrada** (nome do app, só após X tempo fora) | novo componente; SN-D2 (verde nativo)                                                                                            | —                                                                                        | —                                                                         | especificado em doc próprio ou §3.5 expandido                                                      |
+| Fase            | Objetivo                                                       | Entra                                                                                                                                                                                             | NÃO tocar                                                                                | Risco                                                                     | Pronto quando                                                                   |
+| --------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| **F1** ✅       | Remover o **boot splash** e sua lógica                         | **só** `SplashScreen.tsx` + os 2 pontos no `app/layout.tsx`                                                                                                                                       | `SplashVisual`, `LoadingProvider`, o CSS e o logo — **todos compartilhados**, saem na F3 | deep-link e offline mudam de comportamento (SN-D3, intencional)           | **código feito e gates verdes 2026-07-30; falta o 🖥️/📱 do Flavio**             |
+| **F2** ✅       | **Shell persistente** no route group                           | 8 dirs → `app/(app)/` (85 imports), `AuthProvider` + `AppShell` no layout do grupo, `PageTransition` **apagado** (SN-D5')                                                                         | dados por página                                                                         | perda de estado, hidratação                                               | **código feito e gates verdes 2026-07-30; falta o 🖥️/📱 do Flavio**             |
+| **F3** ✅       | **Sessão do cache + invalidação + fim do page loader**         | init do cache via layout effect; **barramento (SN-D13 + SN-D14)**; snapshots nas 4 restantes (SN-D7); registro de chaves (SN-D9); `LoadingProvider`+`SplashVisual`+366 linhas de CSS **apagados** | —                                                                                        | tela branca se F2 incompleta; dado velho se o barramento ficar incompleto | **código feito e gates verdes 2026-07-30 (3 commits); falta o 🖥️/📱 do Flavio** |
+| **F4**          | **Camada 4 vira sistema** (SN-D10)                             | primitivo único de skeleton (absorve as 6 famílias); vocabulário de "Carregando"; **SN-D11** (empurrada da F3)                                                                                    | arquitetura da F3                                                                        | —                                                                         | um kit, um vocabulário; skill `design-system` atualizada                        |
+| **F5** (futura) | **Nova splash de entrada** (nome do app, só após X tempo fora) | novo componente; SN-D2 (verde nativo)                                                                                                                                                             | —                                                                                        | —                                                                         | especificado em doc próprio ou §3.5 expandido                                   |
 
 ## §7. Riscos & questões abertas
 
 - **Auth gate:** mover a sessão para o shell sem abrir janela de conteúdo protegido antes da validação (sessão expirada renderizar o app por um instante). Com SN-D8 o cache é validado por `expiresAt` na leitura (`session-cache.ts:53-57`), mas revogação server-side só aparece na revalidação.
-- **F2 sem F3 (novo, 2026-07-30):** ver alerta de sequência 2. É o risco mais provável de passar despercebido, porque a F2 "parece pronta" — o navbar para de piscar e nada acusa o dado velho.
+- **~~F2 sem F3~~ — FECHADO em 2026-07-30:** a F3 saiu no mesmo dia, e na ordem certa (barramento → sessão → snapshots). A janela em que esse risco existiu não chegou a ser publicada.
+- **Loop de revalidação (novo, F3):** um assinante que publicasse durante o próprio refetch realimentaria o barramento. Mitigado por construção — **só método ≠ GET publica** e o coalescedor de 120ms corta a rajada —, mas é o que conferir na aba de rede: **uma ação = um refetch por superfície**.
 - **Offline/PWA:** não regredir o comportamento offline ao remover o `resolveDestination` do splash. O SW e o cache de sessão sustentam o caminho.
 - **~~PII no HTML cacheado~~:** **eliminado pela SN-D8** — a sessão não entra no documento, então o cache do SW segue sem identidade. _(Seria risco real se tivéssemos escolhido resolver a sessão no servidor.)_
 - **Splash nativo do SO:** só sai via manifest (SN-D2), não pelo React.
@@ -443,11 +469,21 @@ Gates padrão (`lint` + `format:check` + `typecheck` + `build` + `test:unit`) + 
 - **Simulador (React Flow) e peças de informativo durante a transição** — o canvas não pode sair em branco (§2.4/F2).
 - **Modal de senha inicial** atravessando navegação.
 
+**Da F3, o que só o device mostra** (código feito e gates verdes em 2026-07-30):
+
+- **A queixa curada:** mexer numa página e ver outra refletir **sem sair da aba**.
+- **A tela verde não aparece mais** em navegação nenhuma.
+- Abrir o app depois de **horas em background** e ver dado fresco **sem reiniciar**.
+- **Login → `/dashboard` sem espera** — é o efeito de gravar o cache no `/login`.
+- As **4 páginas novas** (`/contratos`, `/financeiro`, `/relatorios`, `/users`) restaurando **scroll e filtros** ao voltar, dentro dos 30min — e **sem piscar skeleton** ao restaurar.
+- Em `/users`, os cards **não recascatam** quando a lista revalida por baixo.
+
 ## §9. Glossário & referências
 
 - **Shell / app shell:** navbar + chrome persistentes que envolvem o conteúdo da rota.
 - **Boot splash:** camada 1 (`SplashScreen`), a tela verde na entrada — 🪦 **apagada na F1**.
-- **Page loader:** camada 2 (`is-page-loader`), overlay verde na navegação.
+- **Page loader:** camada 2 (`is-page-loader`), overlay verde na navegação — 🪦 **apagado na F3**.
+- **Barramento / assunto:** o pub/sub de `lib/revalidation/`. **Assunto** é o eixo da invalidação (`lotes`, `contratos`, `clientes`, `corretores`, `corretagem`, `relatorios`, `usuarios`, `sessao`) — quem escreve **publica**, quem exibe **assina**.
 - **SWR / stale-while-revalidate:** renderizar do cache e revalidar em background.
 - **Staleness:** por quanto tempo um dado cacheado é considerado "fresco" antes de revalidar.
 - **Invalidação:** o evento que declara um dado velho **fora do tempo** — por causa de uma ação, não de um relógio (§2.7, SN-D13).
@@ -457,7 +493,9 @@ Gates padrão (`lint` + `format:check` + `typecheck` + `build` + `test:unit`) + 
 **Arquivos-chave:**
 
 - Já saiu (F1): `components/SplashScreen.tsx`
-- Sai na F3: `components/{SplashVisual,LoadingProvider}.tsx`, `lib/loading/`, `app/globals.css:13692–14056` — **nada disso podia sair antes**, ver §2.6
+- Já saiu (F2): `components/PageTransition.tsx`
+- Já saiu (F3): `components/{SplashVisual,LoadingProvider}.tsx`, `lib/loading/`, `app/globals.css:13690–14055` (366 linhas) — **nada disso podia sair antes**, ver §2.6
+- Nasceu na F3: `lib/revalidation/{subjects,bus,use-revalidate}.ts` (o `use-list-revalidation.ts` foi absorvido), `lib/snapshots/{registry,scroll}.ts`, `lib/use-isomorphic-layout-effect.ts`, `tests/revalidation-bus.test.ts`
 - **Fica sempre:** `public/logo-safras-branco.png` (6 consumidores fora do splash — §2.6)
 - Muda: `app/layout.tsx`, `components/AppShell.tsx`, `lib/use-auth.ts`, as 8 páginas (movem p/ `app/(app)/`)
 - Nasceu na F2: `app/(app)/layout.tsx`, `lib/auth/AuthProvider.tsx` (`AuthProvider` · `useAuth` · `useRequireRole`)
