@@ -1845,6 +1845,113 @@ soma dos grupos ativos.
 - **Rótulos a confirmar no passe visual**: o `EMITIDO` virou **"Emitido"** (era "Em andamento"), e isso
   muda também o selo do modal de Detalhes; a paleta do status virou **azul/verde/laranja** lá também.
 
+## 15. O Detalhes vira quatro abas (RC-D121..D129) — 2026-07-30
+
+**Pedido dele:** dividir o modal de detalhes em sub-abas (`Detalhes · Aprovação · Espelho`), porque a
+página está "muito carregada", e fazer cada aba mostrar o **documento** em vez de repetir os campos
+como texto. Os botões se distribuem pela aba em que a ação faz sentido.
+
+### 15.1 O que o levantamento achou antes de desenhar
+
+🔴 **O PDF do contrato não imprime o dinheiro que os botões da aba Detalhes mexem.** A caixa
+"QUANTIDADES E VALORES" (`sale-contract-pdf-service.js:673-687`) sai com
+`Qtd. · Vlr. Saca · Peso · C. Vend. % · C. Comp. %`. **Não** sai ágio/deságio, **não** sai valor
+total, **não** sai corretagem em R$, **não** saem os corretores — e o `Vlr. Saca` é o preço **cru**,
+não o efetivo. Numa aba que fosse só o PDF, com um botão "Ágio" nela, aplicar um ágio não mudaria
+nada na tela. É a razão de existir da faixa (RC-D122).
+
+**O Histórico não tinha aba** na divisão pedida — e ele é o único lugar do produto onde o **motivo do
+washout** aparece (o PDF não o imprime). Virou a 4ª aba.
+
+**"O PDF do espelho" pode ser mais de um**: contrato com corretagem dos dois lados tem **dois**
+espelhos, cada um endereçado a uma parte, e regerar cria outro marcando o anterior como
+"substituído". Além disso o guardado **expira 15 dias** depois do fim do contrato (RC-D105) — a aba
+volta a ficar vazia sozinha.
+
+**Baixar/Exportar não estavam na lista de botões** que ele deu. Sem eles não há como mandar o
+contrato ao cliente — e eles são também a saída de quando o `<iframe>` de PDF não renderiza no
+aparelho, caso que o produto já conhecia (a frase "se a prévia não aparecer no seu aparelho…" existia
+no modal do espelho). Numa aba que fosse só o PDF, esse aparelho veria a aba **vazia**.
+
+### 15.2 As decisões
+
+| #           | Decisão                                                                                                                                     |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| **RC-D121** | O Detalhes vira **4 abas**: `Detalhes · Aprovação · Espelho · Histórico`. Kit `.fv-tabs`, o mesmo do detalhe do lote (RD15)                 |
+| **RC-D122** | Aba **Detalhes** = o DOCUMENTO. Faixa fina no topo só com o que o papel **não** diz + o PDF ocupando o resto. As 8 seções de texto **saem** |
+| **RC-D123** | O **rodapé é da aba**, não do overlay: só Detalhes tem ações (Ágio · Deságio · Finalizar/Reabrir · Washout)                                 |
+| **RC-D124** | Aba **Espelho** = **um bloco por lado com corretagem**, rotulado. Entregue → PDF; não entregue → os campos a conferir + "Gerar espelho"     |
+| **RC-D125** | A **conferência e a prévia do espelho deixam de ser modais** — viram o conteúdo do bloco. O toggle de lado morre: o bloco já diz de quem é  |
+| **RC-D126** | Aba **Aprovação** sempre visível: sem aprovação = o latch "Solicitar aprovação"; com aprovação = os campos da etiqueta **inline** + o botão |
+| **RC-D127** | A **etiqueta deixa de ser modal**. Grava (Nº compra + Lotes) **no "Gerar etiqueta"**, como hoje — editar e sair não grava                   |
+| **RC-D128** | Aba **Histórico** = a timeline de hoje. Cada linha "Espelho exportado" abre aquele documento — a prateleira sai do Detalhes                 |
+| **RC-D129** | A aba **não** entra na URL. `?details=<id>` continua sozinho e abre sempre em **Detalhes**                                                  |
+
+### 15.3 A faixa (RC-D122) — o critério
+
+A aba é o documento; a faixa é o **complemento** dele, e o critério do que entra é único: **o que o
+papel não diz**. Entram `Valor total`, `Ágio/Deságio`, `Corretagem vendedor` e `Corretagem comprador`
+em % **e** R$, e os `Corretores`. O `Preço efetivo` entra **só quando há ágio/deságio** — sem ele o
+efetivo é igual ao impresso, e repeti-lo seria ruído.
+
+O que **saiu** e não voltou em lugar nenhum: Identificação, Vendedor, Comprador, Banco do vendedor,
+Armazéns, Pagamento e logística, Textos. Conferido campo a campo contra o gerador: o PDF imprime
+todos (o `partyRows` dele, em `:552-568`, consolida cliente + filial). O que o PDF **não** imprime e
+foi para o Histórico: data e motivo do **washout**.
+
+### 15.4 Três superfícies viram conteúdo (RC-D125/D127)
+
+O ganho colateral da divisão: com o espelho e a etiqueta virando **aba**, os três modais que
+flutuavam por cima do detalhe deixam de existir — `EspelhoConferenciaModal` (243), `EspelhoCorretagemModal`
+(228) e `ApprovalLabelModal` (520). ~990 linhas de superfície viram seções.
+
+E cada morte levou junto o que só existia por causa dela:
+
+- o **toggle de lado** do espelho: com um bloco por lado, o rótulo já diz de quem é;
+- o **"Ver detalhes"** da conferência e o `espelhoReturnRef` do painel (o vai-e-volta da D134):
+  corrigir o contrato virou trocar de aba;
+- o **efeito de sucesso** da etiqueta (o sheet descia e um check auto-fechava a tela): numa aba não
+  há o que fechar — o sucesso é um toast, e o pai recarrega o prefill.
+
+🔴 **O que NÃO mudou, porque é regra e não moldura:** a prévia não audita (D127); a **entrega** é que
+congela o snapshot (RC-D103); releitura de guardado não registra de novo; a etiqueta **grava antes de
+imprimir** (RC-D99/D100), com o tratamento do "salvou mas não imprimiu"; e quem libera o botão de cada
+bloco é a elegibilidade **do lado** (RC-D111), não "algum lado sai".
+
+### 15.5 Um documento por lado, e onde ficam os outros
+
+A aba mostra o **mais recente de cada lado** — `latestEspelhoBySide`, três filtros e cada um tira uma
+coisa: `available` (o snapshot existe e a retenção não venceu), `superseded` (há um mais novo do mesmo
+lado) e `logId`/`side` (marcos legados não têm como ser relidos).
+
+Os **substituídos** e os **expirados** continuam alcançáveis pelo **Histórico** (RC-D128): a linha
+"Espelho exportado — Vendedor" virou botão e abre o documento ali mesmo. Foi isso que permitiu apagar
+a prateleira (RC-D106) sem perder nada — ela era uma terceira lista das mesmas linhas.
+
+### 15.6 Custo do fetch
+
+`getSaleContract` + `getSaleContractTimeline` continuam ao abrir (o Espelho e o Histórico comem os
+dois). O que é caro é **lazy por aba**: o PDF do contrato carrega com a aba padrão; o prefill da
+etiqueta e os PDFs do espelho, só na primeira ativação. E a aba fica **montada** depois disso
+(escondida por `display: none`), senão voltar ao Espelho refaria o download de cada PDF.
+
+### 15.7 O que não entrou (registrado)
+
+- **A aba não vai para a URL** (escolha dele). Custo aceito: o aviso "aprovação a enviar" do dashboard
+  (`/contratos?details=<id>&highlight=<id>`) continua caindo em **Detalhes**, e quem quer a etiqueta dá
+  mais um clique. Se incomodar, o caminho é `&aba=aprovacao`.
+- **Editar o Nº compra e sair sem gerar não grava, em silêncio** (escolha dele). O guard de rascunho
+  existe no projeto (`forms` §8) se depois quiser.
+- **A aba se chama "Detalhes" e mostra um PDF.** "Contrato" seria mais verdadeiro — fica para o passe
+  de design, que ele separou explicitamente ("ajustes finos de design faremos depois").
+- **Ágio, Washout e Editar continuam fechando o modal** e reabrindo. Como as três são ações da aba
+  Detalhes, voltar para a aba padrão não incomoda.
+- **`.nsv2-field*` ficou órfã.** O `ApprovalLabelModal` era o último consumidor da família de campos do
+  "Nova amostra" (26 ocorrências no CSS, em três regiões, entremeadas com regras vivas do
+  `ClientLookupField` e do `/profile`). É um bloco de kit COMPARTILHADO, e podá-lo às cegas no meio de
+  uma rodada de UI é o tipo de colateral que a `css-architecture` existe para evitar. Fica como sweep
+  deliberado.
+
 ## Apêndice A — Ledger de decisões (condensado)
 
 > Resolução final de cada decisão; as **superadas** apontam para o que as substituiu. O histórico completo (Contexto→Opções→Proposta + sessões) está no Git.

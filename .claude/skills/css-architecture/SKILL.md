@@ -113,6 +113,18 @@ mais de um arquivo, a regra vai escopada no contêiner da página.
 
 ---
 
+### Um molde por trabalho, não um por consumidor
+
+`.ctr-details-doc-frame` e `.ctr-doc-frame` eram a **mesma coisa** — `<iframe>` de PDF com hairline e
+raio — em dois lugares da mesma tela, só porque nasceram em componentes diferentes (o detalhe e o
+modal do espelho). Quando a RC-D125 juntou os dois na mesma superfície, a duplicação virou óbvia: uma
+sobrou, e agora o contrato, cada bloco do espelho e a releitura do histórico usam **uma** regra.
+
+O sinal, antes de escrever a regra nova: **já existe uma classe que faz este desenho nesta tela?** Se
+existe e o nome só não bate, o problema é o nome, não a regra.
+
+---
+
 ## §4 🔴 Morto por seletor
 
 Regra que **existe, está bem escrita, e não aplica em lugar nenhum** porque o seletor referencia

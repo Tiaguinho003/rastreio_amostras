@@ -226,6 +226,23 @@ hero. Dois detalhes: (1) ao neutralizar regra legada, qualquer `overflow` que vo
 tira o scrollport de baixo do sticky; (2) o `.fv-more-menu` do ⋯ do hero é `z-index: 30` no mesmo
 contexto de empilhamento, então continua passando por cima das abas.
 
+#### Sub-abas dentro do detalhe (`.fv-tabs`)
+
+Segundo consumidor desde a **RC-D121**: o detalhe do contrato. O molde é o mesmo (ARIA + sticky +
+fundo opaco), e o que a segunda vez ensinou:
+
+- **O `footer` do `DetailOverlay` tem que virar função da aba ativa.** Ele é montado uma vez, então
+  um rodapé calculado sem olhar a aba segue igual nas quatro — e diz que as ações valem para todas.
+  Se só uma aba age, só ela devolve botões.
+- **Aba visitada fica MONTADA** (escondida por `display: none`), não desmontada. Desmontar refaz todo
+  fetch caro da aba a cada volta — no contrato seriam os PDFs do espelho e o prefill da etiqueta.
+- **O `hidden` sozinho não basta**: ele vem do UA stylesheet e qualquer regra de `display` do
+  conteúdo ganha. Use `hidden` (a11y) **e** `display: none` inline.
+- **Uma superfície que só existia para mostrar algo do objeto vira ABA, não fica ao lado dela.** No
+  contrato, três modais (conferência do espelho, prévia do espelho, etiqueta) viraram conteúdo — e
+  com eles morreu o vai-e-volta que existia só para sair de uma superfície e voltar (RC-D125). Se
+  duas superfícies precisam de um caminho de ida-e-volta entre si, provavelmente são duas abas.
+
 ```tsx
 <DetailOverlay
   open={Boolean(loteId)}
@@ -682,10 +699,11 @@ muda) · **🔜 ciclo** migra quando o redesenho chegar na página — nada de c
 | /contratos              | Criação à vista: formulário (lote é campo) → documento (`.ctr-form-sheet.ctr-contract-sheet`, **700px**)                   | painel de **dois passos** (§1-A)               | ✅ (RC-D53/D58..D61/D69)                                  |
 | /contratos ?details=    | Detalhe do contrato                                                                                                        | `DetailOverlay`                                | ✅                                                        |
 | /contratos              | Filtros                                                                                                                    | painel lateral (`.side-sheet.fv-filter-sheet`) | ✅ (RC-D47)                                               |
-| /contratos              | Ágio; washout; conferência do espelho; solicitar aprovação                                                                 | central                                        | fica                                                      |
+| /contratos              | Ágio; washout; **confirmar** o "Solicitar aprovação"                                                                       | central                                        | fica                                                      |
 | /contratos              | **Finalizar / Reabrir: SEM superfície** — ação direta no menu ⋯ do card e no rodapé do detalhe (RC-D63)                    | —                                              | ✅                                                        |
 | /contratos              | Abrir o detalhe: o **card INTEIRO** clica (sem seta, sem item de menu) — RC-D120                                           | — (é o gatilho do `?details=`)                 | ✅ (RC-D112/D120)                                         |
-| /contratos ?details=    | Etiqueta de aprovação — **abre de dentro do `DetailOverlay`** (RC-D25)                                                     | central **stacked**                            | fica                                                      |
+| /contratos ?details=    | **4 sub-abas** (`Detalhes · Aprovação · Espelho · Histórico`) dentro do overlay; rodapé por ABA                            | `.fv-tabs` (nenhuma superfície nova)           | ✅ (RC-D121/D123)                                         |
+| /contratos ?details=    | Etiqueta de aprovação, conferência e prévia do espelho — **deixaram de ser superfícies**: viraram conteúdo de aba          | — (RC-D125/D127)                               | ✅                                                        |
 | /financeiro             | **Nenhuma** — a página é leitura pura (RC-D67)                                                                             | —                                              | ✅                                                        |
 | Simulador               | Ficha de resultado (`.pg-ficha-sheet`, backdrop atravessável); connect menu                                                | painel lateral                                 | ✅ (PG52)                                                 |
 | Simulador               | Tipo de node → qual lote (`.pg-nodes-sheet`, backdrop **padrão**) — menu que aprofunda, §1-A                               | painel de **dois passos**                      | ✅ (PG58/PG60)                                            |
