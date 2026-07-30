@@ -6,6 +6,7 @@ import { BottomSheet } from '../BottomSheet';
 import type { PgNodeType } from '../../lib/playground/types';
 import type { SampleSnapshot } from '../../lib/types';
 import { LotSearchField } from './LotSearchField';
+import { NODE_ICONS } from './nodes/icons';
 
 export const NODE_LABELS: Record<PgNodeType, string> = {
   lote: 'Lote',
@@ -92,6 +93,12 @@ export function NodePaletteSheet({
                 className={`fv-choice pg-accent-${item.type}${drills ? ' has-chevron' : ''}`}
                 onClick={() => (drills ? setOnLotStep(true) : onPickType(item.type))}
               >
+                {/* PG62: o MESMO glifo que o node vai ter no canvas. O cartão
+                    deixa de ser uma linha de texto e vira o retrato do que o
+                    toque produz. */}
+                <span className="pg-nodes-icon" aria-hidden="true">
+                  {NODE_ICONS[item.type]}
+                </span>
                 <span className="fv-choice-label">{NODE_LABELS[item.type]}</span>
                 <span className="fv-choice-hint">{item.hint}</span>
                 {/* Só o Lote leva a outro lugar; o chevron é o que avisa antes

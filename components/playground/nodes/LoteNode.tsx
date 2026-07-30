@@ -5,14 +5,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 
 import type { SampleSnapshot } from '../../../lib/types';
 import { NodeShell } from './NodeShell';
-
-// Um saco de café: base larga, boca amarrada.
-const LoteIcon = (
-  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-    <path d="M9 3h6l-1.5 3.5h-3z" />
-    <path d="M13.5 6.5c3 1 5.5 4.2 5.5 8.2V19a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-4.3c0-4 2.5-7.2 5.5-8.2" />
-  </svg>
-);
+import { NODE_ICONS } from './icons';
 
 // O snapshot do lote mora no PRÓPRIO node: o canvas não mantém um índice à
 // parte, e o `lotsById` que os módulos puros recebem é derivado dos nodes a cada
@@ -76,7 +69,7 @@ export function LoteNode({ id, data }: NodeProps) {
   return (
     <NodeShell
       id={id}
-      icon={LoteIcon}
+      icon={NODE_ICONS.lote}
       source
       name={
         <>

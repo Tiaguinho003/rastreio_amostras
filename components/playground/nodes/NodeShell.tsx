@@ -3,6 +3,9 @@
 import { Handle, NodeToolbar, Position, useReactFlow, useStore } from '@xyflow/react';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 
+import { AddNodeButton } from '../AddNodeButton';
+import { usePlaygroundCanvasActions } from '../canvas-actions-context';
+
 // Casca comum dos 3 nodes (PG61). Antes cada node desenhava a própria caixa, e
 // o que variava era só o miolo — agora o que varia é só o miolo de verdade:
 // ícone, nome e o que vai abaixo dele.
@@ -39,9 +42,9 @@ export function NodeShell({
   icon: ReactNode;
   name: ReactNode;
   variant?: NodeShellVariant;
-  /** Porta de entrada, à esquerda. */
+  /** Porta de entrada, à esquerda. Sem ela o quadrado vira "gatilho" (PG62). */
   target?: boolean;
-  /** Porta de saída, à direita — é ela que vira o coto com "+". */
+  /** Porta de saída, à direita. */
   source?: boolean;
   /** Selo no canto do quadrado (o check do Resultado). */
   corner?: ReactNode;
@@ -49,11 +52,19 @@ export function NodeShell({
   children?: ReactNode;
 }) {
   const { deleteElements, setEdges } = useReactFlow();
+  const { addFromNode } = usePlaygroundCanvasActions();
+  // Dois seletores de valor PRIMITIVO em vez de um objeto com os dois: o
+  // `useStore` compara o retorno por identidade, e um objeto novo a cada
+  // chamada re-renderizaria o node a cada tique do canvas.
+  //
   // "Desativar" só existe com o que desativar — item ausente quando não cabe,
   // nunca desabilitado (mesma regra do menu ⋯ das listas).
   const connected = useStore((store) =>
     store.edges.some((edge) => edge.source === id || edge.target === id)
   );
+  // PG62: o coto com "+" é a OFERTA de conectar, e some quando a saída já tem
+  // para onde ir — sobra a linha da edge, saindo do círculo.
+  const hasOutgoing = useStore((store) => store.edges.some((edge) => edge.source === id));
 
   const [hovered, setHovered] = useState(false);
   const leaveTimer = useRef<number | null>(null);
@@ -74,6 +85,10 @@ export function NodeShell({
   useEffect(() => clearLeave, []);
 
   const variantClass = variant === 'error' ? ' has-error' : variant ? ` is-${variant}` : '';
+  // Sem porta de entrada, o node é uma FONTE: nada chega nele, e o lado esquerdo
+  // arredondado diz isso de longe — a forma faz o trabalho que uma legenda faria
+  // (é o desenho do node-gatilho do n8n). Hoje só o Lote cai aqui.
+  const triggerClass = target ? '' : ' is-trigger';
 
   return (
     <div className="pg-node" onMouseEnter={show} onMouseLeave={hide}>
@@ -121,24 +136,27 @@ export function NodeShell({
         </button>
       </NodeToolbar>
 
-      <div className={`pg-node-box${variantClass}`}>
+      <div className={`pg-node-box${variantClass}${triggerClass}`}>
         {target ? <Handle type="target" position={Position.Left} /> : null}
         <span className="pg-node-icon" aria-hidden="true">
           {icon}
         </span>
         {corner}
-        {/* O coto com "+" É a porta de saída, não um enfeite ao lado dela: o
-            arraste começa no próprio "+", que é o ponto grande e óbvio de onde
-            puxar. Por ser a porta, ele é também onde a edge nasce — então ele
-            PERMANECE depois de conectado, e a linha continua de onde ela parece
-            sair. Esconder o coto ao conectar faria o ponto de ancoragem saltar
+        {/* PG62: a porta de saída é o CÍRCULO na borda, e ele fica SEMPRE — é
+            dali que a edge nasce e é de onde se puxa a próxima, porque um node
+            pode alimentar mais de um destino. O que some ao conectar é o coto:
+            a linha curta e o "+", que são a oferta, não a porta. Na PG61 o "+"
+            ERA a porta, e por isso não podia sumir: a âncora da edge saltaria
             de volta para a borda do quadrado. */}
-        {source ? (
-          <Handle type="source" position={Position.Right}>
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path d="M12 5v14M5 12h14" />
-            </svg>
-          </Handle>
+        {source ? <Handle type="source" position={Position.Right} /> : null}
+        {source && !hasOutgoing ? (
+          <span className="pg-node-stub">
+            <AddNodeButton
+              variant="stub"
+              label="Conectar a um node novo"
+              onOpen={(event) => addFromNode(id, event)}
+            />
+          </span>
         ) : null}
       </div>
 

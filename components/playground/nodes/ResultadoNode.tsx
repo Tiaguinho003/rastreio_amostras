@@ -5,15 +5,7 @@ import type { NodeProps } from '@xyflow/react';
 import type { SimulationOutcome } from '../../../lib/playground/simulation';
 import { usePlaygroundResults } from '../results-context';
 import { NodeShell } from './NodeShell';
-
-// Uma ficha: a folha com as linhas do laudo estimado.
-const ResultadoIcon = (
-  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-    <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
-    <path d="M14 3v5h5" />
-    <path d="M9 13h6M9 17h4" />
-  </svg>
-);
+import { NODE_ICONS } from './icons';
 
 function errorMessage(outcome: Extract<SimulationOutcome, { kind: 'error' }>): string {
   switch (outcome.reason) {
@@ -44,12 +36,14 @@ export function ResultadoNode({ id }: NodeProps) {
   const outcome = outcomes?.get(id) ?? null;
 
   if (!outcome) {
-    return <NodeShell id={id} icon={ResultadoIcon} name="Resultado" variant="incomplete" target />;
+    return (
+      <NodeShell id={id} icon={NODE_ICONS.resultado} name="Resultado" variant="incomplete" target />
+    );
   }
 
   if (outcome.kind === 'error') {
     return (
-      <NodeShell id={id} icon={ResultadoIcon} name="Resultado" variant="error" target>
+      <NodeShell id={id} icon={NODE_ICONS.resultado} name="Resultado" variant="error" target>
         <p className="pg-node-error" role="alert">
           {errorMessage(outcome)}
         </p>
@@ -60,7 +54,7 @@ export function ResultadoNode({ id }: NodeProps) {
   return (
     <NodeShell
       id={id}
-      icon={ResultadoIcon}
+      icon={NODE_ICONS.resultado}
       name="Resultado"
       variant="ready"
       target

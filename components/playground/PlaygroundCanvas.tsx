@@ -44,6 +44,10 @@ import { ConnectMenu, type ConnectMenuState } from './ConnectMenu';
 import { ExecutePill } from './ExecutePill';
 import { NodePaletteSheet } from './NodePaletteSheet';
 import { ResultDrawer } from './ResultDrawer';
+import {
+  PlaygroundCanvasActionsContext,
+  type PlaygroundCanvasActions,
+} from './canvas-actions-context';
 import { PlaygroundLotsContext, type PlaygroundLots } from './lots-context';
 import { PlaygroundResultsContext, type PlaygroundResults } from './results-context';
 import { LoteNode, type LoteNodeData } from './nodes/LoteNode';
@@ -333,6 +337,38 @@ export function PlaygroundCanvas({ session }: { session: SessionData }) {
     [screenToFlowPosition, toast]
   );
 
+  // PG62: o "+" do coto de um node. Abre o MESMO menu de compatíveis do
+  // arraste-para-o-vazio — o "+" é o caminho de quem não quer arrastar, e o
+  // resultado tem que ser idêntico. Nenhum dos tipos que podem sair daqui
+  // (Mistura, Resultado) precisa de configuração, então não há passo de painel:
+  // o Lote, que precisaria, nunca é destino de conexão.
+  const addFromNode = useCallback(
+    (sourceId: string, event: ReactMouseEvent<HTMLElement>) => {
+      const source = nodes.find((node) => node.id === sourceId);
+      const options = COMPATIBLE_TARGETS[(source?.type ?? '') as PgNodeType] ?? [];
+      if (options.length === 0) return;
+      const rect = event.currentTarget.getBoundingClientRect();
+      const bounds = hostRef.current?.getBoundingClientRect();
+      // A âncora é o MEIO da borda direita do "+", convertida para o flow antes
+      // de deslocar: assim o afastamento do node novo é em unidades do canvas e
+      // não encolhe nem estica com o zoom.
+      const anchor = screenToFlowPosition({ x: rect.right, y: rect.top + rect.height / 2 });
+      setConnectMenu({
+        sourceId,
+        options,
+        screen: {
+          x: rect.right - (bounds?.left ?? 0) + 8,
+          y: rect.top - (bounds?.top ?? 0),
+        },
+        // −34 = meia altura do quadrado: o node novo nasce alinhado pelo CENTRO
+        // com o de origem, e não pendurado pelo topo.
+        flow: { x: anchor.x + 70, y: anchor.y - 34 },
+      });
+    },
+    [nodes, screenToFlowPosition]
+  );
+  const canvasActions = useMemo<PlaygroundCanvasActions>(() => ({ addFromNode }), [addFromNode]);
+
   const onPickFromConnectMenu = useCallback(
     (type: PgNodeType) => {
       if (!connectMenu) return;
@@ -364,63 +400,65 @@ export function PlaygroundCanvas({ session }: { session: SessionData }) {
   return (
     <PlaygroundLotsContext.Provider value={lotsValue}>
       <PlaygroundResultsContext.Provider value={resultsValue}>
-        <div className="pg-canvas-wrap" ref={hostRef}>
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            nodeTypes={nodeTypes}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
-            onConnectEnd={onConnectEnd}
-            isValidConnection={isValidConnection}
-            onPaneClick={() => setConnectMenu(null)}
-            onNodeClick={onNodeClick}
-            deleteKeyCode={['Backspace', 'Delete']}
-            minZoom={0.3}
-            maxZoom={2}
-          >
-            {/* PG55: sem prop `color` — o ponto vem do `--pg-dot` via
+        <PlaygroundCanvasActionsContext.Provider value={canvasActions}>
+          <div className="pg-canvas-wrap" ref={hostRef}>
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              nodeTypes={nodeTypes}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              onConnect={onConnect}
+              onConnectEnd={onConnectEnd}
+              isValidConnection={isValidConnection}
+              onPaneClick={() => setConnectMenu(null)}
+              onNodeClick={onNodeClick}
+              deleteKeyCode={['Backspace', 'Delete']}
+              minZoom={0.3}
+              maxZoom={2}
+            >
+              {/* PG55: sem prop `color` — o ponto vem do `--pg-dot` via
                 `--xy-background-pattern-color`, no `.pg-host`. */}
-            <Background variant={BackgroundVariant.Dots} gap={22} size={1.5} />
-            <Controls showInteractive={false} />
-            <ExecutePill onExecute={onExecute} disabled={nodes.length === 0} />
-            {/* PG58: o "+" do canto. Dentro de um `Panel` porque é a peça do
+              <Background variant={BackgroundVariant.Dots} gap={22} size={1.5} />
+              <Controls showInteractive={false} />
+              <ExecutePill onExecute={onExecute} disabled={nodes.length === 0} />
+              {/* PG58: o "+" do canto. Dentro de um `Panel` porque é a peça do
                 React Flow que já resolve ancorar sobre o canvas. */}
-            <Panel position="top-right">
-              <AddNodeButton variant="corner" onOpen={openPalette} />
-            </Panel>
-          </ReactFlow>
-          {/* PG59: o "+" central existe só enquanto o canvas está vazio. Fora do
+              <Panel position="top-right">
+                <AddNodeButton variant="corner" onOpen={openPalette} />
+              </Panel>
+            </ReactFlow>
+            {/* PG59: o "+" central existe só enquanto o canvas está vazio. Fora do
               `<ReactFlow>` porque o `Panel` não tem posição central — e aqui o
               contexto de posicionamento é o `.pg-canvas-wrap`, como era a
               paleta. A PG54 segue valendo no que ela disse: nada de FRASE no
               vazio. */}
-          {nodes.length === 0 ? <AddNodeButton variant="center" onOpen={openPalette} /> : null}
-          <NodePaletteSheet
-            open={paletteOpen}
-            onClose={closePalette}
-            onPickType={onPickType}
-            onPickLot={onPickLot}
-          />
-          {connectMenu ? (
-            <ConnectMenu
-              state={connectMenu}
-              onPick={onPickFromConnectMenu}
-              onClose={() => setConnectMenu(null)}
+            {nodes.length === 0 ? <AddNodeButton variant="center" onOpen={openPalette} /> : null}
+            <NodePaletteSheet
+              open={paletteOpen}
+              onClose={closePalette}
+              onPickType={onPickType}
+              onPickLot={onPickLot}
             />
-          ) : null}
-          {/* PG52: sempre montado — o `BottomSheet` precisa do `open` indo de
+            {connectMenu ? (
+              <ConnectMenu
+                state={connectMenu}
+                onPick={onPickFromConnectMenu}
+                onClose={() => setConnectMenu(null)}
+              />
+            ) : null}
+            {/* PG52: sempre montado — o `BottomSheet` precisa do `open` indo de
               true pra false pra animar a saída; desmontar corta o slide. */}
-          <ResultDrawer
-            open={drawerResultId !== null}
-            outcome={drawerResultId ? (outcomes?.get(drawerResultId) ?? null) : null}
-            onClose={() => setDrawerResultId(null)}
-          />
-          <p className="pg-live-region" role="status" aria-live="polite">
-            {announcement}
-          </p>
-        </div>
+            <ResultDrawer
+              open={drawerResultId !== null}
+              outcome={drawerResultId ? (outcomes?.get(drawerResultId) ?? null) : null}
+              onClose={() => setDrawerResultId(null)}
+            />
+            <p className="pg-live-region" role="status" aria-live="polite">
+              {announcement}
+            </p>
+          </div>
+        </PlaygroundCanvasActionsContext.Provider>
       </PlaygroundResultsContext.Provider>
     </PlaygroundLotsContext.Provider>
   );

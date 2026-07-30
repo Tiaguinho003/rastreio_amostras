@@ -29138,21 +29138,30 @@ body.is-selection-mode .mobile-tabbar {
     background var(--duration-fast) var(--ease-out),
     transform var(--duration-fast) var(--ease-out);
 }
-.pg-node-box .react-flow__handle-left {
-  left: -6px;
-}
-.pg-node-box .react-flow__handle-right {
-  right: -6px;
+/* O alvo de arrasto é maior que o desenho: 11px de círculo é pouco para o
+   mouse, e errar a porta é o gesto mais caro do canvas. O pseudo herda o
+   `pointer-events` do handle, então só pega clique quando o React Flow liga a
+   porta (`.connectionindicator`). */
+.pg-node-box .react-flow__handle::after {
+  content: '';
+  position: absolute;
+  inset: -7px;
+  border-radius: 50%;
 }
 .pg-node-box.is-incomplete .react-flow__handle {
   border-color: color-mix(in srgb, var(--brand-green) 38%, var(--pg-surface));
 }
+/* 🔴 Não mexer em `left`/`right`: o React Flow ancora a porta em `0` e centra na
+   borda com `transform: translate(±50%, -50%)`. Por isso o hover repete o
+   translate do LADO certo — um `scale` sozinho descentralizaria o círculo. */
 @media (hover: hover) {
-  /* Cresce e enche: o alvo real de arrasto é maior que os 11px que se veem, e
-     o hover confirma que é dali que se puxa. */
-  .pg-node-box .react-flow__handle:hover {
+  .pg-node-box .react-flow__handle-left:hover {
     background: var(--brand-green);
-    transform: scale(1.25);
+    transform: translate(-50%, -50%) scale(1.25);
+  }
+  .pg-node-box .react-flow__handle-right:hover {
+    background: var(--brand-green);
+    transform: translate(50%, -50%) scale(1.25);
   }
 }
 
@@ -29360,6 +29369,16 @@ body.is-selection-mode .mobile-tabbar {
 }
 .pg-sacks-confirm:active {
   transform: scale(0.9);
+}
+/* Reafirma o verde no hover — `button:hover { background: transparent }` do
+   reset global vence a classe e deixaria o botão branco. */
+@media (hover: hover) {
+  .pg-sacks-confirm:hover {
+    background: var(--brand-green);
+  }
+  .pg-sacks-confirm:disabled:hover {
+    background: var(--color-line);
+  }
 }
 /* "Ativado ao editar": sem mudança válida a aplicar, o botão está apagado e não
    afunda — clicar nele não faria nada, e o toque não deve prometer que faz. */
@@ -29741,6 +29760,12 @@ body.is-selection-mode .mobile-tabbar {
 }
 .pg-result-check:active {
   transform: scale(0.88);
+}
+@media (hover: hover) {
+  /* Idem: sem isto o selo verde vira um furo branco no canto do quadrado. */
+  .pg-result-check:hover {
+    background: var(--brand-green);
+  }
 }
 
 /* ── Painéis laterais do Simulador (PG52/PG58) ──
