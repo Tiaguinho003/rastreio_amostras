@@ -9,6 +9,9 @@ import {
   assertEspelhoEligible,
   buildApprovalPrefill,
   buildEspelhoSnapshot,
+  contractEndedAt,
+  espelhoSnapshotExpiresAt,
+  isEspelhoSnapshotAvailable,
   ESPELHO_SNAPSHOT_VERSION,
   snapshotPartyName,
   brtTodayDateOnly,
@@ -810,6 +813,150 @@ test('buildContractTimeline: agio/aprovacao/espelho mapeiam campos e washout leg
   assert.equal(washout.toStatus, 'WASH_OUT');
   assert.equal(washout.legacy, true);
   assert.equal(washout.reason, 'Negocio desfeito');
+});
+
+// RC-D105: o relogio da retencao. Nao ha `finalizedAt` (finalizar e REVERSIVEL,
+// RC-D63), entao o fim do contrato e derivado do status log / washoutAt.
+test('contractEndedAt: FINALIZADO pelo log, WASH_OUT pela coluna, EMITIDO sem relógio', () => {
+  const logs = [
+    { toStatus: 'FINALIZADO', createdAt: '2026-07-01T10:00:00Z' },
+    { toStatus: 'EMITIDO', createdAt: '2026-07-05T10:00:00Z' },
+    { toStatus: 'FINALIZADO', createdAt: '2026-07-10T10:00:00Z' },
+  ];
+  // Finalizado -> a linha MAIS RECENTE (finalizou, reabriu, finalizou de novo).
+  assert.equal(
+    contractEndedAt({ status: 'FINALIZADO' }, logs).toISOString(),
+    '2026-07-10T10:00:00.000Z'
+  );
+  // 🔴 Reaberto: o contrato voltou a estar vivo, o relogio PARA — apesar de haver
+  // duas linhas de FINALIZADO no historico.
+  assert.equal(contractEndedAt({ status: 'EMITIDO' }, logs), null);
+  // Washout: a coluna manda (unica data de terminal que e coluna).
+  assert.equal(
+    contractEndedAt({ status: 'WASH_OUT', washoutAt: '2026-06-01T00:00:00Z' }, []).toISOString(),
+    '2026-06-01T00:00:00.000Z'
+  );
+  // Washout legado sem a coluna: cai no log.
+  assert.equal(
+    contractEndedAt({ status: 'WASH_OUT', washoutAt: null }, [
+      { toStatus: 'WASH_OUT', createdAt: '2026-05-02T00:00:00Z' },
+    ]).toISOString(),
+    '2026-05-02T00:00:00.000Z'
+  );
+  // 🔴 FINALIZADO sem NENHUMA linha de log -> null (fail-OPEN de proposito: guardar
+  // demais e melhor que apagar um documento que nao se sabe datar).
+  assert.equal(contractEndedAt({ status: 'FINALIZADO' }, []), null);
+});
+
+test('espelhoSnapshotExpiresAt / isEspelhoSnapshotAvailable: 15 dias após o fim', () => {
+  const logs = [{ toStatus: 'FINALIZADO', createdAt: '2026-07-10T00:00:00Z' }];
+  const contract = { status: 'FINALIZADO' };
+  assert.equal(
+    espelhoSnapshotExpiresAt(contract, logs).toISOString(),
+    '2026-07-25T00:00:00.000Z' // 10/07 + 15 dias
+  );
+  // Contrato vivo = sem prazo.
+  assert.equal(espelhoSnapshotExpiresAt({ status: 'EMITIDO' }, logs), null);
+
+  const row = { snapshot: { v: 1 } };
+  const dentro = new Date('2026-07-24T23:59:00Z');
+  const fora = new Date('2026-07-25T00:00:01Z');
+  assert.equal(isEspelhoSnapshotAvailable(row, contract, logs, dentro), true);
+  assert.equal(isEspelhoSnapshotAvailable(row, contract, logs, fora), false);
+  // Snapshot ja purgado (ou linha anterior a migration) nunca esta disponivel.
+  assert.equal(isEspelhoSnapshotAvailable({ snapshot: null }, contract, logs, dentro), false);
+  // Contrato vivo: disponivel mesmo anos depois da entrega.
+  assert.equal(
+    isEspelhoSnapshotAvailable(row, { status: 'EMITIDO' }, logs, new Date('2030-01-01T00:00:00Z')),
+    true
+  );
+});
+
+// RC-D106: os itens ESPELHO do timeline sao a PRATELEIRA. available/superseded/stale
+// sao derivados aqui — nenhum deles e coluna.
+test('buildContractTimeline: espelho guardado traz available/superseded/stale (RC-D106)', () => {
+  const espelhoLogs = [
+    {
+      id: 'x1',
+      createdAt: '2026-07-01T10:00:00Z',
+      actorUserId: null,
+      side: 'seller',
+      snapshot: { v: 1, commission: 20, contractVersion: 3 },
+    },
+    {
+      id: 'x2',
+      createdAt: '2026-07-02T10:00:00Z',
+      actorUserId: null,
+      side: 'seller',
+      snapshot: { v: 1, commission: 30, contractVersion: 5 },
+    },
+    {
+      id: 'x3',
+      createdAt: '2026-07-03T10:00:00Z',
+      actorUserId: null,
+      side: 'buyer',
+      // Linha ANTERIOR a migration do snapshot: o export aconteceu, o documento nao.
+      snapshot: null,
+    },
+  ];
+  const items = buildContractTimeline({
+    contract: { status: 'EMITIDO', version: 5 },
+    espelhoLogs,
+    now: new Date('2026-07-10T00:00:00Z'),
+  });
+  const byLog = Object.fromEntries(
+    items.filter((item) => item.kind === 'ESPELHO').map((item) => [item.logId, item])
+  );
+
+  // O mais novo do lado vendedor: disponivel, corrente, e casa com a version atual.
+  assert.equal(byLog.x2.available, true);
+  assert.equal(byLog.x2.commission, 30);
+  assert.equal(byLog.x2.superseded, false);
+  assert.equal(byLog.x2.stale, false);
+  // O anterior do MESMO lado: disponivel, mas substituido — e stale, porque o
+  // contrato mudou (version 3 congelada contra 5 atual).
+  assert.equal(byLog.x1.available, true);
+  assert.equal(byLog.x1.superseded, true);
+  assert.equal(byLog.x1.stale, true);
+  // Sem snapshot: a LINHA fica (o fato auditado nao expira), o documento nao.
+  assert.equal(byLog.x3.available, false);
+  assert.equal(byLog.x3.commission, null);
+  assert.equal(byLog.x3.superseded, false);
+  // Contrato vivo: sem prazo.
+  assert.equal(byLog.x2.expiresAt, null);
+});
+
+test('buildContractTimeline: retenção vencida derruba TODOS os espelhos do contrato', () => {
+  const espelhoLogs = [
+    {
+      id: 'x1',
+      createdAt: '2026-07-01T10:00:00Z',
+      actorUserId: null,
+      side: 'seller',
+      snapshot: { v: 1, commission: 20, contractVersion: 1 },
+    },
+  ];
+  const base = {
+    espelhoLogs,
+    statusLogs: [
+      { id: 's1', toStatus: 'FINALIZADO', createdAt: '2026-07-02T00:00:00Z', actorUserId: null },
+    ],
+    contract: { status: 'FINALIZADO', version: 1 },
+  };
+  // 14 dias depois de finalizar: ainda na estante, com a data de validade a mostra.
+  const dentro = buildContractTimeline({ ...base, now: new Date('2026-07-16T00:00:00Z') });
+  const vivo = dentro.find((item) => item.kind === 'ESPELHO');
+  assert.equal(vivo.available, true);
+  assert.equal(vivo.expiresAt, '2026-07-17T00:00:00.000Z');
+  // 16 dias depois: fora da estante — mas a linha do historico continua.
+  const depois = buildContractTimeline({ ...base, now: new Date('2026-07-18T00:00:00Z') });
+  const morto = depois.find((item) => item.kind === 'ESPELHO');
+  assert.equal(morto.available, false);
+  assert.equal(morto.commission, null);
+  assert.ok(
+    depois.some((item) => item.kind === 'ESPELHO'),
+    'a linha auditada NAO desaparece'
+  );
 });
 
 // F1 (E21-E27/D138): eventos de pagamento do card de Eventos. RC-D62/D64: o

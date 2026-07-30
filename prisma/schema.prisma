@@ -962,10 +962,22 @@ model SaleContractStatusLog {
 // Auditoria da geracao do Espelho de Corretagem (Fase J, D124 — resolve a
 // D71): 1 linha por PDF de espelho gerado, com o lado (comprador/vendedor),
 // o ator e quando. Sem @relation (FKs so no SQL).
+//
+// RC-D103: `snapshot` = o documento CONGELADO (buildEspelhoSnapshot) — tudo que
+// o papel imprimiu do contrato. Sem ele, o espelho era regerado ao vivo e, depois
+// de um "Editar"/agio, saia diferente do que foi entregue ao cliente. O
+// `created_at` desta linha e a DATA do documento (a coluna "Data" do papel).
+//
+// 🔴 A NULABILIDADE E A RETENCAO (RC-D105), nao compatibilidade: 15 dias depois do
+// FIM do contrato (FINALIZADO pelo status log, ou washout_at) o snapshot e ANULADO
+// e a linha FICA. O fato auditado nao expira; o documento sim. Linhas anteriores a
+// migration 20260729170000 tem snapshot NULL — o export aconteceu, o documento nao
+// e recuperavel. Quem le tem que tratar NULL como "nao disponivel", nunca como erro.
 model SaleContractEspelhoLog {
   id             String   @id @db.Uuid
   saleContractId String   @map("sale_contract_id") @db.Uuid
   side           String
+  snapshot       Json?
   actorUserId    String?  @map("actor_user_id") @db.Uuid
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 

@@ -1674,23 +1674,28 @@ export async function downloadSaleContractPdf(session: SessionData, contractId: 
   return { blob, fileName };
 }
 
-// Espelho de Corretagem (Fase E): baixa/visualiza o PDF do espelho (regenerado
-// on-demand; elegíveis EMITIDO/FATURADO/PAGO/WASH_OUT — D105). `side` =
-// 'seller' | 'buyer' define a parte (CLIENTE) e o lado da comissão. Cookie de
-// sessão via credentials. `preview` (D127): a prévia do modal NÃO conta como
-// auditoria — a exportação real loga via logEspelhoExport.
+// Espelho de Corretagem (Fase E): baixa/visualiza o PDF do espelho. Elegíveis
+// EMITIDO/FINALIZADO/WASH_OUT (RC-D62 aposentou FATURADO/PAGO; D105 incluiu o
+// washout). Cookie de sessão via credentials. Dois modos, e só um deles é passado:
+//   `side` — gera do contrato FRESCO; com `preview` (D127) não conta como auditoria
+//   (a exportação real loga via logEspelhoExport);
+//   `logId` (RC-D103) — re-renderiza um espelho GUARDADO do snapshot congelado na
+//   entrega. 410 quando a retenção venceu (RC-D105).
 export async function downloadEspelhoPdf(
   session: SessionData,
   contractId: string,
   side: 'seller' | 'buyer',
-  options: { preview?: boolean } = {}
+  options: { preview?: boolean; logId?: string } = {}
 ) {
   void session;
-  const previewParam = options.preview ? '&preview=1' : '';
-  const response = await fetch(
-    `${API_BASE}/sale-contracts/${contractId}/espelho/pdf?side=${side}${previewParam}`,
-    { method: 'GET', cache: 'no-store', credentials: 'same-origin' }
-  );
+  const query = options.logId
+    ? `logId=${encodeURIComponent(options.logId)}`
+    : `side=${side}${options.preview ? '&preview=1' : ''}`;
+  const response = await fetch(`${API_BASE}/sale-contracts/${contractId}/espelho/pdf?${query}`, {
+    method: 'GET',
+    cache: 'no-store',
+    credentials: 'same-origin',
+  });
 
   if (!response.ok) {
     const payload = await parseJsonSafe(response);
@@ -1753,17 +1758,27 @@ export async function previewSaleContractPdf(session: SessionData, body: JsonVal
   };
 }
 
-// D127: registra a EXPORTAÇÃO do espelho (clique em Exportar/Baixar) — a
-// prévia não audita. Fire-and-forget no modal (não bloqueia o download).
+// D127: registra a EXPORTAÇÃO do espelho (clique em Exportar/Baixar) — a prévia
+// não audita.
+//
+// RC-D103: esta chamada é o que CONGELA o documento — o servidor grava o snapshot
+// do que foi impresso na linha de auditoria, e devolve o `logId` com que o espelho
+// será relido depois. Deixou de ser fire-and-forget (RC-D107): uma falha aqui
+// significa que a entrega não ficou registrada, e o modal tem que dizer isso.
+//
+// `expectedVersion` = a version do contrato que a prévia mostrou. 409
+// SALE_CONTRACT_VERSION_CONFLICT se o contrato mudou nesse meio — gravar seria
+// congelar um documento que já não corresponde ao contrato.
 export function logEspelhoExport(
   session: SessionData,
   contractId: string,
-  side: 'seller' | 'buyer'
+  side: 'seller' | 'buyer',
+  expectedVersion?: number
 ) {
-  return request<{ logged: boolean }>(`/sale-contracts/${contractId}/espelho/log`, {
+  return request<{ logged: boolean; logId: string }>(`/sale-contracts/${contractId}/espelho/log`, {
     method: 'POST',
     session,
-    body: { side },
+    body: { side, ...(Number.isInteger(expectedVersion) ? { expectedVersion } : {}) },
   });
 }
 

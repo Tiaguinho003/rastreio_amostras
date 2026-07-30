@@ -9,9 +9,12 @@ type RouteContext = {
 };
 
 // Espelho de Corretagem (Fase E): serve o PDF do demonstrativo de comissao como
-// binario (regenerado a cada requisicao — D71). Molde da rota .../[id]/pdf do
-// contrato. `?side=seller|buyer` (D72) define a parte/lado da comissao. Autentica
-// pelo cookie de sessao (lido nos headers pelo resolveActorContext).
+// binario. Molde da rota .../[id]/pdf do contrato. Autentica pelo cookie de sessao
+// (lido nos headers pelo resolveActorContext). Dois modos:
+//   `?side=seller|buyer` (D72) — gera do contrato FRESCO, para a previa;
+//   `?logId=<uuid>` (RC-D103) — re-renderiza um espelho GUARDADO do snapshot
+//   congelado na entrega. 410 ESPELHO_EXPIRED quando a retencao venceu (RC-D105).
+// Os BYTES continuam sem persistir (D71): o que fica guardado sao os numeros.
 export async function GET(request: NextRequest, context: RouteContext) {
   const params = await context.params;
 

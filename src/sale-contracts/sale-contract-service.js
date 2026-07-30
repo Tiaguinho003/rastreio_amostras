@@ -33,6 +33,8 @@ import {
   bucketPaymentEvents,
   bucketInvoiceEvents,
   buildDashboardAvisoItem,
+  ESPELHO_SNAPSHOT_RETENTION_MS,
+  isEspelhoSnapshotAvailable,
   DASHBOARD_AVISOS_LIMIT,
   buildWarehouseSnapshot,
   assertAgioWithinUnitPrice,
@@ -88,6 +90,14 @@ const SALE_CONTRACT_ACCESS_ROLES = NON_PROSPECTOR_ROLES;
 // global, compartilhado a vista + Futuro). pg_advisory_xact_lock serializa a
 // alocacao do contract_seq na criacao do contrato Futuro (sem movimento).
 const SALE_CONTRACT_SEQ_LOCK_KEY = 831202606;
+
+// RC-D105: throttle da purga dos snapshots de espelho vencidos. Estado de MODULO, e
+// portanto per-instancia no Cloud Run (perde no cold start) — best-effort de proposito:
+// quem garante a corretude e o filtro na leitura, a purga so evita o acumulo. Molde do
+// EMB31, que inventou o throttle porque o precedente (expireStalePrintJobs) nao precisa
+// de um: aquele nao faz I/O extra, este varre.
+const ESPELHO_PURGE_THROTTLE_MS = 60 * 60 * 1000;
+let lastEspelhoPurgeAt = 0;
 
 // RC-F6: a lista pagina por cursor (contractSeq) com scroll infinito no front —
 // o teto caiu de 200/500 pra uma pagina de verdade (molde do FINANCEIRO_LIST_*).
@@ -1625,15 +1635,106 @@ export class SaleContractService {
   // Corretagem. Chamada pelo handler logEspelhoExport (clique em Exportar/
   // Baixar no modal) e pelo exportEspelhoPdf sem ?preview=1 (acesso direto a
   // URL) — papel, elegibilidade e side ja foram validados la.
-  async logEspelhoGenerated(contractId, side, actorContext) {
-    await this.prisma.saleContractEspelhoLog.create({
+  //
+  // RC-D103: `snapshot` = o documento CONGELADO. Com ele a linha deixa de ser so
+  // "houve um export" e passa a SER o espelho entregue, releivel depois. Vem do
+  // handler (construido do contrato fresco no servidor — nunca do cliente).
+  // O `createdAt` desta linha e a DATA do documento.
+  async logEspelhoGenerated(contractId, side, actorContext, { snapshot = null } = {}) {
+    const row = await this.prisma.saleContractEspelhoLog.create({
       data: {
         id: randomUUID(),
         saleContractId: contractId,
         side,
+        snapshot: snapshot ?? undefined,
         actorUserId: actorContext?.actorUserId ?? null,
       },
+      select: { id: true, createdAt: true },
     });
+    return row;
+  }
+
+  // RC-D103/D105: releitura de um espelho GUARDADO. Devolve o snapshot congelado +
+  // a data do documento (o created_at da propria linha). O papel do ator ja foi
+  // validado pelo getSaleContract no handler; aqui o que se decide e a DISPONIBILIDADE.
+  //
+  // 🔴 A checagem de retencao mora AQUI, e nao so na listagem: e esta funcao que serve
+  // os bytes. Retencao aplicada apenas na lista seria cosmetica — a URL direta com o
+  // logId continuaria entregando o documento (licao do EMB31).
+  async getEspelhoSnapshot(contractId, logId, actorContext) {
+    const actor = assertAuthenticatedActor(actorContext, 'read espelho snapshot');
+    assertRoleAllowed(actor.role, SALE_CONTRACT_ACCESS_ROLES, 'read espelho snapshot');
+    this._requireContractId(contractId);
+    if (typeof logId !== 'string' || logId.length === 0) {
+      throw new HttpError(422, 'logId is required', { code: 'VALIDATION_ERROR' });
+    }
+
+    const [row, contract, statusLogs] = await Promise.all([
+      this.prisma.saleContractEspelhoLog.findUnique({ where: { id: logId } }),
+      this.prisma.saleContract.findUnique({
+        where: { id: contractId },
+        select: { id: true, status: true, washoutAt: true },
+      }),
+      this.prisma.saleContractStatusLog.findMany({
+        where: { saleContractId: contractId },
+        select: { toStatus: true, createdAt: true },
+      }),
+    ]);
+    if (!contract) {
+      throw new HttpError(404, 'Sale contract not found', { code: 'SALE_CONTRACT_NOT_FOUND' });
+    }
+    // logId de outro contrato = nao existe para este (nao vaza a existencia alheia).
+    if (!row || row.saleContractId !== contractId) {
+      throw new HttpError(404, 'Espelho não encontrado', { code: 'ESPELHO_NOT_FOUND' });
+    }
+    if (!isEspelhoSnapshotAvailable(row, contract, statusLogs)) {
+      // 410 e nao 404: o documento EXISTIU. Mesma forma do laudo publico expirado.
+      throw new HttpError(410, 'Este espelho não está mais disponível', {
+        code: 'ESPELHO_EXPIRED',
+      });
+    }
+    return { snapshot: row.snapshot, generatedAt: row.createdAt, side: row.side };
+  }
+
+  // RC-D105: purga oportunista dos snapshots vencidos. ANULA a coluna e PRESERVA a
+  // linha — o fato auditado nao expira, o documento sim.
+  //
+  // Nao ha cron no projeto (a infra foi removida de proposito em 2026-07-09) e este e
+  // o padrao que o repo ja usa em cinco lugares: expiracao lazy na leitura + limpeza
+  // oportunista fire-and-forget. O throttle de 1h e por INSTANCIA (perde no cold start
+  // do Cloud Run); e best-effort de proposito, porque a leitura ja filtra — a purga
+  // so evita o acumulo indefinido.
+  //
+  // Um statement so: o "fim do contrato" e derivado (nao ha finalizedAt — RC-D63),
+  // entao a data vem do status log ou do washout_at. Nomes em snake_case (@@map).
+  async purgeExpiredEspelhoSnapshots({ force = false } = {}) {
+    const now = Date.now();
+    if (!force && now - lastEspelhoPurgeAt < ESPELHO_PURGE_THROTTLE_MS) {
+      return { purged: 0 };
+    }
+    lastEspelhoPurgeAt = now;
+    const cutoff = new Date(now - ESPELHO_SNAPSHOT_RETENTION_MS);
+    const purged = await this.prisma.$executeRaw`
+      UPDATE sale_contract_espelho_log AS l
+         SET snapshot = NULL
+       WHERE l.snapshot IS NOT NULL
+         AND EXISTS (
+           SELECT 1 FROM sale_contract c
+            WHERE c.id = l.sale_contract_id
+              AND (
+                (c.status = 'WASH_OUT' AND COALESCE(
+                   c.washout_at,
+                   (SELECT MAX(s.created_at) FROM sale_contract_status_log s
+                     WHERE s.sale_contract_id = c.id AND s.to_status = 'WASH_OUT')
+                 ) < ${cutoff})
+                OR (c.status = 'FINALIZADO' AND (
+                   SELECT MAX(s.created_at) FROM sale_contract_status_log s
+                    WHERE s.sale_contract_id = c.id AND s.to_status = 'FINALIZADO'
+                 ) < ${cutoff})
+              )
+         )
+    `;
+    return { purged };
   }
 
   // Timeline do modal de Detalhes (Fase J — D125): agrega criacao/edicoes
@@ -1647,13 +1748,27 @@ export class SaleContractService {
     assertRoleAllowed(actor.role, SALE_CONTRACT_ACCESS_ROLES, 'get sale contract timeline');
     this._requireContractId(contractId);
 
+    // RC-D105: `status` e `version` entraram no select porque o timeline agora decide a
+    // disponibilidade de cada espelho guardado — status + washoutAt datam o FIM do
+    // contrato (o relogio da retencao) e version diz se o contrato mudou depois do
+    // documento.
     const contract = await this.prisma.saleContract.findUnique({
       where: { id: contractId },
-      select: { id: true, washoutAt: true, washoutReason: true },
+      select: {
+        id: true,
+        status: true,
+        version: true,
+        washoutAt: true,
+        washoutReason: true,
+      },
     });
     if (!contract) {
       throw new HttpError(404, 'Sale contract not found', { code: 'SALE_CONTRACT_NOT_FOUND' });
     }
+
+    // Limpeza oportunista (RC-D105), fire-and-forget: falhar aqui nao pode derrubar a
+    // leitura. O filtro do buildContractTimeline e que garante a corretude.
+    void this.purgeExpiredEspelhoSnapshots().catch(() => {});
 
     const where = { saleContractId: contractId };
     const [exportRows, agioLogs, approvalLogs, statusLogs, espelhoLogs] = await Promise.all([

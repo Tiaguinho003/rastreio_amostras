@@ -189,6 +189,13 @@ function readPageQuery(value) {
 // ele sobrevive como defesa contra um chamador que monte a linha na mao.
 const MAX_CUSTOM_LOTS = 16;
 
+// Nome do arquivo do Espelho. Extraido porque a releitura de um espelho guardado
+// (RC-D103, ?logId=) precisa do MESMO nome do que foi entregue.
+function espelhoFileName(contractNumber, side) {
+  const sideTag = side === 'seller' ? 'vendedor' : 'comprador';
+  return `espelho-corretagem-${String(contractNumber ?? '').replace('/', '-')}-${sideTag}.pdf`;
+}
+
 // Etiqueta de Aprovacao (modal aberto pela worklist de Aprovacoes). Valida/
 // normaliza as linhas { label, value } enviadas pelo modal; o agente as
 // renderiza como rotulo:valor (sem QR). Generico de proposito: o modal decide os
@@ -3297,6 +3304,31 @@ export function createBackendApiV1({
         if (typeof contractId !== 'string' || contractId.length === 0) {
           throw new HttpError(422, 'contractId path param is required');
         }
+        // RC-D103/D105: com ?logId= le-se um espelho GUARDADO — o snapshot congelado
+        // na entrega, com a data da propria linha de auditoria. Sem logId, gera do
+        // contrato fresco. Sao os dois unicos caminhos, e os dois renderizam de um
+        // snapshot: o documento guardado nao e uma aproximacao do entregue, e ele.
+        const logId = input?.query?.logId;
+        if (typeof logId === 'string' && logId.length > 0) {
+          const [{ contract }, stored] = await Promise.all([
+            saleContractService.getSaleContract(contractId, actor),
+            saleContractService.getEspelhoSnapshot(contractId, logId, actor),
+          ]);
+          const { buffer } = await saleContractPdfService.renderEspelhoPdf(stored.snapshot, {
+            issuer: getContractIssuer(),
+            generatedAt: stored.generatedAt,
+          });
+          // Releitura NAO audita de novo: e o MESMO documento, e a linha que o guarda
+          // ja registra quem exportou e quando.
+          return {
+            status: 200,
+            body: {
+              buffer,
+              fileName: espelhoFileName(contract.contractNumber, stored.side),
+              contentType: 'application/pdf',
+            },
+          };
+        }
         const side = input?.query?.side;
         if (side !== 'seller' && side !== 'buyer') {
           throw new HttpError(422, "query param 'side' deve ser 'seller' ou 'buyer'", {
@@ -3306,28 +3338,29 @@ export function createBackendApiV1({
         const { contract } = await saleContractService.getSaleContract(contractId, actor);
         // Elegibilidade (D105/D145/S74) — helper compartilhado com o logEspelhoExport.
         assertEspelhoEligible(contract, side);
-        const { buffer } = await saleContractPdfService.renderEspelhoPdf(
-          buildEspelhoSnapshot(contract, side),
-          { issuer: getContractIssuer() }
-        );
+        const snapshot = buildEspelhoSnapshot(contract, side);
+        const { buffer } = await saleContractPdfService.renderEspelhoPdf(snapshot, {
+          issuer: getContractIssuer(),
+        });
         // D127 (revisa a D124): a PRÉVIA do modal passa ?preview=1 e NÃO conta
         // como auditoria — o registro de exportação vem do POST /espelho/log
         // (Exportar/Baixar). Sem o param (acesso direto à URL) loga aqui,
         // best-effort: um log falho não invalida um PDF já renderizado.
+        // RC-D103: o log carrega o MESMO snapshot que acabou de ser renderizado —
+        // por isso ele é construído uma vez, acima.
         const isPreview = input?.query?.preview === '1' || input?.query?.preview === 'true';
         if (!isPreview) {
           try {
-            await saleContractService.logEspelhoGenerated(contract.id, side, actor);
+            await saleContractService.logEspelhoGenerated(contract.id, side, actor, { snapshot });
           } catch (cause) {
             console.error('espelho: falha ao gravar o log de exportacao', cause);
           }
         }
-        const sideTag = side === 'seller' ? 'vendedor' : 'comprador';
         return {
           status: 200,
           body: {
             buffer,
-            fileName: `espelho-corretagem-${contract.contractNumber.replace('/', '-')}-${sideTag}.pdf`,
+            fileName: espelhoFileName(contract.contractNumber, side),
             contentType: 'application/pdf',
           },
         };
@@ -3337,6 +3370,17 @@ export function createBackendApiV1({
     // modal — a prévia não audita). Mesmo gate/posse do getSaleContract +
     // assertEspelhoEligible (o endpoint valida elegibilidade pra não gravar
     // export impossível). Alimenta o timeline do modal de Detalhes (D125).
+    //
+    // RC-D103/D104: é AQUI que o documento é congelado — a linha deixa de ser só
+    // "houve um export" e passa a guardar o snapshot do que foi impresso. O snapshot
+    // é construído no SERVIDOR a partir do contrato fresco; o cliente nunca manda
+    // números.
+    //
+    // RC-D107: `expectedVersion` (opcional) fecha a janela entre a prévia e a
+    // entrega. Se o contrato mudou nesse meio, o PDF que o operador acabou de
+    // entregar já não corresponde ao contrato — gravá-lo como o documento oficial
+    // seria congelar a mentira. É opcional porque o acesso direto à URL do PDF
+    // (sem ?preview=1) também loga, e ali não há prévia da qual divergir.
     logEspelhoExport: (input) =>
       executeApiForInput(input, async () => {
         if (!saleContractService) {
@@ -3358,8 +3402,29 @@ export function createBackendApiV1({
         // Fix da auditoria: valida elegibilidade antes de gravar (spot-washout / sem
         // corretagem eram aceitos e poluíam o timeline com export impossível).
         assertEspelhoEligible(contract, side);
-        await saleContractService.logEspelhoGenerated(contract.id, side, actor);
-        return { status: 200, body: { logged: true } };
+        const expectedVersion = body?.expectedVersion;
+        if (expectedVersion !== undefined && expectedVersion !== null) {
+          if (!Number.isInteger(expectedVersion)) {
+            throw new HttpError(422, 'expectedVersion deve ser um inteiro', {
+              code: 'VALIDATION_ERROR',
+              field: 'expectedVersion',
+            });
+          }
+          if (expectedVersion !== contract.version) {
+            throw new HttpError(
+              409,
+              'O contrato mudou desde a conferência. Gere o espelho de novo.',
+              { code: 'SALE_CONTRACT_VERSION_CONFLICT' }
+            );
+          }
+        }
+        const { id: logId } = await saleContractService.logEspelhoGenerated(
+          contract.id,
+          side,
+          actor,
+          { snapshot: buildEspelhoSnapshot(contract, side) }
+        );
+        return { status: 200, body: { logged: true, logId } };
       }),
 
     // ============================================================

@@ -731,6 +731,59 @@ export function isWashoutNotBillable(contract) {
   return contract?.status === 'WASH_OUT' && contract?.washoutBillable !== true;
 }
 
+// RC-D105: o FIM do contrato — o instante a partir do qual a retencao do espelho
+// guardado corre. DERIVADO, nunca persistido, pelo mesmo motivo da coluna "Situacao"
+// (RC-D62): nao existe `finalizedAt` e isso e de proposito — finalizar e REVERSIVEL
+// (RC-D63), e reabrir grava a volta para EMITIDO em vez de apagar a ida. Logo:
+//
+//   FINALIZADO -> a linha MAIS RECENTE do status log com toStatus FINALIZADO;
+//   WASH_OUT   -> washoutAt (a unica data de terminal que e coluna), com fallback
+//                 no status log para as linhas legadas;
+//   EMITIDO    -> null. Nao ha relogio — enquanto o contrato esta vivo o documento
+//                 fica. Reabrir um finalizado PARA a contagem, sem gesto nenhum.
+//
+// 🔴 FINALIZADO sem nenhuma linha no status log devolve null (fail-OPEN de proposito):
+// guardar um documento por tempo demais e melhor que apagar um que nao se sabe datar.
+export const ESPELHO_SNAPSHOT_RETENTION_MS = 15 * 24 * 60 * 60 * 1000;
+
+function latestStatusLogAt(statusLogs, toStatus) {
+  let latest = null;
+  for (const row of statusLogs ?? []) {
+    if (row?.toStatus !== toStatus) continue;
+    const at = row.createdAt ? new Date(row.createdAt) : null;
+    if (!at || Number.isNaN(at.getTime())) continue;
+    if (!latest || at.getTime() > latest.getTime()) latest = at;
+  }
+  return latest;
+}
+
+export function contractEndedAt(contract, statusLogs = []) {
+  if (contract?.status === 'WASH_OUT') {
+    const washoutAt = contract.washoutAt ? new Date(contract.washoutAt) : null;
+    if (washoutAt && !Number.isNaN(washoutAt.getTime())) return washoutAt;
+    return latestStatusLogAt(statusLogs, 'WASH_OUT');
+  }
+  if (contract?.status === 'FINALIZADO') {
+    return latestStatusLogAt(statusLogs, 'FINALIZADO');
+  }
+  return null;
+}
+
+// Quando o snapshot deste contrato expira. null = contrato vivo, sem prazo.
+export function espelhoSnapshotExpiresAt(contract, statusLogs = []) {
+  const endedAt = contractEndedAt(contract, statusLogs);
+  return endedAt ? new Date(endedAt.getTime() + ESPELHO_SNAPSHOT_RETENTION_MS) : null;
+}
+
+// 🔴 Este predicado tem que ser usado em TODAS as leituras — na lista E na rota que
+// serve o PDF. Retencao so na lista e cosmetica: a URL direta continua entregando o
+// documento (licao do EMB31).
+export function isEspelhoSnapshotAvailable(row, contract, statusLogs = [], now = new Date()) {
+  if (!row?.snapshot) return false;
+  const expiresAt = espelhoSnapshotExpiresAt(contract, statusLogs);
+  return expiresAt === null || expiresAt.getTime() >= now.getTime();
+}
+
 // Elegibilidade do Espelho de Corretagem (D105/D145/S74): status congelado
 // (SALE_CONTRACT_STATUSES), NAO spot-washout (D145) e corretagem > 0 no lado pedido.
 // Lanca HttpError com o ESPELHO_* certo. Reusada pelo exportEspelhoPdf E pelo
@@ -1791,6 +1844,7 @@ export function buildContractTimeline({
   statusLogs = [],
   espelhoLogs = [],
   usersById = {},
+  now = new Date(),
 }) {
   const items = [];
 
@@ -1846,7 +1900,24 @@ export function buildContractTimeline({
     });
   }
 
+  // RC-D105/D106: cada espelho entregue carrega o proprio documento (o snapshot), e e
+  // daqui que a PRATELEIRA do modal de Detalhes se alimenta — sem endpoint novo, os
+  // mesmos itens servem o historico (todos) e a estante (so os disponiveis).
+  //   available  = o snapshot existe E a retencao nao venceu;
+  //   superseded = ha um espelho MAIS NOVO do mesmo lado (derivado da ordem, jamais
+  //                persistido — mesma escolha da coluna "Situacao");
+  //   stale      = o contrato mudou DEPOIS deste documento (compara a version
+  //                congelada com a atual). E o aviso que faltava: sem ele o operador
+  //                reabre um espelho antigo sem saber que os numeros mudaram.
+  const espelhoExpiresAt = espelhoSnapshotExpiresAt(contract, statusLogs);
+  const espelhoExpired = espelhoExpiresAt !== null && espelhoExpiresAt.getTime() < now.getTime();
+  const newestAvailableBySide = new Map();
   for (const row of espelhoLogs) {
+    if (row.snapshot && !espelhoExpired) newestAvailableBySide.set(row.side, row.id);
+  }
+  for (const row of espelhoLogs) {
+    const snapshot = row.snapshot ?? null;
+    const available = Boolean(snapshot) && !espelhoExpired;
     items.push({
       id: `espelho-${row.id}`,
       kind: 'ESPELHO',
@@ -1854,6 +1925,16 @@ export function buildContractTimeline({
       actorUserId: row.actorUserId ?? null,
       actorName: timelineActorName(usersById, row.actorUserId),
       side: row.side,
+      logId: row.id,
+      available,
+      commission: available ? (decimalToNumber(snapshot.commission) ?? null) : null,
+      superseded: available && newestAvailableBySide.get(row.side) !== row.id,
+      stale:
+        available &&
+        Number.isInteger(snapshot.contractVersion) &&
+        Number.isInteger(contract?.version) &&
+        snapshot.contractVersion !== contract.version,
+      expiresAt: available ? toIsoString(espelhoExpiresAt) : null,
     });
   }
 

@@ -331,6 +331,11 @@ export type SaleContractType = 'MERCADO_A_VISTA' | 'FUTURO';
 // WASH_OUT é cancelado. Faturar/Pagar/Embarcar deixaram de existir.
 export type SaleContractStatus = 'EMITIDO' | 'FINALIZADO' | 'WASH_OUT';
 export type AgioDesagioType = 'AGIO' | 'DESAGIO';
+// Lado da CORRETAGEM (D72): a parte a quem o Espelho é endereçado, ou seja quem paga
+// a comissão. Mora aqui (e não em lib/espelho.ts, que o re-exporta) porque types.ts é
+// a folha da árvore de imports. ⚠️ Não confundir com o PAPEL do cliente
+// (isSeller/isBuyer do cadastro), que usa os mesmos literais com outro significado.
+export type EspelhoSide = 'seller' | 'buyer';
 
 export interface SaleContractBrokerView {
   id: string;
@@ -564,6 +569,10 @@ export interface SaleContractResponse {
 // (criação/edições, ágio, aprovações, marcos de status, espelhos) em ordem
 // decrescente. `legacy` = marco anterior à sale_contract_status_log (só data,
 // sem autor).
+//
+// RC-D106: os itens ESPELHO carregam o estado do documento GUARDADO, e é daqui que
+// a prateleira do modal se alimenta — sem endpoint novo. O histórico mostra todos;
+// a prateleira, só os `available`.
 export interface SaleContractTimelineItem {
   id: string;
   kind: 'CRIACAO' | 'EDICAO' | 'AGIO' | 'APROVACAO' | 'STATUS' | 'ESPELHO';
@@ -575,7 +584,21 @@ export interface SaleContractTimelineItem {
   toStatus?: SaleContractStatus;
   reason?: string | null;
   legacy?: boolean;
-  side?: string;
+  // RC-D111: era `string`, e um valor inesperado — inclusive undefined — renderizava
+  // "Comprador" em silêncio. Agora o tipo fecha, e o banco também (CHECK).
+  side?: EspelhoSide;
+  /** id da linha de auditoria = a chave com que o espelho guardado é relido. */
+  logId?: string;
+  /** o snapshot existe E a retenção não venceu (RC-D105). */
+  available?: boolean;
+  /** comissão congelada no documento; null quando não está mais disponível. */
+  commission?: number | null;
+  /** há um espelho mais novo do MESMO lado (derivado da ordem, nunca persistido). */
+  superseded?: boolean;
+  /** o contrato mudou DEPOIS deste documento (version congelada ≠ atual). */
+  stale?: boolean;
+  /** até quando fica disponível; null se o contrato ainda está vivo (sem relógio). */
+  expiresAt?: string | null;
 }
 
 export interface SaleContractTimelineResponse {
