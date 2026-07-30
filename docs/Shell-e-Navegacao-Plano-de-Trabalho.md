@@ -391,7 +391,9 @@ A ordem combinada em 2026-07-24 era **D4 → D6 → D1 → D3** (D5/D2 por últi
 
 > **🔴 Alerta de sequência 1 (tela branca):** NÃO apagar o **page loader** (camada 2) antes de F2+F3 — sem o shell persistente e a sessão do cache, a navegação vira **tela branca**. O **boot splash** (camada 1) pode sair antes.
 >
-> **🔴 Alerta de sequência 2 (dado velho) — acrescentado 2026-07-30:** NÃO entregar a F2 sem o barramento da F3. Hoje é a remontagem a cada navegação que disfarça a obsolescência (§2.7); o shell persistente a remove. Sem invalidação, a F2 sozinha **piora** o sintoma que o Flavio já percebe.
+> **🔴 Alerta de sequência 2 (dado velho) — acrescentado 2026-07-30, _corrigido ao iniciar a F2_:** dentro da F3, **NÃO ligar os snapshots (SN-D7) antes do barramento (SN-D13)**. Hoje o que disfarça a obsolescência (§2.7) é o **refetch no remount** da página; quem o elimina é o snapshot, que restaura em vez de refazer. Snapshot sem invalidação = dado velho servido de propósito, e aí nem sair-e-voltar resolve.
+>
+> _A versão anterior deste alerta dizia "não entregar a F2 sem o barramento da F3" — **impreciso, e travava a F2 sem motivo**. No App Router só o **layout** persiste: mover o `AppShell` para lá faz o **shell** parar de remontar, mas **cada página continua sendo um segmento que desmonta e remonta**, então os fetches dela seguem rodando na volta. O `AppShell` também não busca dado nenhum (só mutações de senha). **A F2 sozinha não piora a obsolescência** — a fronteira de risco é interna à F3._
 >
 > **🔴 Lição da F1 (2026-07-30):** o grafo de deleção do §2.6 é o total do ciclo, **não a lista de uma fase**. Antes de apagar qualquer peça numa fase, conferir **quem mais a consome** — na F1, três das quatro "órfãs" ainda tinham dono (o page loader), e o logo tinha **seis**. Apagar pela lista teria quebrado login, manutenção, o shell e o canvas dos informativos.
 
