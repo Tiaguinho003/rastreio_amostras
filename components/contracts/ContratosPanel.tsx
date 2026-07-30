@@ -22,7 +22,6 @@ import {
   reopenSaleContract,
 } from '../../lib/api-client';
 import { getBrtToday, toDayKey } from '../../lib/dashboard-calendar';
-import { espelhoEligibility } from '../../lib/espelho';
 import { useDelayedValue } from '../../lib/use-delayed-value';
 import { useContractHighlight } from '../../lib/use-contract-highlight';
 import { useIsDesktop } from '../../lib/use-desktop';
@@ -44,8 +43,6 @@ import {
   TYPE_LABELS,
   countActiveContractFilters,
 } from './ContractsFilterButton';
-import { EspelhoConferenciaModal, type EspelhoSide } from './EspelhoConferenciaModal';
-import { EspelhoCorretagemModal } from './EspelhoCorretagemModal';
 import { SaleContractAgioDialog } from './SaleContractAgioDialog';
 import { SaleContractCard, terminalErrorMessage } from './SaleContractCard';
 import { SaleContractDetailsModal } from './SaleContractDetailsModal';
@@ -260,18 +257,10 @@ export function ContratosPanel({ session }: { session: SessionData }) {
   // DELE, não daqui — a página só abre e fecha o fluxo.
   const [spotCreateOpen, setSpotCreateOpen] = useState(false);
 
-  // Espelho de Corretagem (Fase E): alvo abre a fase de CONFERÊNCIA (D134);
-  // "Gerar espelho" avança pra prévia. RC-F6: o gatilho é SÓ o Detalhes — o modo
-  // de seleção pela página (D76) foi revogado.
-  const [espelhoTarget, setEspelhoTarget] = useState<SaleContract | null>(null);
-  const [espelhoPreview, setEspelhoPreview] = useState<{
-    contract: SaleContract;
-    side: EspelhoSide;
-  } | null>(null);
-  // Vai-e-volta com o Detalhes (D134): "Ver detalhes" na conferência guarda o
-  // alvo aqui; ao FECHAR o Detalhes a conferência reabre (dados re-buscados).
-  // Os swaps do Detalhes (Editar/Ágio/Washout) LIMPAM o retorno (fluxo encerra).
-  const espelhoReturnRef = useRef<SaleContract | null>(null);
+  // 🪦 RC-D125: o espelho não tem mais estado AQUI. Ele era duas superfícies (a
+  // conferência e a prévia) que a página abria por cima do Detalhes, mais um
+  // `espelhoReturnRef` para o vai-e-volta do "Ver detalhes" (D134). Virou a ABA
+  // Espelho do próprio Detalhes: conferir e corrigir passou a ser trocar de aba.
 
   // Os painéis de criação são bottom sheets: mantê-los montados durante o
   // slide-down de saída (ANIMATION_MS) antes de desmontar. `open` = intenção ao vivo.
@@ -487,7 +476,7 @@ export function ContratosPanel({ session }: { session: SessionData }) {
 
   const detailsRendered = useDelayedValue(detailsContract, ANIMATION_MS);
   const openedDetailsByPushRef = useRef(false);
-  // Swap pendente (Editar/Ágio/Washout/Espelho): roda DEPOIS que o ?details=
+  // Swap pendente (Editar/Ágio/Washout): roda DEPOIS que o ?details=
   // sai da URL — abrir o próximo sheet no mesmo tick do router.back() faria o
   // popstate atrasado engolir a entry de history do sheet novo (fecharia na hora).
   const afterDetailsCloseRef = useRef<(() => void) | null>(null);
@@ -529,20 +518,15 @@ export function ContratosPanel({ session }: { session: SessionData }) {
   }, [router, searchParams]);
 
   // Pós-fechamento (cobre X/ESC E o back do navegador): executa o swap pendente
-  // ou o vai-e-volta do espelho (D134 — Detalhes aberto pela conferência reabre-a).
+  // (Editar/Ágio/Washout). RC-D125: o outro ramo era o vai-e-volta do espelho, e
+  // ele morreu junto com a conferência-como-modal.
   const detailsWasOpenRef = useRef(false);
   useEffect(() => {
     const isOpen = detailsContract != null;
     if (detailsWasOpenRef.current && !isOpen) {
       const pending = afterDetailsCloseRef.current;
       afterDetailsCloseRef.current = null;
-      if (pending) {
-        pending();
-      } else if (espelhoReturnRef.current) {
-        const back = espelhoReturnRef.current;
-        espelhoReturnRef.current = null;
-        setEspelhoTarget(back);
-      }
+      if (pending) pending();
     }
     detailsWasOpenRef.current = isOpen;
   }, [detailsContract]);
@@ -1038,41 +1022,31 @@ export function ContratosPanel({ session }: { session: SessionData }) {
         />
       ) : null}
 
-      {/* Detalhes (Fase J; F3 do redesign = DetailOverlay por URL): documento
-          embutido + infos + historico. As acoes do rodape (Editar/Agio/Desagio/
-          Washout/Espelho) FECHAM o Detalhes e abrem o fluxo correspondente (um
-          modal por vez, sem sobreposicao) — o swap fica PENDENTE ate o ?details=
-          sair da URL (afterDetailsCloseRef), o fechamento em si e o closeDetails. */}
+      {/* Detalhes (F3 do redesign = DetailOverlay por URL; RC-D121 = 4 abas).
+          As tres acoes que abrem OUTRA superficie (Editar/Agio/Washout) FECHAM o
+          Detalhes e so entao abrem o fluxo — o swap fica PENDENTE ate o ?details=
+          sair da URL (afterDetailsCloseRef), o fechamento em si e o closeDetails.
+          Espelho e etiqueta nao estao aqui desde a RC-D125/D127: viraram abas. */}
       {detailsRendered ? (
         <SaleContractDetailsModal
           session={session}
           open={detailsContract != null}
           contract={detailsRendered}
           canManage={canManage}
-          espelhoEligible={espelhoEligibility(detailsRendered).eligible}
-          onGerarEspelho={() => {
-            const target = detailsRendered;
-            espelhoReturnRef.current = null;
-            afterDetailsCloseRef.current = () => setEspelhoTarget(target);
-            closeDetails();
-          }}
           onClose={closeDetails}
           onEditar={() => {
             const target = detailsRendered;
-            espelhoReturnRef.current = null;
             afterDetailsCloseRef.current = () => setEtapa2({ contractId: target.id });
             closeDetails();
           }}
           onApplyAgio={(type) => {
             const target = detailsRendered;
-            espelhoReturnRef.current = null;
             afterDetailsCloseRef.current = () =>
               setAgioTarget({ contract: target, agioType: type });
             closeDetails();
           }}
           onWashout={() => {
             const target = detailsRendered;
-            espelhoReturnRef.current = null;
             afterDetailsCloseRef.current = () =>
               setLifecycle({
                 contractId: target.id,
@@ -1147,36 +1121,6 @@ export function ContratosPanel({ session }: { session: SessionData }) {
             toast.success({ title: 'Contrato à vista gerado' });
             if (contractId) openDetailsById(contractId);
           }}
-        />
-      ) : null}
-
-      {/* Espelho de Corretagem (Fase E + D134): 1ª etapa = CONFERÊNCIA dos campos
-          (toggle de lado + Ver detalhes vai-e-volta) → 2ª etapa = prévia do PDF
-          com Exportar/Baixar. RC-F6: só nasce pelo Detalhes. */}
-      {espelhoTarget ? (
-        <EspelhoConferenciaModal
-          session={session}
-          contract={espelhoTarget}
-          onClose={() => setEspelhoTarget(null)}
-          onConfirm={(side) => {
-            const target = espelhoTarget;
-            setEspelhoTarget(null);
-            setEspelhoPreview({ contract: target, side });
-          }}
-          onOpenDetails={() => {
-            const target = espelhoTarget;
-            setEspelhoTarget(null);
-            espelhoReturnRef.current = target;
-            openDetails(target);
-          }}
-        />
-      ) : null}
-      {espelhoPreview ? (
-        <EspelhoCorretagemModal
-          session={session}
-          contract={espelhoPreview.contract}
-          side={espelhoPreview.side}
-          onClose={() => setEspelhoPreview(null)}
         />
       ) : null}
     </>

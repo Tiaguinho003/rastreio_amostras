@@ -1,22 +1,31 @@
 'use client';
 
-// Fase J (D120–D126): DETALHES do contrato. Desde a F3 do redesign (RD9) vive
-// no DetailOverlay dirigido por URL (`/contratos?details=<id>` — peek lateral
-// de 620px no desktop ≥901px, sheet de tela cheia no mobile; quem controla o
-// param é o ContratosPanel). Coluna ÚNICA: o DOCUMENTO (PDF on-demand, D126 —
-// mesmo blob/iframe do antigo "Visualizar", que este modal absorveu) primeiro,
-// seções na sequência — read-only, MENOS Aprovação, que desde a RC-D25 carrega
-// o "Gerar etiqueta" que morava na /embarques extinta. Exportar/Baixar
-// acompanham a seção do documento, em todas as situações.
-// O HISTÓRICO (timeline D125) fecha o overlay:
-// linha = "há X tempo" + quem + o quê, com a data/hora exata de apoio (D119);
-// marcos legados (pré-D123) saem só com a data, sem autor. Rodapé = ações por
-// situação (D121): EMITIDO = Editar·Ágio·Deságio·Finalizar·Washout;
-// FINALIZADO = Reabrir·Washout; WASH_OUT = sem ações. COMMERCIAL vê TUDO nos
-// contratos dele (D120 — a restrição da D86 vale só no Financeiro). Dados:
-// getSaleContract fresco (com corretores) + getSaleContractTimeline.
+// DETALHES do contrato. Desde a F3 do redesign (RD9) vive no DetailOverlay dirigido por
+// URL (`/contratos?details=<id>` — peek lateral de 620px no desktop ≥901px, sheet de tela
+// cheia no mobile; quem controla o param é o ContratosPanel).
 //
-// RC-D65: a seção Embarque (confirmação + fotos + transporte) morreu inteira.
+// RC-D121 (2026-07-30): deixou de ser UMA coluna rolável com oito seções de texto e virou
+// QUATRO ABAS — `Detalhes · Aprovação · Espelho · Histórico`. Cada uma responde uma
+// pergunta, e as três superfícies que flutuavam por cima do detalhe (a etiqueta de
+// aprovação, a conferência do espelho e a prévia do espelho) viraram conteúdo de aba.
+//
+//   - Detalhes (RC-D122) = o DOCUMENTO. As seções de texto saíram porque o PDF já as
+//     imprime; o que fica acima dele é a FAIXA, e ela é exatamente o que o papel NÃO diz:
+//     valor total, ágio/deságio, preço efetivo, corretagem em R$ e os corretores. 🔴 Sem
+//     essa faixa, aplicar um Ágio (botão que vive nesta aba) não mudaria nada na tela.
+//   - Aprovação (RC-D126) = o latch "Solicitar aprovação" ou os campos da etiqueta.
+//   - Espelho (RC-D124) = um bloco por lado com corretagem.
+//   - Histórico (RC-D128) = a linha do tempo, e é o ÚNICO lugar onde o motivo do washout
+//     e os espelhos substituídos/expirados continuam alcançáveis.
+//
+// RC-D123: o rodapé é DA ABA, não do overlay — só Detalhes tem ações.
+// RC-D129: a aba não entra na URL; `?details=<id>` abre sempre em Detalhes.
+//
+// Dados: `getSaleContract` fresco (com corretores e o dono atual do lote) +
+// `getSaleContractTimeline`, ambos ao abrir. O que é caro é lazy por aba: o PDF do
+// contrato carrega com a aba padrão, o prefill da etiqueta e os PDFs do espelho só na
+// primeira ativação — e a aba fica MONTADA depois disso, para não refazer a busca a cada
+// volta.
 
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -44,9 +53,9 @@ import type {
   SaleContractTimelineItem,
   SessionData,
 } from '../../lib/types';
-import { ApprovalLabelModal } from '../ApprovalLabelModal';
 import { DetailOverlay } from '../DetailOverlay';
-import { EspelhoCorretagemModal } from './EspelhoCorretagemModal';
+import { ApprovalLabelForm } from './ApprovalLabelForm';
+import { ContractEspelhoTab, StoredEspelhoFrame } from './ContractEspelhoTab';
 import {
   agendaColor,
   contractAgenda,
@@ -58,20 +67,26 @@ import {
   STATUS_TINT,
 } from './SaleContractCard';
 
+type ContractDetailTab = 'detalhes' | 'aprovacao' | 'espelho' | 'historico';
+
+const TABS: Array<{ key: ContractDetailTab; label: string }> = [
+  { key: 'detalhes', label: 'Detalhes' },
+  { key: 'aprovacao', label: 'Aprovação' },
+  { key: 'espelho', label: 'Espelho' },
+  { key: 'historico', label: 'Histórico' },
+];
+
 type SaleContractDetailsModalProps = {
   session: SessionData;
   open: boolean;
   // Snapshot vindo da lista — o modal re-busca o contrato FRESCO ao abrir
-  // (padrão do EspelhoCorretagemModal) pra corretores + valores atuais.
+  // (padrão do espelho) pra corretores + valores atuais.
   contract: SaleContract;
   canManage: boolean;
   onClose: () => void;
   onEditar: () => void;
   onApplyAgio: (type: AgioDesagioType) => void;
   onWashout: () => void;
-  // Espelho: o botão "Gerar espelho" (só quando elegível) abre a Conferência no pai.
-  espelhoEligible?: boolean;
-  onGerarEspelho?: () => void;
 };
 
 const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -86,16 +101,6 @@ function dateOnly(iso: string | null | undefined): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return '—';
   return date.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
-}
-
-// Timestamp REAL (não @db.Date) no fuso do NEGÓCIO — é a mesma data que o PDF do
-// espelho imprime na coluna "Data". Formatar em UTC aqui faria a prateleira mostrar
-// um dia diferente do papel nas primeiras horas da noite.
-function brtDateOnly(iso: string | null | undefined): string {
-  if (!iso) return '—';
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return '—';
-  return date.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
 }
 
 // Data/hora exata de apoio do timeline (D119). Marcos legados são @db.Date
@@ -131,11 +136,14 @@ function timelineLabel(item: SaleContractTimelineItem): string {
       // D127: o log é gravado na EXPORTAÇÃO (Exportar/Baixar) — a prévia não audita.
       // RC-D105: a linha FICA depois de o documento expirar (o fato auditado não
       // expira), e é por isso que ela não diz nada sobre disponibilidade — quem mostra
-      // o que ainda se pode abrir é a prateleira, acima.
+      // o que ainda se pode abrir é a aba Espelho.
       return `Espelho exportado — ${espelhoSideLabel(item.side)}`;
     case 'STATUS': {
       // RC-D63: a marca terminal VAI e VOLTA — o log acumula as duas linhas, e
       // é por isso que "quem finalizou e quando" não virou coluna do contrato.
+      // 🔴 RC-D128: esta linha é o ÚNICO lugar do produto onde o MOTIVO do washout
+      // aparece — o PDF do contrato não o imprime e a faixa da aba Detalhes é sobre
+      // dinheiro. Apagar o histórico apagaria o motivo junto.
       const base =
         item.toStatus === 'FINALIZADO'
           ? 'Contrato finalizado'
@@ -149,80 +157,6 @@ function timelineLabel(item: SaleContractTimelineItem): string {
   }
 }
 
-type Snapshot = Record<string, unknown> | null;
-
-function snapText(snap: Snapshot, key: string): string | null {
-  const value = snap?.[key];
-  return typeof value === 'string' && value.trim() ? value : null;
-}
-
-// Linhas de uma PARTE (vendedor/comprador) a partir do snapshot congelado
-// (D25): identidade + IE + endereço + filial. Linhas vazias somem.
-function partyRows(snap: Snapshot): Array<[string, string]> {
-  if (!snap) return [];
-  const rows: Array<[string, string]> = [];
-  const name = snapText(snap, 'displayName');
-  if (name) rows.push(['Nome', name]);
-  const tax = snapText(snap, 'cnpj') ?? snapText(snap, 'cpf');
-  if (tax) rows.push([snapText(snap, 'cnpj') ? 'CNPJ' : 'CPF', tax]);
-  const ie = snapText(snap, 'registrationNumber');
-  if (ie) rows.push(['IE', ie]);
-  const address = [snapText(snap, 'addressLine'), snapText(snap, 'district')]
-    .filter(Boolean)
-    .join(' — ');
-  if (address) rows.push(['Endereço', address]);
-  const cityState = [snapText(snap, 'city'), snapText(snap, 'state')].filter(Boolean).join('/');
-  if (cityState) rows.push(['Cidade', cityState]);
-  const cep = snapText(snap, 'postalCode');
-  if (cep) rows.push(['CEP', cep]);
-  const unit = (snap.unit ?? null) as Snapshot;
-  const unitName = snapText(unit, 'name');
-  if (unitName) rows.push(['Filial', unitName]);
-  return rows;
-}
-
-function warehouseRows(label: string, snap: Snapshot): Array<[string, string]> {
-  if (!snap) return [];
-  const name = snapText(snap, 'displayName');
-  if (!name) return [];
-  const cityState = [snapText(snap, 'city'), snapText(snap, 'state')].filter(Boolean).join('/');
-  return [[label, cityState ? `${name} — ${cityState}` : name]];
-}
-
-function bankRows(snap: Snapshot): Array<[string, string]> {
-  if (!snap) return [];
-  const rows: Array<[string, string]> = [];
-  const bank = [snapText(snap, 'bankName'), snapText(snap, 'compeCode')]
-    .filter(Boolean)
-    .join(' · ');
-  if (bank) rows.push(['Banco', bank]);
-  const agency = snapText(snap, 'agency');
-  if (agency) rows.push(['Agência', agency]);
-  const account = snapText(snap, 'accountNumber');
-  if (account) rows.push(['Conta', account]);
-  const holder = [snapText(snap, 'holderName'), snapText(snap, 'holderTaxId')]
-    .filter(Boolean)
-    .join(' — ');
-  if (holder) rows.push(['Titular', holder]);
-  const pix = snapText(snap, 'pixKey');
-  if (pix) rows.push(['Chave PIX', pix]);
-  return rows;
-}
-
-function FieldRows({ rows }: { rows: Array<[string, string]> }) {
-  if (rows.length === 0) return <p className="ctr-details-empty">—</p>;
-  return (
-    <dl className="ctr-details-rows">
-      {rows.map(([label, value]) => (
-        <div key={`${label}-${value}`} className="ctr-details-row">
-          <dt>{label}</dt>
-          <dd>{value}</dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
-
 export function SaleContractDetailsModal({
   session,
   open,
@@ -232,14 +166,30 @@ export function SaleContractDetailsModal({
   onEditar,
   onApplyAgio,
   onWashout,
-  espelhoEligible = false,
-  onGerarEspelho,
 }: SaleContractDetailsModalProps) {
   // Contrato fresco (corretores incluídos) + timeline, buscados ao abrir.
   const [fresh, setFresh] = useState<SaleContract | null>(null);
   const [brokers, setBrokers] = useState<SaleContractBrokerView[]>([]);
+  // RC-D37/D110: dono ATUAL do lote — só o aviso de divergência da aba Espelho usa.
+  const [sampleOwner, setSampleOwner] = useState<{
+    clientId: string;
+    displayName: string | null;
+  } | null>(null);
   const [timeline, setTimeline] = useState<SaleContractTimelineItem[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  const [activeTab, setActiveTab] = useState<ContractDetailTab>('detalhes');
+  // Aba já visitada = aba MONTADA. Sem isto, voltar para o Espelho refaria o download de
+  // cada PDF, e voltar para a Aprovação refaria o prefill.
+  const [mounted, setMounted] = useState<Record<ContractDetailTab, boolean>>({
+    detalhes: true,
+    aprovacao: false,
+    espelho: false,
+    historico: false,
+  });
+  useEffect(() => {
+    setMounted((prev) => (prev[activeTab] ? prev : { ...prev, [activeTab]: true }));
+  }, [activeTab]);
 
   // Documento (PDF on-demand, D126) — mesmo pipeline do antigo "Visualizar".
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
@@ -247,43 +197,38 @@ export function SaleContractDetailsModal({
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<{ blob: Blob; fileName: string } | null>(null);
   const [now] = useState(() => Date.now());
-  // RC-D62/D63: Finalizar/Reabrir também vivem aqui (o rodapé), sem confirmação.
+  // RC-D62/D63: Finalizar/Reabrir vivem no rodapé da aba Detalhes, sem confirmação.
   const [terminalBusy, setTerminalBusy] = useState(false);
-  // RC-D25: geração da etiqueta de aprovação (revoga a AP29 — a sub-aba era "a
-  // única porta proativa"). Busca o prefill e abre o ApprovalLabelModal, molde
-  // do ex-AprovacoesPanel.
+  // RC-D126/D127: o prefill da etiqueta. Antes era buscado no clique de um botão que
+  // abria um modal; agora é o conteúdo da aba, buscado na primeira ativação dela.
   const [labelPrefill, setLabelPrefill] = useState<ApprovalLabelPrefill | null>(null);
-  const [labelBusy, setLabelBusy] = useState(false);
-  // Recarrega contrato + timeline depois de gerar etiqueta ou finalizar/reabrir
-  // (os dois mudam o que as seções mostram).
+  const [labelError, setLabelError] = useState<string | null>(null);
+  // Recarrega contrato + timeline + prefill depois de imprimir etiqueta, entregar espelho
+  // ou finalizar/reabrir (os três mudam o que as abas mostram).
   const [reloadNonce, setReloadNonce] = useState(0);
   const toast = useToast();
-  // AP32: "Solicitar aprovação" — latch de mão única (mutação inline no Detalhes) +
-  // confirmação (é definitivo). Substitui o toggle Sim/Não da AP23.
+  // AP32: "Solicitar aprovação" — latch de mão única + confirmação (é definitivo).
   const [approvalBusy, setApprovalBusy] = useState(false);
   const [approvalError, setApprovalError] = useState<string | null>(null);
   const [approvalConfirmOpen, setApprovalConfirmOpen] = useState(false);
   const approvalConfirmTrapRef = useFocusTrap(approvalConfirmOpen);
-  // RC-D106: a PRATELEIRA — abre um espelho GUARDADO (re-renderizado do snapshot
-  // congelado na entrega). Molde do labelPrefill: superfície irmã do overlay,
-  // segurando o dismissGuardRef enquanto aberta.
-  const [openEspelho, setOpenEspelho] = useState<{
+  // RC-D128: a linha "Espelho exportado" do Histórico abre o documento ali mesmo. É por
+  // onde se chega aos SUBSTITUÍDOS — que a aba Espelho, mostrando um por lado, não mostra.
+  const [openHistoryEspelho, setOpenHistoryEspelho] = useState<{
     logId: string;
     side: EspelhoSide;
-    expiresAt: string | null;
-    stale: boolean;
   } | null>(null);
 
-  // F3 do redesign: com superficie interna aberta (confirm de aprovacao ou
-  // etiqueta), ESC/X do overlay NAO fecham o detalhe (molde do dismissGuardRef
-  // da F1 — ver DetailOverlay).
+  // Com o confirm de aprovação aberto, ESC/X do overlay NÃO fecham o detalhe (molde do
+  // dismissGuardRef da F1 — ver DetailOverlay). É a única superfície interna que sobrou:
+  // a etiqueta e o espelho deixaram de ser modais na RC-D125/D127.
   const dismissGuardRef = useRef(false);
   useEffect(() => {
-    dismissGuardRef.current = approvalConfirmOpen || labelPrefill != null || openEspelho != null;
+    dismissGuardRef.current = approvalConfirmOpen;
     return () => {
       dismissGuardRef.current = false;
     };
-  }, [approvalConfirmOpen, labelPrefill, openEspelho]);
+  }, [approvalConfirmOpen]);
 
   useEffect(() => {
     if (!open) return;
@@ -298,6 +243,7 @@ export function SaleContractDetailsModal({
         if (aborted) return;
         setFresh(detail.contract);
         setBrokers(detail.contract.brokers ?? []);
+        setSampleOwner(detail.contract.sampleOwner ?? null);
         setTimeline(tl.items);
       } catch (cause) {
         if (!aborted) {
@@ -339,6 +285,35 @@ export function SaleContractDetailsModal({
     };
   }, [open, session, contract.id]);
 
+  const view = fresh ?? contract;
+  const meta = STATUS_META[view.status];
+  const agenda = contractAgenda(view);
+  const agendaTone = agendaColor(agenda);
+
+  // RC-D126: o prefill só existe quando a aprovação foi pedida — o endpoint responde 409
+  // quando não (é a mesma pré-condição, não um erro a mostrar).
+  const wantsPrefill = mounted.aprovacao && canManage && view.requiresApproval;
+  useEffect(() => {
+    if (!open || !wantsPrefill) return;
+    let aborted = false;
+    (async () => {
+      setLabelError(null);
+      try {
+        const prefill = await getApprovalLabelPrefill(session, contract.id);
+        if (!aborted) setLabelPrefill(prefill);
+      } catch (cause) {
+        if (!aborted) {
+          setLabelError(
+            cause instanceof ApiError ? cause.message : 'Não foi possível carregar a etiqueta.'
+          );
+        }
+      }
+    })();
+    return () => {
+      aborted = true;
+    };
+  }, [open, session, contract.id, wantsPrefill, reloadNonce]);
+
   async function handleExport() {
     if (!fileRef.current || busy) return;
     setBusy(true);
@@ -353,38 +328,6 @@ export function SaleContractDetailsModal({
       setBusy(false);
     }
   }
-
-  // RC-D25: [Gerar etiqueta] busca o prefill e só então abre o modal (molde do
-  // ex-AprovacoesPanel). Falha vira toast — o overlay segue aberto.
-  async function handleOpenLabel() {
-    if (labelBusy) return;
-    setLabelBusy(true);
-    try {
-      setLabelPrefill(await getApprovalLabelPrefill(session, contract.id));
-    } catch (cause) {
-      toast.error({
-        title: 'Não foi possível abrir a etiqueta',
-        description: cause instanceof ApiError ? cause.message : undefined,
-      });
-    } finally {
-      setLabelBusy(false);
-    }
-  }
-
-  const view = fresh ?? contract;
-  const meta = STATUS_META[view.status];
-  const agenda = contractAgenda(view);
-  const agendaTone = agendaColor(agenda);
-
-  // RC-D106: a prateleira sai do TIMELINE — os itens ESPELHO já vêm com o estado do
-  // documento guardado, então não há endpoint novo. O histórico mostra todos os
-  // exports; a prateleira, só os que ainda se pode abrir. Mais recente primeiro (o
-  // timeline já vem decrescente).
-  const savedEspelhos = (timeline ?? []).filter(
-    (item) => item.kind === 'ESPELHO' && item.available && item.logId && item.side
-  );
-  // Enquanto o contrato está vivo não há prazo; o relógio começa quando ele termina.
-  const shelfExpiresAt = savedEspelhos.find((item) => item.expiresAt)?.expiresAt ?? null;
 
   // AP32: "Solicitar aprovação" é um latch de mão única — só aparece quando o contrato
   // ainda é "Não" + EMITIDO + gerencia; depois de "Sim" não há como desmarcar (nem aqui
@@ -411,6 +354,7 @@ export function SaleContractDetailsModal({
       setTerminalBusy(false);
     }
   }
+
   async function handleRequestApproval() {
     if (approvalBusy) return;
     setApprovalBusy(true);
@@ -431,8 +375,8 @@ export function SaleContractDetailsModal({
     }
   }
 
-  // Rodapé por situação (D121). WASH_OUT (ou sem gestão) = sem rodapé —
-  // Exportar/Baixar já vivem na seção do documento.
+  // RC-D123: o rodapé é da ABA. Só Detalhes tem ações — as outras três não mudam a
+  // situação do contrato, e um rodapé que segue igual nas quatro diria o contrário.
   const footerButtons: Array<{
     key: string;
     label: string;
@@ -441,12 +385,11 @@ export function SaleContractDetailsModal({
     hint?: string;
     onClick: () => void;
   }> = [];
-  if (canManage && view.status === 'EMITIDO') {
+  if (activeTab === 'detalhes' && canManage && view.status === 'EMITIDO') {
     // RC-D85/D86: a trava do Finalizar. O motivo vira a linha acima do rodapé —
-    // aqui o operador tem o "Editar" ao lado, que é justamente a saída.
+    // aqui o operador tem o "Editar" logo acima do PDF, que é justamente a saída.
     const finalizeBlocked = finalizeBlockedReason(view);
     footerButtons.push(
-      { key: 'editar', label: 'Editar', onClick: onEditar },
       { key: 'agio', label: 'Ágio', onClick: () => onApplyAgio('AGIO') },
       { key: 'desagio', label: 'Deságio', onClick: () => onApplyAgio('DESAGIO') },
       {
@@ -458,7 +401,7 @@ export function SaleContractDetailsModal({
       },
       { key: 'washout', label: 'Washout', danger: true, onClick: onWashout }
     );
-  } else if (canManage && view.status === 'FINALIZADO') {
+  } else if (activeTab === 'detalhes' && canManage && view.status === 'FINALIZADO') {
     footerButtons.push(
       {
         key: 'reabrir',
@@ -468,11 +411,6 @@ export function SaleContractDetailsModal({
       },
       { key: 'washout', label: 'Washout', danger: true, onClick: onWashout }
     );
-  }
-  // Espelho: elegível em mais status que as ações acima (inclui WASH_OUT do FUTURO) —
-  // botão à parte, guiado pela elegibilidade (não pelo branch de status).
-  if (canManage && espelhoEligible && onGerarEspelho) {
-    footerButtons.push({ key: 'espelho', label: 'Gerar espelho', onClick: onGerarEspelho });
   }
 
   const footerHint = footerButtons.find((button) => button.hint)?.hint ?? null;
@@ -494,61 +432,41 @@ export function SaleContractDetailsModal({
       </div>
     ) : undefined;
 
-  const identRows: Array<[string, string]> = [
-    ['Tipo', TYPE_LABEL[view.type] ?? view.type],
-    ['Data do contrato', dateOnly(view.contractDate)],
-  ];
-  if (view.purchaseNumber) identRows.push(['Nº compra', view.purchaseNumber]);
-  if (view.weightKg != null) identRows.push(['Peso', `${view.weightKg} Kg`]);
-  // D144: planejada null = "À definir" (as reais seguem com o dateOnly/"—").
-  identRows.push([
-    'Faturamento (planejado)',
-    view.invoiceDate ? dateOnly(view.invoiceDate) : 'À definir',
-  ]);
-  identRows.push([
-    'Pagamento (planejado)',
-    view.paymentDate ? dateOnly(view.paymentDate) : 'À definir',
-  ]);
-  if (view.status === 'WASH_OUT' && view.washoutAt) {
-    identRows.push(['Washout em', dateOnly(view.washoutAt)]);
-  }
-  if (view.status === 'WASH_OUT' && view.washoutReason) {
-    identRows.push(['Motivo do washout', view.washoutReason]);
-  }
-
-  const paymentRows: Array<[string, string]> = [];
-  if (view.paymentCondition) paymentRows.push(['Condição', view.paymentCondition]);
-  if (view.paymentFormText) paymentRows.push(['Forma', view.paymentFormText]);
-  if (view.modalityText) paymentRows.push(['Modalidade', view.modalityText]);
-  if (view.packagingText) paymentRows.push(['Embalagem', view.packagingText]);
-
-  const valueRows: Array<[string, string]> = [
-    ['Sacas', `${view.quantitySacks} sc`],
-    ['Preço/saca', money(view.unitPrice)],
-  ];
+  // RC-D122: a FAIXA — só o que o PDF do contrato NÃO imprime. A caixa "QUANTIDADES E
+  // VALORES" do papel sai com Qtd./Vlr. Saca (CRU)/Peso/C. Vend. %/C. Comp. %; não sai
+  // ágio, nem total, nem corretagem em R$, nem os corretores. Repetir aqui o que o
+  // documento já diz seria voltar à ficha de texto que esta rodada apagou.
+  const faixaRows: Array<[string, string]> = [['Valor total', money(view.totalValue)]];
   if (view.agioDesagioType && view.agioDesagioValue != null) {
-    valueRows.push([
+    faixaRows.push([
       view.agioDesagioType === 'AGIO' ? 'Ágio' : 'Deságio',
       `${money(view.agioDesagioValue)}/sc`,
     ]);
+    // Só com ágio/deságio o preço efetivo difere do impresso — sem isso seria ruído.
+    faixaRows.push(['Preço efetivo', `${money(view.effectiveUnitPrice)}/sc`]);
   }
-  valueRows.push(['Valor total', money(view.totalValue)]);
-  valueRows.push([
+  faixaRows.push([
     'Corretagem vendedor',
     `${view.sellerBrokeragePct ?? 0}% · ${money(view.sellerBrokerageValue)}`,
   ]);
-  valueRows.push([
+  faixaRows.push([
     'Corretagem comprador',
     `${view.buyerBrokeragePct ?? 0}% · ${money(view.buyerBrokerageValue)}`,
   ]);
   if (brokers.length > 0) {
-    valueRows.push(['Corretores', brokers.map((broker) => broker.brokerNameSnapshot).join(', ')]);
+    faixaRows.push(['Corretores', brokers.map((broker) => broker.brokerNameSnapshot).join(', ')]);
   }
 
-  const armazemRows = [
-    ...warehouseRows('Do comprador', view.buyerWarehouseSnapshot as Snapshot),
-    ...warehouseRows('Do vendedor', view.sellerWarehouseSnapshot as Snapshot),
-  ];
+  function panelProps(tab: ContractDetailTab) {
+    return {
+      role: 'tabpanel' as const,
+      id: `ctr-tabpanel-${tab}`,
+      'aria-labelledby': `ctr-tab-${tab}`,
+      hidden: activeTab !== tab,
+      // O `hidden` sozinho perde para qualquer regra de display do conteúdo.
+      style: activeTab === tab ? undefined : { display: 'none' },
+    };
+  }
 
   return (
     <>
@@ -561,10 +479,8 @@ export function SaleContractDetailsModal({
         footer={footer}
         dismissGuardRef={dismissGuardRef}
       >
-        {/* RC-D68: dois selos — a SITUAÇÃO (em andamento/finalizado/cancelado) e,
-            quando há um, o PRÓXIMO COMPROMISSO. A lista mostra só o segundo, porque
-            lá o espaço é uma coluna; aqui cabem os dois, e o detalhe é onde faz
-            sentido saber as duas coisas. Ambos derivados da mesma fonte. */}
+        {/* RC-D68: dois selos — a SITUAÇÃO (emitido/finalizado/cancelado) e, quando há um,
+            o PRÓXIMO COMPROMISSO. Ficam ACIMA das abas: valem para as quatro. */}
         <div className="ctr-details-head">
           <span
             className="spv2-card-badge"
@@ -587,159 +503,109 @@ export function SaleContractDetailsModal({
 
         {loadError ? <p className="sdv-modal-error">{loadError}</p> : null}
 
-        <div className="ctr-details-cols">
-          {/* Documento (D126): coluna esquerda no desktop, primeira seção no
-            mobile. Exportar/Baixar acompanham o preview em todos os status. */}
-          <section className="ctr-details-doc">
-            <h4 className="ctr-section-title">Contrato (PDF)</h4>
+        {/* RC-D121: molde ARIA do .fv-tabs (o mesmo do detalhe do lote, RD15). */}
+        <div className="fv-tabs" role="tablist" aria-label="Seções do contrato">
+          {TABS.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              role="tab"
+              id={`ctr-tab-${tab.key}`}
+              aria-selected={activeTab === tab.key}
+              aria-controls={`ctr-tabpanel-${tab.key}`}
+              className={`fv-tab${activeTab === tab.key ? ' is-active' : ''}`}
+              onClick={() => setActiveTab(tab.key)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="ctr-details-panels">
+          {/* ── Detalhes (RC-D122): a faixa + o documento. ── */}
+          <div {...panelProps('detalhes')}>
+            <div className="ctr-details-faixa">
+              <dl className="ctr-details-rows">
+                {faixaRows.map(([label, value]) => (
+                  <div key={label} className="ctr-details-row">
+                    <dt>{label}</dt>
+                    <dd>{value}</dd>
+                  </div>
+                ))}
+              </dl>
+              <div className="ctr-details-faixa-actions">
+                {canManage && view.status === 'EMITIDO' ? (
+                  <button type="button" className="ctr-btn" onClick={onEditar}>
+                    Editar
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className="ctr-btn"
+                  onClick={() =>
+                    fileRef.current && downloadFile(fileRef.current.blob, fileRef.current.fileName)
+                  }
+                  disabled={!pdfUrl}
+                >
+                  Baixar
+                </button>
+                <button
+                  type="button"
+                  className="ctr-btn"
+                  onClick={() => void handleExport()}
+                  disabled={!pdfUrl || busy}
+                >
+                  {busy ? 'Exportando...' : 'Exportar'}
+                </button>
+              </div>
+            </div>
+
             {pdfError ? <p className="sdv-modal-error">{pdfError}</p> : null}
             {pdfUrl ? (
               <iframe
-                className="ctr-details-doc-frame"
+                className="ctr-doc-frame"
                 src={pdfUrl}
                 title={`Documento do contrato ${view.contractNumber}`}
               />
             ) : !pdfError ? (
               <p className="ctr-modal-loading">Gerando o documento...</p>
             ) : null}
-            <div className="ctr-details-doc-actions">
-              <button
-                type="button"
-                className="ctr-btn"
-                onClick={() =>
-                  fileRef.current && downloadFile(fileRef.current.blob, fileRef.current.fileName)
-                }
-                disabled={!pdfUrl}
-              >
-                Baixar
-              </button>
-              <button
-                type="button"
-                className="ctr-btn"
-                onClick={() => void handleExport()}
-                disabled={!pdfUrl || busy}
-              >
-                {busy ? 'Exportando...' : 'Exportar'}
-              </button>
-            </div>
-          </section>
+            {/* O <iframe> de PDF não renderiza em todo aparelho — Baixar e Exportar são
+                a saída, e dizer isso evita a leitura de que a aba veio vazia. */}
+            <p className="ctr-doc-hint">
+              Se o documento não aparecer no seu aparelho, use Baixar ou Exportar.
+            </p>
+          </div>
 
-          {/* RC-D106: os espelhos ENTREGUES que ainda estão guardados. Fica junto do
-              PDF do contrato porque é a mesma coisa — a estante de documentos. Só
-              aparece quando há algo para abrir; o histórico, no fim, guarda a linha
-              de todos os exports mesmo depois de o documento expirar (RC-D105). */}
-          {savedEspelhos.length > 0 ? (
-            <section className="ctr-details-espelhos">
-              <h4 className="ctr-section-title">Espelhos de corretagem</h4>
-              <ul className="ctr-espelho-shelf">
-                {savedEspelhos.map((item) => (
-                  <li key={item.id}>
-                    <button
-                      type="button"
-                      className="ctr-espelho-shelf-row"
-                      onClick={() =>
-                        setOpenEspelho({
-                          logId: item.logId as string,
-                          side: item.side as EspelhoSide,
-                          expiresAt: item.expiresAt ?? null,
-                          stale: Boolean(item.stale),
-                        })
-                      }
-                    >
-                      <span className="ctr-espelho-shelf-main">
-                        <span className="ctr-espelho-shelf-side">
-                          {espelhoSideLabel(item.side)}
-                        </span>
-                        <span className="ctr-espelho-shelf-meta">
-                          {brtDateOnly(item.at)}
-                          {item.commission != null ? ` · ${money(item.commission)}` : ''}
-                        </span>
-                      </span>
-                      {item.superseded || item.stale ? (
-                        <span className="ctr-espelho-shelf-tags">
-                          {item.superseded ? (
-                            <span className="ctr-espelho-shelf-tag">substituído</span>
-                          ) : null}
-                          {item.stale ? (
-                            <span className="ctr-espelho-shelf-tag is-warn">
-                              contrato mudou depois
-                            </span>
-                          ) : null}
-                        </span>
-                      ) : null}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-              <p className="ctr-espelho-shelf-hint">
-                {shelfExpiresAt
-                  ? `Disponíveis até ${brtDateOnly(shelfExpiresAt)} — 15 dias depois do fim do contrato.`
-                  : 'Ficam guardados enquanto o contrato estiver em andamento, e saem 15 dias depois de ele terminar.'}
-              </p>
-            </section>
-          ) : null}
-
-          <div className="ctr-details-info">
-            <section>
-              <h4 className="ctr-section-title">Identificação</h4>
-              <FieldRows rows={identRows} />
-            </section>
-            <section>
-              <h4 className="ctr-section-title">Vendedor</h4>
-              <FieldRows rows={partyRows(view.sellerSnapshot as Snapshot)} />
-            </section>
-            <section>
-              <h4 className="ctr-section-title">Comprador</h4>
-              <FieldRows rows={partyRows(view.buyerSnapshot as Snapshot)} />
-            </section>
-            <section>
-              <h4 className="ctr-section-title">Banco do vendedor</h4>
-              <FieldRows rows={bankRows(view.sellerBankSnapshot as Snapshot)} />
-            </section>
-            {armazemRows.length > 0 ? (
-              <section>
-                <h4 className="ctr-section-title">Armazéns</h4>
-                <FieldRows rows={armazemRows} />
-              </section>
-            ) : null}
-            {paymentRows.length > 0 ? (
-              <section>
-                <h4 className="ctr-section-title">Pagamento e logística</h4>
-                <FieldRows rows={paymentRows} />
-              </section>
-            ) : null}
-            <section>
-              <h4 className="ctr-section-title">Valores e corretagem</h4>
-              <FieldRows rows={valueRows} />
-            </section>
-            {canManageApproval || view.requiresApproval ? (
-              <section>
-                <h4 className="ctr-section-title">Aprovação</h4>
-                {view.requiresApproval ? (
-                  <>
-                    <FieldRows rows={[['Precisa de aprovação', 'Sim']]} />
-                    {/* RC-D25: a geração da etiqueta mora AQUI (revoga a AP29 —
-                        a sub-aba Aprovações era "a única porta proativa" e foi
-                        extinta). Reenvio é permitido (o log conta N×); só o
-                        washout tira o botão, como fazia a worklist. */}
-                    {canManage && view.status !== 'WASH_OUT' ? (
-                      <div className="ctr-details-actions">
-                        <button
-                          type="button"
-                          className="ctr-btn"
-                          disabled={labelBusy}
-                          onClick={handleOpenLabel}
-                        >
-                          {labelBusy ? 'Abrindo...' : 'Gerar etiqueta'}
-                        </button>
-                      </div>
-                    ) : null}
-                  </>
+          {/* ── Aprovação (RC-D126/D127) ── */}
+          {mounted.aprovacao ? (
+            <div {...panelProps('aprovacao')}>
+              {view.requiresApproval ? (
+                view.status === 'WASH_OUT' ? (
+                  <p className="ctr-details-empty">
+                    Contrato cancelado — a etiqueta de aprovação não sai mais.
+                  </p>
+                ) : !canManage ? (
+                  <p className="ctr-details-empty">Este contrato exige aprovação.</p>
+                ) : labelError ? (
+                  <p className="sdv-modal-error">{labelError}</p>
+                ) : labelPrefill ? (
+                  <ApprovalLabelForm
+                    session={session}
+                    saleContractId={contract.id}
+                    prefill={labelPrefill}
+                    onSent={() => setReloadNonce((n) => n + 1)}
+                  />
                 ) : (
-                  // AP32: latch de mão única — botão "Solicitar aprovação" (só quando
-                  // ainda "Não" + EMITIDO + gerencia); a confirmação é obrigatória.
-                  <div className="app-modal-field">
-                    <span className="app-modal-label">Este contrato precisa de aprovação?</span>
+                  <p className="ctr-modal-loading">Carregando a etiqueta...</p>
+                )
+              ) : canManageApproval ? (
+                // AP32: latch de mão única — a confirmação é obrigatória.
+                <div className="ctr-approval-latch">
+                  <p className="fv-panel-lead">
+                    Este contrato não exige aprovação. Ligar a exigência é definitivo.
+                  </p>
+                  <div className="ctr-details-actions">
                     <button
                       type="button"
                       className="ctr-btn"
@@ -752,79 +618,92 @@ export function SaleContractDetailsModal({
                       Solicitar aprovação
                     </button>
                   </div>
-                )}
-              </section>
-            ) : null}
-            {view.observations || view.description ? (
-              <section>
-                <h4 className="ctr-section-title">Textos</h4>
-                {view.observations ? (
-                  <p className="ctr-details-text">
-                    <strong>Observações:</strong> {view.observations}
-                  </p>
-                ) : null}
-                {view.description ? (
-                  <p className="ctr-details-text">
-                    <strong>Descrição:</strong> {view.description}
-                  </p>
-                ) : null}
-              </section>
-            ) : null}
-          </div>
-        </div>
+                </div>
+              ) : (
+                <p className="ctr-details-empty">
+                  Este contrato não exige aprovação, e a exigência só pode ser ligada enquanto ele
+                  está emitido.
+                </p>
+              )}
+            </div>
+          ) : null}
 
-        {/* Histórico (D125): largura total, ordem decrescente. Linha D118/D119 =
-          "há X tempo" + quem + o quê, com a data exata de apoio; marcos
-          legados (pré-D123) saem só com a data, sem autor. */}
-        <section className="ctr-details-history">
-          <h4 className="ctr-section-title">Histórico</h4>
-          {timeline === null ? (
-            <p className="ctr-modal-loading">Carregando o histórico...</p>
-          ) : timeline.length === 0 ? (
-            <p className="ctr-details-empty">Sem eventos registrados.</p>
-          ) : (
-            <ul className="ctr-tl">
-              {timeline.map((item) => (
-                <li key={item.id} className="ctr-tl-item">
-                  <span className="ctr-tl-rel">{formatRelativeTime(item.at, now)}</span>
-                  <span className="ctr-tl-main">
-                    {item.actorName ? <strong>{item.actorName}</strong> : null}
-                    {item.actorName ? ' · ' : ''}
-                    {timelineLabel(item)}
-                  </span>
-                  <span className="ctr-tl-exact">{exactStamp(item)}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+          {/* ── Espelho (RC-D124/D125) ── */}
+          {mounted.espelho ? (
+            <div {...panelProps('espelho')}>
+              <ContractEspelhoTab
+                session={session}
+                contract={view}
+                timeline={timeline}
+                sampleOwner={sampleOwner}
+                onDelivered={() => setReloadNonce((n) => n + 1)}
+              />
+            </div>
+          ) : null}
+
+          {/* ── Histórico (RC-D128): ordem decrescente. Linha D118/D119 = "há X tempo" +
+              quem + o quê, com a data exata de apoio; marcos legados (pré-D123) saem só
+              com a data, sem autor. ── */}
+          {mounted.historico ? (
+            <div {...panelProps('historico')}>
+              {timeline === null ? (
+                <p className="ctr-modal-loading">Carregando o histórico...</p>
+              ) : timeline.length === 0 ? (
+                <p className="ctr-details-empty">Sem eventos registrados.</p>
+              ) : (
+                <ul className="ctr-tl">
+                  {timeline.map((item) => {
+                    const openable =
+                      item.kind === 'ESPELHO' && item.available && item.logId && item.side;
+                    const isOpen = openHistoryEspelho?.logId === item.logId;
+                    return (
+                      <li key={item.id} className="ctr-tl-item">
+                        <span className="ctr-tl-rel">{formatRelativeTime(item.at, now)}</span>
+                        <span className="ctr-tl-main">
+                          {item.actorName ? <strong>{item.actorName}</strong> : null}
+                          {item.actorName ? ' · ' : ''}
+                          {openable ? (
+                            <button
+                              type="button"
+                              className="ctr-tl-open"
+                              onClick={() =>
+                                setOpenHistoryEspelho(
+                                  isOpen
+                                    ? null
+                                    : {
+                                        logId: item.logId as string,
+                                        side: item.side as EspelhoSide,
+                                      }
+                                )
+                              }
+                            >
+                              {timelineLabel(item)}
+                              {item.superseded ? ' (substituído)' : ''}
+                            </button>
+                          ) : (
+                            timelineLabel(item)
+                          )}
+                        </span>
+                        <span className="ctr-tl-exact">{exactStamp(item)}</span>
+                        {isOpen ? (
+                          <StoredEspelhoFrame
+                            session={session}
+                            contractId={contract.id}
+                            logId={item.logId as string}
+                            side={item.side as EspelhoSide}
+                            contractNumber={view.contractNumber}
+                          />
+                        ) : null}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          ) : null}
+        </div>
       </DetailOverlay>
-      {/* RC-D25: as duas superfícies que a extinção de /embarques trouxe pra cá.
-          Ambas seguram o dismissGuardRef enquanto abertas e, ao concluir,
-          bumpam o reloadNonce — contrato, timeline e fotos voltam frescos. */}
-      {labelPrefill ? (
-        <ApprovalLabelModal
-          open
-          session={session}
-          prefill={labelPrefill}
-          saleContractId={contract.id}
-          onSent={() => setReloadNonce((n) => n + 1)}
-          onClose={() => setLabelPrefill(null)}
-        />
-      ) : null}
-      {/* RC-D106: espelho GUARDADO — o mesmo modal da prévia, em modo releitura
-          (logId). Aqui Baixar/Exportar não registram nada: é o mesmo documento. */}
-      {openEspelho ? (
-        <EspelhoCorretagemModal
-          session={session}
-          contract={view}
-          side={openEspelho.side}
-          logId={openEspelho.logId}
-          expiresAt={openEspelho.expiresAt}
-          stale={openEspelho.stale}
-          onClose={() => setOpenEspelho(null)}
-        />
-      ) : null}
+
       {/* AP32: confirmação do latch de mão única — "Solicitar aprovação" é definitivo. */}
       {approvalConfirmOpen
         ? createPortal(

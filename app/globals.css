@@ -1446,33 +1446,13 @@ body:has(.bottom-sheet-backdrop.is-open) .mobile-edge-shell-auth::after {
   }
 }
 
-/* SampleCreatedSuccessModal — header com titulo centralizado + close
-   absoluto (mesmo padrao do BottomSheet "Nova amostra" pra coerencia do
-   fluxo de registro). Mais especifico que .app-modal.is-themed por
-   classe escopada — nao afeta outros modais. */
-/* Modal de sucesso SEM header (design limpo): titulo vai no corpo
-   (.sample-created-title), sem faixa verde nem X. O SampleCreatedSuccessModal
-   morreu na F3 de /samples; o molde segue vivo no ApprovalLabelModal. */
-
-/* Botoes do footer: altura uniforme (default difere 0.2rem entre secondary
-   e submit) + width 100% pra preencher cada coluna do grid. Padding
-   lateral + bottom respeita as bordas do modal (.app-modal.is-themed tem
-   padding:0, entao actions precisa do proprio breathing room — sem isso
-   os botoes encostam nas bordas). */
-.sample-created-modal .app-modal-actions {
-  align-items: center;
-  gap: clamp(0.5rem, 1.6vw, 0.65rem);
-  padding: clamp(0.7rem, 2.2vw, 0.9rem) clamp(1.2rem, 3.6vw, 1.5rem) clamp(1.1rem, 3.4vw, 1.35rem);
-  border-top: 0;
-  margin-top: 0;
-}
-
-.sample-created-modal .app-modal-actions .app-modal-secondary,
-.sample-created-modal .app-modal-actions .app-modal-submit {
-  min-height: 3.2rem;
-  width: 100%;
-  border-radius: clamp(10px, 3vw, 12px);
-}
+/* 🪦 RC-D127 (2026-07-30): o bloco `.sample-created-*` MORREU INTEIRO — o check
+   central desenhado, o corpo, o cartão do lote e a `.approval-sent-hint`. O
+   SampleCreatedSuccessModal tinha morrido na F3 de /samples e o que segurava as
+   regras era o modal da Etiqueta de Aprovação, que deixou de existir: a etiqueta
+   virou conteúdo da aba, e numa aba não há o que auto-fechar — o sucesso é um
+   toast. Junto foram `.sample-created-modal` e os overrides de movimento
+   reduzido do check. */
 
 .app-modal.is-themed .app-modal-content {
   padding: clamp(1rem, 3vw, 1.4rem);
@@ -14940,114 +14920,6 @@ select.samples-filter-field-input {
   }
 }
 
-/* Modal central de "Amostra criada" — reaproveita os keyframes
-   client-success-circle/tick acima. Cor do check casa com o header verde
-   do .app-modal.is-themed. */
-.sample-created-body {
-  align-items: center;
-  text-align: center;
-  gap: clamp(0.85rem, 2.8vw, 1.1rem);
-  padding-top: clamp(1.5rem, 5vw, 2rem);
-  padding-bottom: clamp(1.3rem, 4.5vw, 1.7rem);
-}
-
-/* Check LIMPO: so o line-art (circulo + tick) desenhando, SEM disco de fundo.
-   Traço fino. O charme fica na animacao linear de draw (circle + path abaixo). */
-.sample-created-check-wrap {
-  position: relative;
-  display: inline-grid;
-  place-items: center;
-  width: clamp(60px, 16vw, 72px);
-  height: clamp(60px, 16vw, 72px);
-}
-
-.sample-created-check {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  fill: none;
-  stroke: var(--brand-green);
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.sample-created-check circle {
-  stroke-dasharray: 151;
-  stroke-dashoffset: 151;
-  /* Delay alinhado com o final do ring pop-in (0.45s ring + buffer). */
-  animation: client-success-circle 0.5s 0.3s ease forwards;
-}
-
-.sample-created-check path {
-  stroke-dasharray: 40;
-  stroke-dashoffset: 40;
-  animation: client-success-tick 0.35s 0.7s ease forwards;
-}
-
-/* Titulo no corpo (modal de sucesso SEM header): escuro sobre o branco, centrado. */
-.sample-created-title {
-  margin: 0;
-  font-size: clamp(1.2rem, 3.6vw, 1.45rem);
-  font-weight: 700;
-  line-height: 1.2;
-  color: var(--ink);
-  text-align: center;
-}
-
-/* Mensagem auxiliar do modal de sucesso da Aprovacao (sob o check), no corpo
-   branco — substitui a classe orfa `.sample-created-hint` (nunca existiu no CSS). */
-.approval-sent-hint {
-  margin: 0;
-  font-size: clamp(0.85rem, 2.6vw, 0.95rem);
-  line-height: 1.35;
-  color: rgba(0, 0, 0, 0.55);
-  text-align: center;
-}
-
-/* Lot card: artefato principal do sucesso. Bg suave verde-claro +
-   border-radius pra parecer um "ticket/etiqueta" — sinaliza que o
-   numero do lote eh a info que o user deve anotar. Padding generoso
-   pra leitura confortavel do numero grande. */
-.sample-created-lot-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: clamp(0.3rem, 1vw, 0.45rem);
-  padding: clamp(0.85rem, 2.8vw, 1.15rem) clamp(1.2rem, 3.6vw, 1.6rem);
-  background: rgba(31, 93, 67, 0.07);
-  border: 1px solid rgba(31, 93, 67, 0.16);
-  border-radius: clamp(12px, 3.4vw, 16px);
-  width: 100%;
-  max-width: 14rem;
-}
-
-.sample-created-label {
-  margin: 0;
-  font-size: clamp(0.7rem, 2.2vw, 0.78rem);
-  font-weight: 700;
-  color: rgba(31, 93, 67, 0.65);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  line-height: 1.1;
-}
-
-.sample-created-lot {
-  margin: 0;
-  font-size: clamp(2.2rem, 8vw, 2.9rem);
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
-  color: var(--brand-green);
-  line-height: 1;
-}
-
-/* (RD16 M3 · 2026-07-22) O modal de sucesso da classificacao virou o check
-   canonico (`SuccessCheckOverlay`, portalado da camera). A `.classification-
-   success-print` saiu com ele. As `.sample-created-lot` e `-title` ficaram
-   orfas junto, mas moram no bloco `.sample-created-*` que o ApprovalLabelModal
-   ainda compartilha (check + body) — a poda dessas fica pra consolidacao da
-   camera. */
 .client-modal-header {
   display: flex;
   justify-content: space-between;
@@ -19488,80 +19360,6 @@ select.samples-filter-field-input {
   min-width: 0;
 }
 
-/* Etiqueta de Aprovação — disposição própria dos campos em linhas (pares lado a
-   lado). Cada
-   .alm-form-row é um grid próprio; as colunas (em fr) vêm do style inline por
-   linha (FORM_ROWS no ApprovalLabelModal). O min-width:0 nos campos e no input
-   é o que segura a largura FIXA: sem ele, texto longo (ou o tamanho intrínseco
-   do input) esticaria a coluna. Input de linha única já rola lateralmente por
-   conta própria — o campo não cresce em altura nem largura. */
-.alm-form {
-  display: grid;
-  gap: clamp(10px, 2.8vw, 14px);
-}
-
-.alm-form-row {
-  display: grid;
-  gap: clamp(8px, 2.5vw, 10px);
-  align-items: start;
-}
-
-.alm-form-row > .alm-field {
-  min-width: 0;
-}
-
-.alm-input {
-  min-width: 0;
-}
-
-/* Grupo de Lotes: rótulo + o OriginLotChips (o MESMO editor do detalhe do lote,
-   RC-D100) + as linhas de apoio (motivo da trava, aviso do recorte). */
-.alm-lots-group {
-  display: flex;
-  flex-direction: column;
-  gap: clamp(3px, 1vw, 4px);
-}
-
-/* RC-D98: campo de LEITURA — vem do contrato. Mantém a CAIXA do formulário
-   (pedido do Flavio, 2026-07-29: "design de campo normal, porém sem editar, e
-   não texto"), porque o form tem campos editáveis do lado e alternar caixa com
-   texto solto dentro do mesmo modal lê como campo faltando.
-   Copia a geometria do .nsv2-field-input — um <p> não é alcançado por aquele
-   seletor, então ela NÃO vem por herança — e troca o que diz "aqui se digita":
-   fundo mais recuado, sem sombra de profundidade, sem :focus, cursor default.
-   O `aria-disabled` no markup é o "não editável" que o desenho não fala. */
-.alm-locked-input {
-  margin: 0;
-  width: 100%;
-  padding: clamp(8px, 2.5vw, 10px) clamp(10px, 3vw, 12px);
-  border: 1.5px solid rgba(0, 0, 0, 0.07);
-  border-radius: clamp(8px, 2.5vw, 10px);
-  background: #f1f0ec;
-  font-size: clamp(12px, 3.5vw, 13px);
-  font-family: inherit;
-  color: #55605a;
-  cursor: default;
-  overflow-wrap: anywhere;
-  /* Casa a altura do input editável mesmo vazio (o "—" já garante conteúdo,
-     mas um valor de 1 linha não pode ficar mais baixo que o vizinho). */
-  min-height: calc(clamp(12px, 3.5vw, 13px) * 1.35 + clamp(8px, 2.5vw, 10px) * 2 + 3px);
-  line-height: 1.35;
-}
-
-/* A nota única dos quatro travados (topo do form) e as linhas de apoio do campo
-   de lotes — motivo da trava, aviso do recorte de 8. */
-.alm-locked-note,
-.alm-field-hint {
-  margin: 0;
-  font-size: clamp(11px, 3vw, 12px);
-  line-height: 1.35;
-  color: #8a8a8a;
-}
-
-/* 🪦 .alm-lots-readonly / .alm-lot-chip / .alm-lots-empty — os lotes deixaram de
-   ser read-only na RC-D100 e o campo virou o OriginLotChips (.olc-*), que já traz
-   chip, estado disabled e o "—" do vazio. Sem markup desde 2026-07-29. */
-
 .nsv2-field {
   display: flex;
   flex-direction: column;
@@ -19682,12 +19480,12 @@ select.samples-filter-field-input {
   opacity: 0.75;
 }
 
-/* RC-D100: na etiqueta o `disabled` significa TRAVADO (liga, componente de
+/* RC-D100/D127: na etiqueta o `disabled` significa TRAVADO (liga, componente de
    liga, Futuro), não "aguarde o save" como nos outros consumidores — e os chips
    travados continuam sendo o que vai sair no papel. Por isso aqui o campo fica
    RECUADO em vez de desbotado: o `opacity: 0.75` genérico apaga justamente a
    informação que o operador precisa conferir antes de imprimir. */
-.alm-lots-group .olc-wrap.is-disabled {
+.ctr-approval-lots .olc-wrap.is-disabled {
   opacity: 1;
   border-color: rgba(0, 0, 0, 0.07);
   background: #f1f0ec;
@@ -22061,44 +21859,11 @@ select.samples-filter-field-input {
     font-size: 0.95rem;
   }
 
-  /* Campo travado da etiqueta: acompanha a caixa GRANDE do desktop (senao ele
-     fica na geometria mobile ao lado de um input de 1rem e desalinha a linha).
-     Segue sem o que promete edicao: borda mais fraca, fundo recuado, sem sombra
-     de profundidade, sem :hover e sem :focus. */
-  .alm-locked-input {
-    padding: 1rem 1.15rem;
-    font-size: 1rem;
-    border: 2px solid rgba(0, 0, 0, 0.14);
-    border-radius: 14px;
-    min-height: calc(1rem * 1.35 + 2rem + 4px);
-  }
-
-  /* O campo de CHIPS do lote acompanha a mesma caixa (o .olc-wrap base e
-     mobile-first e o override existente e escopado ao .new-sample-sheet, que
-     nao alcanca este modal). Sem isto, o unico campo composto do form fica
-     visivelmente menor que os vizinhos no desktop. */
-  .bottom-sheet.is-approval-label .olc-wrap {
-    padding: calc(1rem - 3px) 1.15rem;
-    border: 2px solid rgba(0, 0, 0, 0.3);
-    border-radius: 14px;
-    background: #ffffff;
-    min-height: calc(1rem * 1.35 + 2rem + 4px);
-    box-shadow:
-      0 2px 4px rgba(0, 0, 0, 0.05),
-      0 4px 12px rgba(0, 0, 0, 0.06);
-  }
-
-  .bottom-sheet.is-approval-label .olc-input,
-  .bottom-sheet.is-approval-label .olc-chip {
-    font-size: 0.95rem;
-  }
-
-  /* Travado no desktop: a mesma caixa, recuada (ver a regra base). */
-  .bottom-sheet.is-approval-label .olc-wrap.is-disabled {
-    border-color: rgba(0, 0, 0, 0.14);
-    background: #f1f0ec;
-    box-shadow: none;
-  }
+  /* 🪦 RC-D127: as quatro regras da Etiqueta de Aprovação no desktop saíram. Elas
+     existiam para dar à etiqueta a caixa GRANDE do "Nova amostra" (2px, 14px de
+     raio, 1rem de fonte) dentro do sheet dela. Na aba do detalhe o formulário é o
+     kit `.fv-form-*`, que já traz a própria geometria — e ela é a certa aqui: o
+     painel é estreito, e a caixa grande deixaria dois campos por linha ilegíveis. */
 
   /* Client/Warehouse lookup fields — mesmo padrao dos demais (2px, 0.3) */
 
@@ -24350,14 +24115,6 @@ select.samples-filter-field-input {
    (precisa ser opaco pra mascarar o scroll do form). Pedido do usuario. */
 .bottom-sheet.is-fit-content,
 .bottom-sheet.is-fit-content .bottom-sheet-footer {
-  background: #ffffff;
-}
-
-/* Modal "Etiqueta de Aprovacao" (ApprovalLabelModal): mesma superficie BRANCA
-   do "Nova amostra" — sheet + footer sticky — em vez do creme base. Vale mobile
-   (sheet) E desktop (modal central, mesmo elemento). */
-.bottom-sheet.is-approval-label,
-.bottom-sheet.is-approval-label .bottom-sheet-footer {
   background: #ffffff;
 }
 
@@ -28438,10 +28195,18 @@ body.is-selection-mode .mobile-tabbar {
   white-space: nowrap;
 }
 
-/* ── Detalhes do contrato (Fase J, D120–D126; F3 do redesign): conteudo do
-   DetailOverlay .ctr-details-overlay (peek 620px desktop / sheet mobile —
-   posicionamento no bloco .detail-overlay). Coluna UNICA sempre: documento
-   (PDF) primeiro, seções na sequência, histórico (timeline) fechando. ── */
+/* ── Detalhes do contrato (F3 do redesign): conteudo do DetailOverlay
+   .ctr-details-overlay (peek 620px desktop / sheet mobile — posicionamento no
+   bloco .detail-overlay).
+
+   RC-D121 (2026-07-30): deixou de ser COLUNA UNICA (documento, oito secoes de
+   texto e o historico emendados) e virou QUATRO ABAS. Morreram junto as regras
+   que so existiam para empilhar aquilo: `.ctr-details-cols`, `.ctr-details-doc`,
+   `.ctr-details-info`, `.ctr-details-doc-actions` e `.ctr-details-text` (as
+   secoes Textos/Identificacao/partes sairam — o PDF ja as imprime).
+   O `.ctr-details-doc-frame` tambem: agora ha UM molde de previa de PDF nesta
+   tela, o `.ctr-doc-frame`, que o contrato, os blocos do espelho e a releitura
+   do historico compartilham. ── */
 .ctr-details-head {
   display: flex;
   align-items: center;
@@ -28455,40 +28220,49 @@ body.is-selection-mode .mobile-tabbar {
   color: var(--brand-muted);
 }
 
-.ctr-details-cols {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
+/* RC-D121: a tira de abas gruda no topo do corpo rolavel (molde do
+   `.lote-details-overlay .fv-tabs`). Opaca — o conteudo passa POR BAIXO. As
+   margens negativas desfazem o padding lateral do corpo do overlay para o
+   filete inferior atravessar a largura toda, como no detalhe do lote. */
+.bottom-sheet.detail-overlay.ctr-details-overlay .fv-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  margin: 0 -1rem 0.75rem;
+  padding: 0 1rem;
+  background: var(--brand-cream, #f6f6f4);
 }
 
-.ctr-details-doc,
-.ctr-details-info {
+.ctr-details-panels {
+  display: flex;
+  flex-direction: column;
   min-width: 0;
 }
 
-.ctr-details-info {
+/* RC-D122: a FAIXA da aba Detalhes — o que o PDF do contrato NAO imprime (total,
+   agio/desagio, preco efetivo, corretagem em R$ e os corretores) mais as acoes
+   sobre o DOCUMENTO. As acoes sobre o CONTRATO (Agio/Desagio/Finalizar/Washout)
+   ficam no rodape; a separacao e o que faz a faixa nao virar barra de botoes. */
+.ctr-details-faixa {
   display: flex;
   flex-direction: column;
-  gap: 0.95rem;
-}
-
-.ctr-details-doc-frame {
-  width: 100%;
-  height: clamp(300px, 48vh, 560px);
+  gap: 0.6rem;
+  margin-bottom: 0.7rem;
+  padding: 0.65rem 0.75rem;
   border: 1px solid var(--brand-cream-line);
   border-radius: 12px;
-  background: #f6f6f4;
+  background: #faf9f6;
 }
 
-.ctr-details-doc-actions {
+.ctr-details-faixa-actions {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 0.5rem;
-  margin-top: 0.5rem;
 }
 
-.ctr-details-doc-actions > .ctr-btn {
-  flex: 1 1 0;
-  min-width: 0;
+.ctr-details-faixa-actions > .ctr-btn {
+  flex: 0 1 auto;
 }
 
 .ctr-details-rows {
@@ -28523,18 +28297,6 @@ body.is-selection-mode .mobile-tabbar {
   margin: 0;
   font-size: 0.84rem;
   color: var(--brand-muted);
-}
-
-.ctr-details-text {
-  margin: 0.2rem 0 0;
-  font-size: 0.85rem;
-  color: var(--brand-green-ink);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
-.ctr-details-history {
-  margin-top: 1.1rem;
 }
 
 .ctr-tl {
@@ -28575,6 +28337,50 @@ body.is-selection-mode .mobile-tabbar {
   font-size: 0.72rem;
   color: #9a9a94;
   white-space: nowrap;
+}
+
+/* RC-D128: a linha "Espelho exportado" ABRE o documento ali mesmo — e por onde se
+   chega aos SUBSTITUIDOS, que a aba Espelho (um por lado) nao lista. Botao com
+   cara de link dentro da frase: sublinhado discreto, sem caixa propria, e o
+   afundar do `button-press-effect` sem troca de cor. */
+.ctr-tl-open {
+  -webkit-tap-highlight-color: transparent;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  text-decoration: underline;
+  text-decoration-color: var(--brand-cream-line);
+  text-underline-offset: 2px;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.ctr-tl-open:active {
+  transform: scale(0.99);
+}
+
+@media (hover: hover) {
+  .ctr-tl-open:hover {
+    text-decoration-color: currentcolor;
+  }
+}
+
+.ctr-tl-open:focus-visible {
+  outline: 2px solid rgba(36, 57, 47, 0.35);
+  outline-offset: 2px;
+}
+
+/* O documento aberto pela linha ocupa a largura toda do cartao do historico. */
+.ctr-tl-espelho {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
 }
 
 /* Em telas muito estreitas a data exata desce pra 2ª linha (nao espreme). */
@@ -28620,21 +28426,15 @@ body.is-selection-mode .mobile-tabbar {
   color: var(--brand-muted);
 }
 
-/* Modal "Visualizar" — previa do PDF (iframe) + Exportar/Baixar/Fechar. Um pouco
-   mais largo que o padrao p/ acomodar a folha A4. */
-.app-modal.is-themed.ctr-doc-modal {
-  width: min(46rem, calc(100vw - 1.5rem));
-  max-width: min(46rem, calc(100vw - 1.5rem));
-}
-.ctr-doc-content {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  min-height: 0;
-}
+/* 🪦 RC-D125: `.ctr-doc-modal` e `.ctr-doc-content` sairam com o
+   EspelhoCorretagemModal — o espelho deixou de ser um modal central e virou o
+   conteudo da aba. O `.ctr-doc-frame` FICOU e passou a ser o molde UNICO de
+   previa de PDF do detalhe: o contrato (aba Detalhes), cada bloco da aba Espelho
+   e a releitura aberta pelo historico usam este. Mais alto que na epoca do modal
+   porque agora ele e o conteudo da aba, nao um trecho dentro de um dialogo. */
 .ctr-doc-frame {
   width: 100%;
-  height: min(60dvh, 32rem);
+  height: clamp(320px, 58vh, 700px);
   border: 1px solid var(--brand-cream-line);
   border-radius: 12px;
   background: #fff;
@@ -28658,13 +28458,6 @@ body.is-selection-mode .mobile-tabbar {
   line-height: 1.35;
   color: #7a6220;
 }
-/* Fechar | Baixar | Exportar numa linha (Fechar so o necessario). */
-.app-modal.is-themed .app-modal-actions.ctr-doc-actions {
-  display: grid;
-  grid-template-columns: auto 1fr 1fr;
-  gap: 0.6rem;
-}
-
 /* RC-D27/D28: confirmacao PELO DOCUMENTO antes de emitir. Diferente da previa do
    Espelho (iframe), aqui o PDF vem RASTERIZADO em <img> pelo pdfjs — aparece em
    qualquer aparelho, inclusive onde o iframe de PDF nao renderiza.
@@ -28679,9 +28472,8 @@ body.is-selection-mode .mobile-tabbar {
    painel" que a skill `containers` §2 registrava.
 
    O que sobrou abaixo (`.ctr-doc-pages`, `.ctr-doc-page`, `.ctr-doc-fallback`)
-   segue vivo, agora dentro do passo. E `.ctr-doc-modal`, `.ctr-doc-content`,
-   `.ctr-doc-frame`, `.ctr-doc-hint` e `.ctr-doc-actions` NAO sao desta tela: o
-   `EspelhoCorretagemModal` usa todas. */
+   segue vivo, agora dentro do passo. Ja `.ctr-doc-frame`, `.ctr-doc-hint` e
+   `.ctr-doc-warning` sao do DETALHE (RC-D125), nao desta tela. */
 .ctr-doc-pages {
   display: flex;
   flex-direction: column;
@@ -28740,193 +28532,84 @@ body.is-selection-mode .mobile-tabbar {
 }
 
 /* ---------------------------------------------------------------------------
-   Espelho de Corretagem (Fase E): card selecionavel (tap-to-open) + toggle de
-   lado/resumo do modal de conferencia. O modo de selecao agora usa o
-   SelectionModeHeader (paridade /samples), nao mais um banner proprio.
-   Reusa .ctr-card / .ctr-doc-* / .app-modal.
+   Espelho de Corretagem — a ABA do detalhe do contrato (RC-D124/D125).
+
+   🪦 O que morreu aqui: `.app-modal-subtitle`, `.ctr-espelho-side*` (o toggle de
+   lado) e `.ctr-espelho-summary*`/`.ctr-espelho-fields` (a grade da conferencia).
+   A conferencia deixou de ser um modal central e virou o estado VAZIO de cada
+   bloco; o toggle nao faz mais sentido porque ha um bloco POR LADO, rotulado. Os
+   campos a conferir passaram a usar o `.ctr-details-rows` do proprio detalhe — o
+   mesmo par rotulo/valor da faixa, em vez de uma terceira caixa.
    --------------------------------------------------------------------------- */
-
-/* Card selecionavel (o card inteiro vira botao de selecao) */
-
-/* Modal de conferencia do espelho: subtitulo + toggle de lado + resumo */
-.app-modal-subtitle {
-  margin: 0.1rem 0 0;
-  font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.85);
-}
-.ctr-espelho-side {
-  display: flex;
-  gap: 0.4rem;
-  margin-bottom: 0.7rem;
-}
-.ctr-espelho-side-btn {
-  flex: 1 1 0;
-  padding: 0.5rem 0.6rem;
-  border-radius: 0.7rem;
-  border: 1px solid var(--border, #d1d5db);
-  background: #fff;
-  color: var(--ink, #1f2937);
-  font-size: 0.88rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-.ctr-espelho-side-btn.is-active {
-  background: #065f46;
-  border-color: #065f46;
-  color: #fff;
-}
-.ctr-espelho-summary {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.3rem 1.2rem;
-  margin-bottom: 0.7rem;
-  padding: 0.55rem 0.7rem;
-  border-radius: 0.7rem;
-  background: var(--surface-muted, #f3f4f6);
-}
-.ctr-espelho-summary-row {
+.ctr-espelho-blocks {
   display: flex;
   flex-direction: column;
-  gap: 0.05rem;
-}
-.ctr-espelho-summary-label {
-  font-size: 0.68rem;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: var(--muted, #6b7280);
-}
-.ctr-espelho-summary-value {
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--ink, #1f2937);
-}
-/* Fase de conferência do Espelho (D134): grade 2-col dos campos que sairão
-   impressos (reusa summary-row/label/value). Cliente ocupa a linha inteira. */
-.ctr-espelho-fields {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.6rem 1rem;
-  margin-bottom: 0.7rem;
-  padding: 0.65rem 0.7rem;
-  border-radius: 0.7rem;
-  background: var(--surface-muted, #f3f4f6);
-}
-.ctr-espelho-summary-row.is-full {
-  grid-column: 1 / -1;
-}
-.ctr-espelho-conf-hint {
-  margin: 0 0 0.2rem;
-  font-size: 0.78rem;
-  color: var(--muted, #6b7280);
+  gap: 0.9rem;
 }
 
-/* RC-D106: a PRATELEIRA dos espelhos guardados, no Detalhes do contrato. Fica
-   colada na secao do PDF do contrato porque e a mesma coisa — a estante de
-   documentos —, e por isso a linha herda a geometria do `.ctr-tl-item` (o cartao
-   do historico, no mesmo modal) em vez de inventar uma terceira caixa. A
-   diferenca e que aqui a linha ABRE algo: e `<button>`, com o afundar do
-   `button-press-effect` e nenhuma troca de cor no toque. */
-.ctr-details-espelhos {
-  min-width: 0;
+/* Um bloco por lado com corretagem. Cada um e uma superficie so, porque cada um e
+   um DOCUMENTO diferente, endereçado a uma parte diferente. */
+.ctr-espelho-block {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  min-width: 0;
+  padding: 0.7rem 0.75rem;
+  border: 1px solid var(--brand-cream-line);
+  border-radius: 12px;
+  background: #faf9f6;
 }
 
-.ctr-espelho-shelf {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
-}
-
-.ctr-espelho-shelf-row {
-  -webkit-tap-highlight-color: transparent;
-  width: 100%;
+.ctr-espelho-block-head {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
-  gap: 0.3rem 0.6rem;
-  padding: 0.5rem 0.6rem;
-  border: 1px solid var(--brand-cream-line);
-  border-radius: 10px;
-  background: #faf9f6;
-  font-family: inherit;
-  text-align: left;
-  cursor: pointer;
-  transition: transform 0.15s ease;
+  gap: 0.2rem 0.6rem;
 }
 
-.ctr-espelho-shelf-row:active {
-  transform: scale(0.985);
+/* O `.ctr-section-title` ja traz o margin-top do bloco de secoes; dentro do
+   cabecalho do bloco ele e a primeira coisa. */
+.ctr-espelho-block-head > .ctr-section-title {
+  margin-top: 0;
 }
 
-@media (hover: hover) {
-  .ctr-espelho-shelf-row:hover {
-    border-color: var(--brand-green-ink);
-  }
-}
-
-.ctr-espelho-shelf-row:focus-visible {
-  outline: 2px solid rgba(36, 57, 47, 0.35);
-  outline-offset: 2px;
-}
-
-.ctr-espelho-shelf-main {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.15rem 0.5rem;
-  min-width: 0;
-}
-
-.ctr-espelho-shelf-side {
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: var(--brand-green-ink);
-}
-
-.ctr-espelho-shelf-meta {
-  font-size: 0.78rem;
+.ctr-espelho-block-meta {
+  font-size: 0.76rem;
   color: var(--brand-muted);
   overflow-wrap: anywhere;
 }
 
-.ctr-espelho-shelf-tags {
+.ctr-espelho-conf-hint {
+  margin: 0 0 0.2rem;
+  font-size: 0.78rem;
+  color: var(--brand-muted);
+}
+
+/* RC-D126/D127: a Etiqueta de Aprovacao como conteudo da aba. O formulario e o
+   kit `.fv-form-*`; o que sobra aqui e o espacamento entre a nota dos campos
+   travados, o form e o botao. */
+.ctr-approval-form,
+.ctr-approval-latch {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.3rem;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 
-.ctr-espelho-shelf-tag {
-  padding: 0.1rem 0.4rem;
-  border: 1px solid var(--brand-cream-line);
-  border-radius: 999px;
-  background: #fff;
-  font-size: 0.66rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: var(--brand-muted);
-  white-space: nowrap;
+/* O campo de chips do lote nao e um <input>: o `.fv-form-field` da a geometria
+   aos controles nativos, e o `.olc-wrap` traz a propria. So o espaco do rotulo
+   ate a caixa precisa acompanhar os vizinhos. */
+.ctr-approval-lots > .olc-wrap {
+  margin-top: 0.25rem;
 }
 
-/* Mesmo ambar do `.ctr-doc-warning` (o aviso que o operador ve ao abrir): o selo
-   na estante e a previa daquele texto, e a cor amarra os dois. */
-.ctr-espelho-shelf-tag.is-warn {
-  border-color: #e4d3a8;
-  background: #fdf8ec;
-  color: #7a6220;
-}
-
-.ctr-espelho-shelf-hint {
-  margin: 0;
-  font-size: 0.74rem;
-  color: var(--brand-muted);
-}
+/* 🪦 RC-D124/D128 (2026-07-30): a PRATELEIRA de espelhos guardados morreu — 11
+   regras. Ela era a lista de todos os documentos ainda abriveis, colada ao PDF do
+   contrato, com selos de "substituido" e "contrato mudou depois". O papel dela se
+   partiu em dois: a ABA Espelho mostra o mais recente de CADA LADO (com o aviso do
+   `.ctr-doc-warning` quando o contrato mudou), e o HISTORICO, que ja registrava
+   cada entrega, virou por onde se abre os substituidos (`.ctr-tl-open`). Nao havia
+   por que manter uma terceira lista das mesmas linhas. */
 
 /* 🪦 RC-D69 (2026-07-29): o bloco `.lotpick-*` MORREU INTEIRO — 26 regras e a
    media query de desktop que dava as quatro colunas. Era a lista de tela cheia
@@ -29201,17 +28884,8 @@ body.is-selection-mode .mobile-tabbar {
    global e beneficia todos os sheets do app (LNW-A1 da revisão geral). */
 @media (prefers-reduced-motion: reduce) {
   .nsv2-offline-banner,
-  .sample-created-check circle,
-  .sample-created-check path,
   .app-confirm-modal-icon {
     animation: none;
-  }
-
-  /* O check precisa aparecer completo sem o draw. */
-  .sample-created-check circle,
-  .sample-created-check path {
-    stroke-dashoffset: 0;
-    opacity: 1;
   }
 
   .bottom-sheet {
