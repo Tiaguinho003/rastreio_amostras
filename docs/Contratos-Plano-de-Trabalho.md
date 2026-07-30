@@ -1549,6 +1549,163 @@ Escolha dele, entre travar-nos-casos-perigosos, construir-o-fluxo-de-confirmaç�
   permanentemente" — ali os chips são exatamente o que se confere antes de imprimir. Na etiqueta a
   regra é escopada (`.alm-lots-group .olc-wrap.is-disabled`): recuado, `opacity: 1`.
 
+## 13. O espelho passa a ficar guardado (RC-D103..D111) — 2026-07-29
+
+> **Fonte:** o Flavio: _"agora iremos trabalhar com o espelho... eu quero que você analise se a
+> geração do espelho é salvo e é apresentado para possíveis visualizações após ele ser emitido. Ou se
+> ele apenas é um documento gerado no momento e que não será utilizado no futuro. Pois, a minha ideia
+> é que, após o espelho ter sido gerado, ele seja salvo nos detalhes do contrato. De forma que, se
+> necessário, o usuário poderá ver e editar o espelho após a emissão. Porém, eu quero que ele tenha um
+> tempo de permanência... sendo excluído após 15 dias da finalização do contrato."_ E, no meio da
+> análise: _"Aproveite e analise a logica de criação do espelho, quais informações são relacionadas ao
+> contrato, veja se ha alguma possivel inconsistencia ou chence de erros, para que melhoremos a logica
+> de acordo com as corretagens e o lado das corretagens (comprador, vendedor)"_.
+
+### 13.1 A resposta à pergunta dele, e o problema que ela revelou
+
+Não era salvo. O `backend-api.js` dizia literalmente _"Sem persistencia (D71)"_: os bytes viviam em
+RAM (milissegundos no servidor; no navegador, só enquanto o modal ficava aberto — o objectURL era
+revogado no unmount). O `SaleContractEspelhoLog` tinha **5 colunas** e guardava só o **fato** do
+export: contrato, lado, quem, quando. A linha da timeline ("Espelho exportado — Vendedor") era um
+`<li>` inerte.
+
+O problema real não é a falta de conveniência — é que a coluna "Data" do papel era `new Date()` e
+**todos** os valores eram lidos ao vivo da linha do contrato. Então **regerar depois de um "Editar"
+ou de um ágio produzia um documento diferente do que foi entregue ao cliente**, sem nada que dissesse
+qual foi o original. Num documento de **cobrança**, isso é o defeito, não a ausência de recurso.
+
+E "editar o espelho" não existia como operação: o espelho **não tem campo nenhum próprio** — o único
+input humano do fluxo é o toggle de lado, na Conferência. Editar teve que ser **definido** antes de
+poder ser implementado (RC-D104).
+
+### 13.2 As nove decisões
+
+| #           | Decisão                                                                                                                                                                 |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **RC-D103** | O renderizador lê **sempre de um snapshot**. A entrega congela esse snapshot na linha de auditoria. Fresco e guardado = **um caminho só**                               |
+| **RC-D104** | O espelho guardado é **imutável**. "Editar" = consertar o contrato e **gerar de novo**; o anterior fica no histórico, **substituído** (derivado, nunca persistido)      |
+| **RC-D105** | Retenção **15 dias após o FIM** do contrato (finalizado ou washout). Enquanto EMITIDO não há relógio; **reabrir PARA** a contagem. Expira o **snapshot**, nunca a linha |
+| **RC-D106** | A **prateleira** dos disponíveis é uma seção nova no Detalhes; a **timeline segue sendo o histórico** (guarda a linha mesmo depois de o documento expirar)              |
+| **RC-D107** | A entrega passa a ser **confirmada**: o log é aguardado, com `expectedVersion`, e a falha é reportada                                                                   |
+| **RC-D108** | `round2` vira **half-up de verdade** — o `Number.EPSILON` era inócuo na faixa de valores do negócio e o meio-centavo caía para baixo                                    |
+| **RC-D109** | O papel imprime o **% na coluna da comissão** ("Comissão (2,00%)") e **Sacas sem casas decimais**                                                                       |
+| **RC-D110** | **4º gate:** sem parte cadastrada no lado pedido não há espelho (`ESPELHO_NO_PARTY`). E a Conferência **avisa** quando o dono do lote mudou desde a emissão             |
+| **RC-D111** | Front e back respondem a **mesma** pergunta por lado; copy revogada; comentário canônico do schema; **um** rótulo de lado só                                            |
+
+### 13.3 As escolhas que ele fez, e o que cada uma fechou
+
+**"Reemitir por versão" (RC-D104).** Editar um documento entregue seria reescrever o que o cliente já
+tem na mão. O guardado é imutável e a correção é o caminho que já existia: conserta o contrato, gera
+de novo. O anterior não desaparece — fica na estante marcado **"substituído"**, e a marca é
+**derivada da ordem**, jamais gravada (mesma escolha da coluna "Situação", RC-D62).
+
+**"Os números", não os bytes (RC-D103).** O que fica guardado é um **JSON** com o que o papel imprime,
+e o PDF é re-renderizado dele. Isso evitou o ciclo de vida de arquivo inteiro: nada de política de
+upload (ela só valida imagem), nada de órfãos no bucket, nada de migrar arquivo em deploy. E há um
+**túmulo** no repo apontando na mesma direção: congelar PDF em disco foi tentado para o laudo público
+e **revertido**. De lambuja, a estante pode listar o valor da comissão de cada documento sem abrir
+nenhum arquivo.
+
+**"15 dias após o fim" (RC-D105).** O enunciado dele tinha duas datas (20 e 15); a escolha fechou em
+15, contados do **fim**. E o fim é **derivado, nunca persistido**: não existe `finalizedAt` e isso é
+**de propósito** — finalizar é reversível (RC-D63), e reabrir grava a volta em vez de apagar a ida.
+Logo: `FINALIZADO` → a linha mais recente do `SaleContractStatusLog`; `WASH_OUT` → `washoutAt` (a
+única data de terminal que é coluna), com fallback no log para as linhas legadas; `EMITIDO` → **nada**.
+Reabrir um contrato **para** o relógio, e o documento volta a estar disponível.
+
+Uma escolha de segurança dentro dela: contrato `FINALIZADO` **sem** linha no status log **falha
+aberto** (o documento fica). Guardar demais é melhor que apagar o que não se consegue datar.
+
+**"Só o percentual" (RC-D109).** Ele preferiu a intervenção mínima no papel: o % entra no cabeçalho da
+coluna da comissão, e nada mais. Isso **deixa em aberto** a ambiguidade da base de cálculo (§13.6).
+
+### 13.4 O que a auditoria da corretagem achou (o segundo pedido)
+
+Cinco frentes de análise. O achado que importa é **um erro de dinheiro**:
+
+🔴 **RC-D108 — o `round2` derrubava o meio-centavo.** A função somava `Number.EPSILON` antes do
+`Math.round` para "empurrar" o meio para cima. Mas `Number.EPSILON` é **2,22e-16 absoluto**, e o ulp
+de um valor na casa de 1e4 é ~1e-12 — a soma **não muda nada**. Rodando o próprio módulo: R$ 700,01/sc
+× 1000 sc × 2,25% gravava **15.750,22** onde a conta dá **15.750,23**. Um centavo a menos, no banco e
+no papel. A correção reaproxima o produto ao decimal exato antes de arredondar
+(`Math.round(Number((value * 100).toPrecision(15))) / 100`): o valor exato é sempre múltiplo de
+0,0001, então 15 dígitos significativos desambiguam com folga.
+
+**Por que passou:** **todos** os fixtures do projeto eram redondos (100 × 10 × 2%). Os testes novos
+são adversariais de propósito.
+
+E um efeito colateral que o próprio fix resolveu: o front calcula `(total × pct) / 100` e o backend
+`total × (pct / 100)` — ordens diferentes, que **divergiam** em alguns valores. Uma varredura de
+2.057.184 combinações confirmou que, **depois** do fix do arredondamento, as duas ordens **convergem**.
+A divergência morreu junto com o bug do half-up; não foi preciso unificar as fórmulas.
+
+🔴 **RC-D110 — cobrança sem destinatário.** Com corretagem > 0 e o snapshot da parte vazio, o papel
+saía com o **TOTAL real** e `CLIENTE: —`, entregue e auditado como documento válido. Acontece em
+contrato cujo lado não tem cliente cadastrado. Agora é o 4º gate, e é do **lado pedido** — o outro
+lado estar cadastrado não salva. Snapshot que **existe** mas não tem nome usável conta como ausente
+(`buildPartySnapshot` devolve o objeto com os campos vazios), que era exatamente o caso que a cópia do
+`snapshotName` do PDF não tratava — havia **três** implementações divergentes e só as do front
+tratavam string em branco.
+
+🔴 **RC-D111 — front e back perguntavam coisas diferentes.** A Conferência habilitava "Gerar espelho"
+pela pergunta _"este contrato produz **algum** espelho?"_, enquanto o servidor decide pela pergunta
+_"o lado **pedido** sai?"_. Um contrato elegível pelo comprador liberava o botão com o vendedor
+escolhido — e o clique respondia 409. Agora são duas funções, cada uma com a sua pergunta, e existe um
+**teste de paridade** que varre status × billabilidade × corretagem × parte nos dois lados.
+
+### 13.5 As armadilhas que custaram
+
+- 🔴 **Retenção só na lista é cosmética.** É a lição do **EMB31** (§A.4), e ela vale literalmente: o
+  filtro tem que estar em **TODAS** as leituras — na timeline **e** na rota que serve os bytes. Sem o
+  segundo, a URL direta com o `logId` continuaria entregando o documento expirado. Expirado na rota
+  responde **410 `ESPELHO_EXPIRED`**, a mesma forma do `REPORT_EXPIRED` do laudo público.
+- **Não há cron neste projeto, e não vai haver.** A infra foi apagada de propósito (`aa28962`) e a doc
+  diz que recriar "não se paga". A limpeza é o padrão que o repo já usa em cinco lugares: **expiração
+  lazy na leitura + purga oportunista** fire-and-forget, com throttle de 1h em variável de módulo
+  (per-instância; perde no cold start do Cloud Run, e isso é aceitável porque **a leitura já filtra** —
+  a purga só evita o acúmulo indefinido). Um `$executeRaw` só, que **anula a coluna** e nunca apaga a
+  linha.
+- 🔴 **O snapshot-como-fonte não foi só arquitetura: foi o que tornou o papel testável.** `pdf-lib`
+  **não extrai texto**, então os 4 testes de PDF que existiam só conferiam `%PDF-`, tamanho e checksum
+  — **nenhuma asserção sobre os números impressos**. Com o renderizador lendo sempre de um snapshot,
+  asseverar o snapshot passou a asseverar o papel. Um dos testes de PDF, aliás, estava passando por
+  acidente: continuava mandando um `contract` inteiro onde agora se espera um snapshot, e o `%PDF-`
+  não notava.
+- **Índice parcial cria drift permanente.** A primeira versão da migration criava
+  `... WHERE snapshot IS NOT NULL`. Índice parcial **não é expressável no `schema.prisma`**, então ele
+  apareceria em todo `migrate diff` para sempre. A tabela é de volume baixo; seq scan serve.
+- **O CHECK do `side` pode falhar em produção, e deve.** A coluna nunca teve constraint. Antes de
+  aplicar: `SELECT DISTINCT side FROM sale_contract_espelho_log;`. Se houver valor fora do par, a
+  migration falha — e falhar é o comportamento certo.
+- **"Mais novo" tem que usar o mesmo critério da ordenação que a tela mostra.** O `superseded` era
+  decidido pela ordem de chegada da query; dois espelhos do mesmo lado no mesmo milissegundo deixariam
+  o "corrente" a cargo da ordem que o Postgres devolvesse — e a estante marcaria como substituído
+  justamente o que ela lista no topo. Agora o critério é o do sort final (data, empate pelo id).
+- **Prop que ninguém passa é código morto que o linter não pega.** O modal guardado nasceu com um
+  `onSaved` para o pai recarregar a estante. Só que o Detalhes **sempre fecha** antes da prévia de uma
+  entrega nova abrir — a entrega fresca nunca coexiste com a estante. O prop saiu.
+
+### 13.6 O que NÃO entrou (registrado)
+
+- 🔴 **A base de cálculo fora do papel.** Com "só o percentual", `1.500,00 = 150,00 × 10` continua não
+  impresso, e a leitura `Preço + Valor` continua **contando o ágio duas vezes** para quem lê o papel
+  (ele não diz que "Preço" já inclui o ágio, nem que "Valor" é por saca). Uma linha no rodapé resolve.
+- 🔴 **`updateSampleMovement` sem guard de contrato** (`sample-command-service.js`): trocar as sacas de
+  uma venda com contrato ligado deixa o contrato com sacas e dinheiro velhos. É porta de API/script —
+  **nenhuma tela chama**. Compare com o guard do CANCELAR (`MOVEMENT_HAS_CONTRACT`, RC-D87).
+- 🔴 **"Editar" sem o par de ágio apaga o ágio em silêncio** e reescreve as duas corretagens sem linha
+  no `sale_contract_agio_log`. Pela UI não acontece (o modal reenvia), mas nada no backend preserva e
+  nenhum teste cobre.
+- ⚠️ **Financeiro × Espelho divergem de propósito:** o Financeiro **soma as duas pontas** num número e
+  **inclui** contrato com 0% de corretagem; o Espelho é por parte e **recusa** 0%. Sem tela de
+  reconciliação.
+- ⚠️ **O `SaleContractAgioLog` não registra a corretagem** antes/depois — a mudança de comissão que foi
+  para o papel não fica auditada.
+- ⚠️ **`SaleContractBroker` não aparece no espelho:** é o único documento do fluxo que não nomeia quem
+  corretou (coerente com D34/D136, mas é assimetria consciente).
+- **Editar campos do espelho** — a RC-D104 fechou: o documento é imutável e se corrige pelo contrato.
+- **Guardar o arquivo PDF** — ele escolheu guardar os números; os bytes seguem regenerados.
+
 ## Apêndice A — Ledger de decisões (condensado)
 
 > Resolução final de cada decisão; as **superadas** apontam para o que as substituiu. O histórico completo (Contexto→Opções→Proposta + sessões) está no Git.
