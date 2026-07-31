@@ -48,6 +48,7 @@ npm run lint                   # ESLint
 npm run format:check           # Prettier
 npm run typecheck              # TypeScript
 npm run build                  # Next.js build
+npm run check:prerender        # Invariantes do HTML pre-renderizado (DEPOIS do build)
 npm run validate:schemas       # JSON Schema validation
 npm run test:contracts         # Testes de contrato
 npm run test:unit              # Testes unitarios

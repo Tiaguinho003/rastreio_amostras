@@ -88,10 +88,17 @@ Todos devem passar antes de qualquer push:
 2. `npm run format:check` — exit 0
 3. `npm run typecheck` — exit 0
 4. `npm run build` — exit 0
-5. `npm run validate:schemas` — exit 0
-6. `npm run test:contracts` — verde
-7. `npm run test:unit` — verde
-8. `npm run test:integration:db` — verde (requer PostgreSQL local via Docker)
+5. `npm run check:prerender` — exit 0 (**depois do build**, le `.next/server/app/*.html`)
+6. `npm run validate:schemas` — exit 0
+7. `npm run test:contracts` — verde
+8. `npm run test:unit` — verde
+9. `npm run test:integration:db` — verde (requer PostgreSQL local via Docker)
+
+🔴 **O `check:prerender` guarda uma premissa que o build NAO verifica** (SN-D15): pagina
+autenticada nunca renderiza no servidor, e o portao verde do gate nao entra no HTML servido.
+Um `export const dynamic`, um `revalidate = 0` ou um `cookies()` no layout raiz derruba as duas
+em silencio — e a primeira depende de as 8 rotas continuarem estaticas, o que ninguem lembra de
+conferir. Script: `scripts/check-prerender-invariants.mjs`.
 
 Apoio (nao-gate): `npx knip` — deteccao de codigo morto (config em `knip.json`;
 falso-positivos conhecidos em `ignoreDependencies`). Todo achado exige

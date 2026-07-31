@@ -58,6 +58,14 @@ jobs:
       - name: Build Next app
         run: npm run build
 
+      # Depende do build: le os .html de .next/server/app. Guarda a SN-D15 —
+      # pagina autenticada nao pode renderizar no servidor e o portao verde nao
+      # pode entrar no HTML servido. Uma linha (`export const dynamic`,
+      # `revalidate = 0`, um `cookies()` no layout raiz) derruba as duas sem que
+      # nada mais no build reclame.
+      - name: Check prerender invariants
+        run: npm run check:prerender
+
       - name: Run contract tests
         run: npm run test:contracts
 
