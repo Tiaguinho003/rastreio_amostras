@@ -25,8 +25,17 @@ import type { SessionData, UserRole } from '../types';
 
 // O cache so existe no cliente. Ler no SSR devolveria `null` e no cliente a
 // sessao — mismatch de hidratacao nas 8 rotas, que sao pre-renderizadas. O
-// layout effect roda DEPOIS da hidratacao e ANTES da pintura: sem mismatch e
-// sem flash. Molde de `components/BottomSheet.tsx`.
+// layout effect roda DEPOIS da hidratacao DESTA arvore e ANTES da pintura: sem
+// mismatch e sem flash. Molde de `components/BottomSheet.tsx`.
+//
+// 🔴 SN-D15 — "DEPOIS da hidratacao" vale SO pra arvore onde este provider
+// esta. NAO vale pra quem consome isto atras de um <Suspense>: conteudo de
+// fronteira e hidratado num passe posterior, DEPOIS deste commit — pra quem
+// esta la dentro, este efeito ja rodou antes de o React sequer chamar o
+// componente. Trocar layout effect por inicializador de `useState` nao
+// resolveria; a defesa mora em QUEM HIDRATA. Foi esta frase, incompleta, que
+// autorizou o gate do `app/(app)/layout.tsx` a olhar a sessao no primeiro
+// render — mismatch garantido, nao provavel.
 const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
 // F2 do ciclo SN: a sessao passa a ser resolvida UMA VEZ, no layout do route

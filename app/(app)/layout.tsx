@@ -1,10 +1,11 @@
 'use client';
 
 import { useSearchParams } from 'next/navigation';
-import { Suspense, type ReactNode } from 'react';
+import { Suspense, useState, type ReactNode } from 'react';
 
 import { AppShell } from '../../components/AppShell';
 import { AuthProvider, useAuth } from '../../lib/auth/AuthProvider';
+import { useIsomorphicLayoutEffect } from '../../lib/use-isomorphic-layout-effect';
 
 // F2 do ciclo SN — o shell persistente.
 //
@@ -39,6 +40,37 @@ function PersistentShell({ children }: { children: ReactNode }) {
   // pagina — aqui o Suspense e UM SO, no layout.)
   const activeSubTab = searchParams.get('tab') ?? undefined;
 
+  // 🔴 SN-D15 — O PRIMEIRO render DESTE componente NAO PODE OLHAR A SESSAO.
+  // Se voce veio "simplificar" o `!hydrated` do gate abaixo, leia isto antes.
+  //
+  // Este componente e o conteudo do <Suspense> acima, e o React hidrata
+  // conteudo de fronteira num PASSE SEPARADO, de prioridade minima: no primeiro
+  // passe ele so ESTACIONA a fronteira e devolve `null` — nao chega a chamar
+  // quem esta aqui dentro. O layout effect do `AuthProvider`, que esta FORA da
+  // fronteira, roda no commit DAQUELE primeiro passe. Ou seja: com cache de
+  // sessao, a sessao aparece SEMPRE antes de o React olhar pra ca. Nao e
+  // corrida, e ordem garantida — e por isso o servidor mandava a caixa verde e
+  // o cliente, chegando tarde e ja com sessao, tentava casar o
+  // `.app-shell-root` contra ela ("Hydration failed... this tree will be
+  // regenerated on the client").
+  //
+  // O latch tira a decisao das maos da sessao: no MOUNT ele vale `false` em
+  // qualquer ambiente (inicializador de `useState` nao vem do servidor, e
+  // nenhum efeito rodou ainda), entao o primeiro render daqui e uma CONSTANTE
+  // — o mesmo HTML que o servidor mandou, em qualquer ordem de hidratacao e em
+  // qualquer modo de render do Next. De quebra, como o gate corta antes dos
+  // `children`, nada abaixo dele e comparado com HTML: os snapshots lidos no
+  // inicializador do `useState` e o `useIsDesktop` das paginas param de
+  // depender de as 8 rotas continuarem estaticas (SN-D7).
+  //
+  // 🔴 Layout effect, nao `useEffect`: com `useEffect` a troca cai DEPOIS da
+  // pintura e todo mundo — inclusive quem tem cache — ganha um frame do portao
+  // verde. E a splash antiga em miniatura: apresentacao acoplada a espera.
+  const [hydrated, setHydrated] = useState(false);
+  useIsomorphicLayoutEffect(() => {
+    setHydrated(true);
+  }, []);
+
   // Mesmo gate de antes, agora em UM lugar em vez de oito. O shell nao pode
   // pintar sem sessao: a nav e filtrada por papel e o avatar mostra o usuario.
   //
@@ -47,7 +79,10 @@ function PersistentShell({ children }: { children: ReactNode }) {
   // abre SEM cache de sessao fica esperando o servidor com a tela em branco.
   // A mesma superficie verde cobre a espera; `is-hold` tira a saida por tempo,
   // porque quem a substitui e o shell.
-  if (loading || !session) {
+  //
+  // O `!hydrated` vem PRIMEIRO de proposito: e ele que faz o primeiro render
+  // daqui ser identico ao HTML servido, e nao a sessao. Ver o bloco acima.
+  if (!hydrated || loading || !session) {
     return <div className="fv-boot is-hold" aria-hidden="true" />;
   }
 
