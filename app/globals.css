@@ -330,8 +330,18 @@ body {
    sessao resolve SEM cache — e o unico trecho em que o branco voltava depois
    da hidratacao. Some quando o shell a substitui, nao por tempo: por isso sem
    a rede de seguranca (aqui ela esconderia a caixa no meio de uma espera
-   legitima) e sem transicao de saida. */
+   legitima) e sem transicao de saida.
+
+   🔴 UM A MENOS que a caixa raiz, e isso NAO e detalhe. As duas sao irmas
+   `position: fixed` e o portao vem DEPOIS no DOM (o <BootScreen> e o 1o filho
+   do <body>), entao com o mesmo z-index quem pinta por cima e o portao — e ele
+   e uma caixa VAZIA. Na combinacao "sem cache de sessao + mais de 4h fora",
+   que e comum (sessao cacheada expirada), a caixa vazia cobria a
+   `.fv-boot-logo` e a splash de marca da F5 simplesmente nao aparecia.
+   As duas sao o mesmo verde, entao ficar embaixo nao muda nada visualmente:
+   so devolve o logo. */
 .fv-boot.is-hold {
+  z-index: calc(var(--z-tooltip) + 9);
   animation: none;
   transition: none;
 }
