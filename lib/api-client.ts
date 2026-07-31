@@ -155,6 +155,12 @@ async function request<TResponse>(
       signal,
     });
   } catch (error) {
+    // 🔴 So `AbortError` passa reto — e cancelamento DELIBERADO (componente
+    // desmontou, filtro mudou), e quem cancelou nao quer ver erro de rede.
+    // `TimeoutError` (o que o `AbortSignal.timeout()` dispara) NAO entra aqui
+    // de proposito: prazo estourado E falha de rede, e tem de virar status 0
+    // pra quem chamou tratar como offline. Nao junte os dois nomes nesta
+    // condicao — o prazo do `getCurrentSession` depende desta diferenca.
     if (error instanceof DOMException && error.name === 'AbortError') {
       throw error;
     }
@@ -226,9 +232,35 @@ export function login(username: string, password: string) {
   });
 }
 
+/**
+ * Prazo da checagem de sessao. 🔴 E a UNICA chamada do app que pode prender a
+ * tela para sempre: enquanto ela nao resolve, o gate do layout do route group
+ * (app) segura a caixa verde, e essa caixa e a unica sem rede de seguranca em
+ * CSS (`.fv-boot.is-hold { animation: none }`, de proposito — ela sai quando o
+ * shell a substitui, nao por tempo). Sem prazo, uma resposta pendurada sem 401
+ * e sem erro de rede — cold start do Cloud Run, portal cativo de wifi, proxy
+ * que engole a conexao — deixa `loading` em `true` para sempre: tela verde
+ * eterna com o JS vivo, e nenhuma animacao conserta isso.
+ *
+ * 10s e teto, nao expectativa: passa folgado de um cold start e ainda assim o
+ * usuario nunca fica presto. Estourar o prazo vira status 0 (ver o `catch` do
+ * `request`), que o `AuthProvider` ja trata como offline — com cache, mantem a
+ * sessao conhecida; sem cache, cai no /login, que devolve pro /dashboard se o
+ * cookie ainda valer.
+ */
+const SESSION_REQUEST_TIMEOUT_MS = 10_000;
+
 export function getCurrentSession() {
   return request<SessionData>('/auth/session', {
     method: 'GET',
+    // Guarda de disponibilidade: sem ela, um aparelho antigo sem
+    // `AbortSignal.timeout` lancaria TypeError SINCRONO aqui — e como o
+    // `AuthProvider` chama isto dentro de um efeito, o `.catch()` da promise
+    // nao pegaria: o app inteiro quebraria em vez de so ficar sem prazo.
+    signal:
+      typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function'
+        ? AbortSignal.timeout(SESSION_REQUEST_TIMEOUT_MS)
+        : undefined,
   });
 }
 
