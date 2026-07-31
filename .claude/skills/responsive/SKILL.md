@@ -23,6 +23,12 @@ const isDesktop = useIsDesktop(); // SSR e primeiro paint = false (mobile-first)
 O hook devolve `false` no SSR e no primeiro paint, entao o consumidor tem que tolerar o flip
 pos-hidratacao.
 
+⚠️ **O flip nao e mismatch de hidratacao dentro do grupo `(app)`** — e a razao e externa ao hook: o
+gate do layout do grupo corta antes dos `children` no primeiro render (SN-D15), entao pagina
+autenticada nunca e comparada com HTML. Fora do grupo (`/login`, `/offline`, `/maintenance`) a
+garantia nao existe: la, arvore trocada por `useIsDesktop` no primeiro render seria mismatch de
+verdade. Ver a regra geral na skill `conventions`.
+
 **Quando trocar a arvore e quando usar CSS:**
 
 | Situacao                                            | Como                                  |

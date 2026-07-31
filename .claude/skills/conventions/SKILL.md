@@ -47,6 +47,32 @@ description: Use this skill when writing or reviewing any code in this project. 
 - Nomes de arquivo: kebab-case para `.js`/`.ts`, PascalCase para componentes React
 - Nomes de variavel: camelCase. Enums Prisma: UPPER_SNAKE_CASE
 
+### 🔴 Markup dentro de `<Suspense>` nao pode depender de efeito de FORA
+
+Um `useLayoutEffect` **acima** de uma fronteira de Suspense roda **sempre antes** de o conteudo
+**dentro** dela ser hidratado. Nao e corrida, e ordem garantida: no primeiro passe o React so
+ESTACIONA a fronteira (`updateSuspenseComponent` grava a lane Offscreen e devolve `null` — nem chama
+quem esta dentro) e volta nela numa tarefa de prioridade minima, ja com o estado novo commitado.
+
+Logo: markup de dentro que dependa de estado que um efeito de fora introduz e **mismatch garantido**,
+nao provavel. Foi o que aconteceu com o gate do `app/(app)/layout.tsx` (SN-D15).
+
+Quando precisar, sao dois mecanismos, nesta ordem de preferencia:
+
+1. **`useSyncExternalStore` + `getServerSnapshot`** — a unica API que sabe responder "este passe e de
+   hidratacao" e devolve o valor do servidor enquanto for. Molde no repo:
+   `lib/navigation/nav-progress.ts` (`getServerNavPending`, SN-D11).
+2. **Latch local de hidratacao** — `useState(false)` + layout effect que vira `true`, tornando o
+   primeiro render uma CONSTANTE. Molde: `app/(app)/layout.tsx` (SN-D15). Layout effect, **nunca**
+   `useEffect`: com `useEffect` a troca cai depois da pintura e todo mundo ganha um frame do estado
+   provisorio.
+
+🔴 **Nunca `suppressHydrationWarning`.** Alem de contrariar a decisao da F5, ele costuma nao resolver:
+ele cobre texto e atributos **do proprio no**, e o throw normalmente vem de um FILHO sem contraparte
+no HTML servido — foi exatamente o caso da SN-D15.
+
+⚠️ **`typeof window === 'undefined'` nao serve de guarda** — durante a hidratacao `window` existe.
+
 ## Commits
 
 - Formato: `tipo(escopo): descricao curta` — ex: `fix(auth): handle expired session on login`

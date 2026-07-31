@@ -552,16 +552,17 @@ duplica efeitos em dev. Se for mexer, leia os comentários no arquivo primeiro.
 
 ### Tiers
 
-| Camada                                | z-index                       |
-| ------------------------------------- | ----------------------------- |
-| Backdrop base (sheet e modal central) | `--z-modal-backdrop` = 400    |
-| Card base                             | `--z-modal` = 410             |
-| Backdrop `.is-stacked`                | `--z-modal-stacked` = 600     |
-| Card `.is-stacked`                    | 610                           |
-| `.fv-panel-scrim` e `.is-scrim-none`  | 620                           |
-| Toast e `.fv-navprogress`             | `--z-toast` = 700             |
-| Tooltip (`.pg-node-tooltip`)          | `--z-tooltip` = 800           |
-| `.fv-boot` — a entrada do app         | `calc(var(--z-tooltip) + 10)` |
+| Camada                                  | z-index                       |
+| --------------------------------------- | ----------------------------- |
+| Backdrop base (sheet e modal central)   | `--z-modal-backdrop` = 400    |
+| Card base                               | `--z-modal` = 410             |
+| Backdrop `.is-stacked`                  | `--z-modal-stacked` = 600     |
+| Card `.is-stacked`                      | 610                           |
+| `.fv-panel-scrim` e `.is-scrim-none`    | 620                           |
+| Toast e `.fv-navprogress`               | `--z-toast` = 700             |
+| Tooltip (`.pg-node-tooltip`)            | `--z-tooltip` = 800           |
+| `.fv-boot.is-hold` — o portão de sessão | `calc(var(--z-tooltip) + 9)`  |
+| `.fv-boot` — a entrada do app           | `calc(var(--z-tooltip) + 10)` |
 
 Tokens em `app/globals.css` (`:root`). **Nunca escrever z-index numérico** em regra nova de
 overlay — usar o token ou `calc()` sobre ele.
@@ -576,9 +577,29 @@ a base da faixa verde (mobile) e abaixo da top bar, à direita da sidenav (deskt
 `<body>`, cobre **tudo** de propósito — ela é a primeira pintura do documento, não um overlay que
 abre por cima de conteúdo. Por ficar acima de tudo, ela carrega uma **rede de segurança em CSS
 puro** (animação de 1ms com 6s de atraso que a esconde): se o JS nunca rodar, o usuário vê o app em
-vez de uma tela verde eterna. A variante `.is-hold` (usada pelo gate de sessão em
-`app/(app)/layout.tsx`) tira a saída por tempo — ali quem a substitui é o shell. Detalhes da peça na
-skill `design-system`.
+vez de uma tela verde eterna. Detalhes da peça na skill `design-system`.
+
+São **duas** caixas, e a diferença entre elas é a coisa mais importante desta seção:
+
+|                         | Quem monta                     | Condicional? | z-index                       | Rede de segurança                        |
+| ----------------------- | ------------------------------ | ------------ | ----------------------------- | ---------------------------------------- |
+| **A raiz**              | `BootScreen`, layout raiz      | **Não**      | `calc(var(--z-tooltip) + 10)` | Sim                                      |
+| **O portão `.is-hold`** | gate de `app/(app)/layout.tsx` | **Sim**      | `calc(var(--z-tooltip) + 9)`  | **Não** — sai quando o shell a substitui |
+
+🔴 **A imunidade a mismatch de hidratação da raiz vem de ela ser INCONDICIONAL, não de ela ser
+verde.** O portão é condicional e está atrás de uma fronteira de Suspense — foi assim que ele virou
+mismatch garantido (SN-D15; a regra geral está na skill `conventions`). Superfície nova que copie a
+caixa verde e a torne condicional herda o bug, não a imunidade.
+
+🔴 **O `+ 9` do portão não é estética.** As duas são irmãs `position: fixed` e o portão vem **depois**
+no DOM; com empate de z-index ele pintava por cima e, sendo uma caixa **vazia**, engolia a
+`.fv-boot-logo` na combinação "sem cache de sessão + mais de 4h fora".
+
+🔴 **Uma superfície só pode abrir mão da rede de segurança se a espera que ela cobre tiver FIM
+GARANTIDO.** O portão pode porque quem o substitui é o shell — mas isso só passou a ser verdade
+quando `getCurrentSession()` ganhou `AbortSignal.timeout(10s)`. Antes, um fetch pendurado deixava a
+tela verde para sempre **com o JS vivo**, e nenhuma animação conserta isso. Se um dia o portão for
+para o HTML servido, a rede tem de voltar.
 
 ### Quando `stacked` é obrigatório
 

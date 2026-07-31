@@ -439,6 +439,10 @@ Utilitaria de esconder visualmente: **`.fv-visually-hidden`** (era `.login-visua
 | **A caixa verde** (`.fv-boot`) | Nao          | Ja no **HTML servido** — a 1a pintura e verde |
 | **O logo** (`.fv-boot-logo`)   | Sim          | Por cima do verde, **so** apos 4h fora do app |
 
+🔴 **A caixa ser INCONDICIONAL nao e detalhe de implementacao — e o que a torna imune a mismatch de
+hidratacao.** Quem copiar esta peca e torna-la condicional herda um bug, nao a imunidade; foi o que
+aconteceu com o portao `.is-hold` (SN-D15). Ver `containers` §4 e a regra geral em `conventions`.
+
 Ela existe porque a sequencia era `[verde do SO] -> [DOCUMENTO BRANCO] -> [shell]`: o `body` e branco e a faixa verde de status bar so existe DENTRO do `.app-shell-root`. O verde da caixa e o MESMO `#1f5d43` do `background_color` do manifest — a tela do SO e a do app viram uma so.
 
 🔴 **Nao acoplar apresentacao a espera.** Foi o que matou o splash antigo (piso de 1,9s em todo boot). A caixa **nao segura nada**: o app carrega por baixo dela, e o logo custa ~910ms **quando aparece**, no maximo 1x a cada 4h.

@@ -756,9 +756,15 @@ primeira pintura. Guarde itens + cursor/página + `scrollTop` + busca + filtros 
 sempre passa por um handler seu; `clearSnapshot` ao mudar busca/filtro (o recorte antigo restaurado
 seria o resultado errado).
 
-**Ler no inicializador do `useState` é seguro aqui** — o layout do grupo `(app)` devolve `null` até
-a sessão resolver, então página autenticada **nunca renderiza no servidor** e não há mismatch de
-hidratação. _(A sessão em si é o caso oposto: aquela leitura mora num layout effect.)_
+**Ler no inicializador do `useState` é seguro aqui** — o gate do layout do grupo `(app)` **corta
+antes dos `children` no primeiro render** (SN-D15), então página autenticada **nunca renderiza no
+servidor** e nunca é comparada com HTML no cliente. _(A sessão em si é o caso oposto: aquela leitura
+mora num layout effect.)_
+
+🔴 **A redação anterior desta frase estava errada e era load-bearing.** Ela dizia "o layout devolve
+`null` até a sessão resolver" — o `null` virou caixa verde na F5, e a garantia passou a depender de
+as 8 rotas continuarem **estáticas**. Hoje a garantia é o **latch de hidratação**, que é mecânico:
+não depende de modo de render, e por isso continua valendo se alguma rota virar dinâmica.
 
 Dois detalhes que já custaram caro:
 
