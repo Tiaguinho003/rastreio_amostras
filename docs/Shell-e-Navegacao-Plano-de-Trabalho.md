@@ -624,6 +624,58 @@ Gates padrão (`lint` + `format:check` + `typecheck` + `build` + `test:unit`) + 
 - 🔴 **`?splash=force` SEM cache de sessão: o logo tem de aparecer.** Era exatamente essa combinação que o portão engolia — se o logo continuar sumindo, o `z-index` não resolveu.
 - **Sessão que não responde** (modo avião no meio da abertura, ou servidor frio): a tela verde tem de **desistir em ~10s** e cair no `/login`, nunca ficar presa. É o teste do prazo.
 
+### §8.1 O roteiro único (ordenado por ESTADO, não por fase)
+
+As listas acima são por fase, e é assim que elas devem continuar — cada uma responde "o que esta fase mudou". Mas **validar nessa ordem faz você repetir setup à toa**: metade dos itens exige um estado diferente do aparelho (sem cache, mais de 4h fora, offline, movimento reduzido), e trocar de estado é o que custa tempo. Este roteiro é a **mesma lista, reordenada** para você mexer em cada ajuste **uma vez só**.
+
+Marque o que passou. Item que falhar: anote e siga — quase nenhum bloqueia o seguinte.
+
+**Estado A — app normal, com sessão em cache** _(a maior parte; nenhum setup)_
+
+1. Navegar entre as 8 abas: **navbar imóvel**, sem branco, sem verde, sem piscada. _(F2)_
+2. O efeito de seleção da tabbar **sobrevive** ao toque — era isso que a remontagem destruía. _(F2)_
+3. **Um esqueleto só** em todas as listas: mesmo brilho, mesma cadência. Duas telas carregando lado a lado não podem piscar fora de compasso. _(F4)_
+4. `/users` e `/cadastros` abrindo com **esqueleto**, nunca com a palavra "Carregando" — o painel do usuário idem. _(F4)_
+5. Detalhe de **lote** e de **cliente** abrindo **no formato do conteúdo** (linha de título + blocos). _(F4)_
+6. A **barra fina do topo** só quando a navegação demora, **nunca** piscando na troca rápida. Posição: abaixo da faixa verde no mobile, abaixo da top bar e à direita da sidenav no desktop. _(F4/SN-D11)_
+7. ⚠️ **Duas telas mudaram de cara de propósito:** o esqueleto de `/relatorios` e o do dashboard do PROSPECTOR ganharam borda e sombra do card do kit. Confirmar que ficou melhor. _(F4)_
+8. **A queixa curada:** mexer numa página e ver outra refletir **sem sair da aba**. _(F3/SN-D13)_
+9. Em `/users`, os cards **não recascatam** quando a lista revalida por baixo. _(F3)_
+10. As 4 páginas novas restaurando **scroll e filtros** ao voltar, dentro dos 30min, **sem piscar esqueleto**. _(F3/SN-D7)_
+11. **Deep-link a frio ABRE a rota pedida** (antes caía no Início — é o teste da F1). _(F1/SN-D3)_
+12. **Simulador e peças de informativo** durante a transição: o `<canvas>` não pode sair em branco. _(F2)_
+13. **Modal de senha inicial** atravessando navegação sem se perder. _(F2)_
+
+**Estado B — sem cache de sessão** _(apagar `rastreio.cached-session.v1` do `localStorage`)_
+
+14. Abrir o app: **verde até o `/login`**, nunca branco. É o portão (`.fv-boot.is-hold`). _(F5)_
+15. 🔴 **`?splash=force` neste estado: o logo TEM de aparecer.** Era exatamente esta combinação que o portão engolia. Se sumir, o `z-index` não resolveu. _(correção)_
+16. **Login → `/dashboard` sem espera** — é o efeito de o `/login` gravar o cache. _(F3/SN-D8)_
+
+**Estado C — mais de 4h fora** _(ou `?splash=force`, que dispensa a espera)_
+
+17. O logo aparecendo **uma vez**, sobre o verde, sem buraco branco antes nem depois. _(F5/SN-D2)_
+18. Trocar de app por **1 minuto** e voltar: **sem** tela de marca. É o caso que a regra de 4h existe para cobrir. _(F5)_
+19. ⏱️ Se os ~910ms incomodarem: `MARK_HOLD_MS` e `BOOT_FADE_MS` no topo do `BootScreen.tsx`. Chute calibrado, não medição.
+
+**Estado D — offline** _(modo avião, app já aberto uma vez)_
+
+20. Boot e navegação funcionando; a splash com logo **ainda pinta** — é o teste do `<img>` cru contra o `next/image`. _(F5)_
+21. **Offline depois do logout:** o documento cacheado não pode expor identidade nenhuma. _(F1/SN-D3)_
+22. **Sessão que não responde** (avião no meio da abertura): a tela verde **desiste em ~10s** e cai no `/login` — nunca fica presa. _(correção)_
+
+**Estado E — movimento reduzido ligado no aparelho**
+
+23. Nenhum esqueleto animando, e a barra do topo vira uma linha cheia parada. _(F4)_
+24. Sem fades na entrada — e **ainda assim sem branco**. _(F5)_
+
+**Estado F — em `next dev`, no desktop** _(o único que não é do aparelho)_
+
+25. Abrir uma rota autenticada **com** cache de sessão: **o overlay de hidratação não pode aparecer**. É o teste da SN-D15.
+26. Navegar entre as 8 rotas: **nenhuma piscada verde** (o layout persiste, o latch fica `true`).
+
+🔴 **Um resultado que NÃO é bug nosso:** se a tela nativa do iOS abrir **branca antes da nossa**, o problema não é a `.fv-boot` — é a falta de `apple-touch-startup-image` (§4.1, SN-D2), que ficou fora de escopo de propósito. Só o seu aparelho diz se acontece, e a correção seria gerar as ~10 PNGs de launch screen por tamanho de tela.
+
 ## §9. Glossário & referências
 
 - **Shell / app shell:** navbar + chrome persistentes que envolvem o conteúdo da rota.
