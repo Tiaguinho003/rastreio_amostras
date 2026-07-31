@@ -62,12 +62,23 @@ description: Use this skill when writing, running, or debugging tests. Covers te
   usa mock de client service (ex.: `buyerClientId` em `sample-blend-cascade`)
 - Uploads em testes: usar PNG 1x1 real (magic bytes validos), **nunca** `Buffer.from('texto')`
 - Exemplo de buffer PNG valido:
+
   ```js
   const tinyPngBuffer = Buffer.from(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO8f5i8AAAAASUVORK5CYII=',
     'base64'
   );
   ```
+
+- **Logica de navegador sem DOM.** O runner e Node puro — nao ha `window`, `localStorage` nem jsdom,
+  e nao vamos adicionar. Para testar modulo que fala com o navegador, instalar um duble em
+  `globalThis.window` no corpo do teste e apagar no `test.afterEach`. So funciona porque o modulo
+  confere `typeof window` **na chamada**, nao no import — se ele ler no topo do arquivo, o duble
+  chega tarde. Molde: `tests/boot-last-seen.test.ts` (`installWindow('ok' | 'throws' | 'none')`), que
+  cobre os tres estados que importam: storage bom, storage que **lanca** (modo privado/quota) e SSR.
+- **Funcao que depende do relogio recebe `now` por parametro** (`shouldShowBootMark(now)`), com
+  `Date.now()` so como default. Sai de graca o controle do tempo no teste, sem fake timers e sem a
+  bomba-relogio acima — e o codigo de producao nao paga nada por isso.
 
 ## Contagem atual
 

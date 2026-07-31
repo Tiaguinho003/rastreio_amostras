@@ -391,6 +391,8 @@ Todas ja nascem `aria-hidden`. Antes da F4 eram **6 familias com prefixo de pagi
 
 🔴 **`prefers-reduced-motion` e UM bloco so**, no kit. Regra de esqueleto fora dele volta a deixar buraco — antes da F4, 2 das 4 animacoes (inclusive a mais usada do app) ignoravam movimento reduzido.
 
+🔴 **O contrario tambem erra: nem toda `animation` e movimento.** Animacao usada como **mecanismo** (temporizador, rede de seguranca) fica FORA do bloco de movimento reduzido — desligar animacao nao pode significar desligar a saida de emergencia. Vivo na `.fv-boot` (F5): 1ms com 6s de atraso para esconder a tela de entrada se o JS nunca rodar. Pergunta que separa os dois: **o usuario perde alguma coisa se isso nunca acontecer?**
+
 **Excecao declarada:** `.pg-canvas-skeleton` (canvas do simulador) **nao** e esqueleto — e reserva de caixa para o `next/dynamic`, sem animacao, pintando `--pg-canvas-bg` para nao dar CLS. Fica fora do kit de proposito; o porque esta escrito ao lado dela no `globals.css`.
 
 Skeleton e para **carga real e troca de filtro**. Revalidacao por baixo **nunca** mostra esqueleto (ver `lib/revalidation/use-revalidate.ts`).
