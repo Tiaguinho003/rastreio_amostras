@@ -416,7 +416,9 @@ Utilitaria de esconder visualmente: **`.fv-visually-hidden`** (era `.login-visua
 
 ### 🪦 Loader de pagina lenta (branded) — APAGADO na F3 (2026-07-30)
 
-> **Nao existe mais.** `components/SplashVisual.tsx`, `components/LoadingProvider.tsx`, `lib/loading/loading-context.ts` (com o hook `useGlobalLoading`) e as 366 linhas de CSS `.splash-*` foram removidas. Junto morreu o `SplashScreen` de boot (F1). **Nao ha mais nenhum loader de tela cheia no app.**
+> **Nao existe mais.** `components/SplashVisual.tsx`, `components/LoadingProvider.tsx`, `lib/loading/loading-context.ts` (com o hook `useGlobalLoading`) e as 366 linhas de CSS `.splash-*` foram removidas. Junto morreu o `SplashScreen` de boot (F1). **Nao ha mais nenhum LOADER de tela cheia no app** — nada mais cobre a tela esperando I/O.
+>
+> A `.fv-boot` da F5 (secao abaixo) e tela cheia, mas nao e um loader: ela e a primeira pintura do documento e **nao espera nada**. O que matou o antigo foi acoplar apresentacao a espera; se voce se pegar somando espera a ela, e o mesmo erro voltando.
 
 **Por que pode morrer:** a SN-D8 fez a sessao vir do **cache local, lido antes da pintura** (`lib/auth/AuthProvider.tsx`). O loader tinha uma unica fonte — a espera da auth — e essa espera deixou de existir para quem ja entrou uma vez. Quem chega sem cache ve tela neutra por ~300ms e vai pro `/login`.
 
@@ -425,6 +427,25 @@ Utilitaria de esconder visualmente: **`.fv-visually-hidden`** (era `.login-visua
 - **Shell + skeleton por area.** O `AppShell` ja esta montado (F2, ele vive no layout do route group `(app)` e nunca desmonta), entao a pagina desenha o proprio esqueleto no formato do conteudo final.
 - Pagina de detalhe segue dando `return null` enquanto o dado nao chegou no **1o load** (`if (loadingDetail && !detail) return null`) em vez de desenhar `.sdv-page` vazia — mas agora quem cobre e o shell, nao um overlay. Refetch mantem o dado e nao pisca.
 - Revalidacao por baixo (barramento/foreground/poll) **nunca** mostra carregamento: e silenciosa por contrato (ver `lib/revalidation/use-revalidate.ts`).
+
+### A caixa de boot (`.fv-boot`) — a ENTRADA do app (F5, SN-D2)
+
+**A unica tela de marca que existe, e ela nao e um loader.** `components/BootScreen.tsx`, montado no layout RAIZ, primeiro filho do `<body>`. Duas camadas, e a ordem delas e o desenho:
+
+| Camada                         | Condicional? | Quando aparece                                |
+| ------------------------------ | ------------ | --------------------------------------------- |
+| **A caixa verde** (`.fv-boot`) | Nao          | Ja no **HTML servido** — a 1a pintura e verde |
+| **O logo** (`.fv-boot-logo`)   | Sim          | Por cima do verde, **so** apos 4h fora do app |
+
+Ela existe porque a sequencia era `[verde do SO] -> [DOCUMENTO BRANCO] -> [shell]`: o `body` e branco e a faixa verde de status bar so existe DENTRO do `.app-shell-root`. O verde da caixa e o MESMO `#1f5d43` do `background_color` do manifest — a tela do SO e a do app viram uma so.
+
+🔴 **Nao acoplar apresentacao a espera.** Foi o que matou o splash antigo (piso de 1,9s em todo boot). A caixa **nao segura nada**: o app carrega por baixo dela, e o logo custa ~910ms **quando aparece**, no maximo 1x a cada 4h.
+
+🔴 **Nao pintar o `body` de verde** para "resolver o boot": o `.app-shell-root` e **transparente**, quem pinta o fundo do app e o `body` — verde ali deixa o app INTEIRO verde.
+
+🔴 **`<img>` cru, nunca `next/image`, para o logo.** Nao ha config de `images`, entao o componente pediria `/_next/image?url=…`, que **nao esta no cache do service worker**; o `STATIC_PATHS` do `sw.js` cacheia `/logo-safras-branco.png`. Trocar quebra a tela **offline**, em silencio.
+
+Regra de 4h e os tres estados de storage: `lib/boot/last-seen.ts`. Para validar sem esperar: **`?splash=force`**.
 
 ### Variantes de card especificas
 

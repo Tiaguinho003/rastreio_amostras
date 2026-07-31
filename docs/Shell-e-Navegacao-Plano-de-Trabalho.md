@@ -1,6 +1,6 @@
 # Shell, Navegação e Carregamento — Plano de Trabalho
 
-Status: **10 decisões TRAVADAS · F1, F2, F3 e F4 IMPLEMENTADAS (2026-07-30)** — resta a F5 (splash nova + SN-D2)
+Status: **CICLO COMPLETO — 11 decisões TRAVADAS · F1 a F5 IMPLEMENTADAS (2026-07-30)**; falta a validação 🖥️/📱 do Flavio das cinco
 Escopo (1 linha): remover a atual "página de carregamento verde", tornar o **navbar/shell persistente** (nunca desmonta), fazer a transição entre páginas **sem loader full-screen** (só o conteúdo carrega), e definir a **política de cache/estado/atualização por página**.
 Prefixo de decisões: **SN** (Shell & Navegação)
 Documentos relacionados: `Redesign-Plano-de-Trabalho.md` (redesign visual página-a-página), `Dashboard-Visao-Geral.md`, `Lotes-Visao-Geral.md`, `Auditoria-Navegacao-por-Papel.md`, skill `page-redesign-cycle`.
@@ -16,11 +16,11 @@ Este doc tem **duas metades**:
 - **Metade A — Contexto estável (§1–§3 + §9):** a fotografia de como o app funciona hoje e a arquitetura-alvo. Muda pouco. **Leia para se situar.**
 - **Metade B — Decisões evolutivas (§4–§8):** o ledger de decisões, o mapa de páginas, a política de estado, o faseamento. **É onde o trabalho acontece.**
 
-**Estado em 2026-07-30:** a reconciliação da Metade A com o código entregue pelo ciclo de redesign **foi feita** (§2 inteira re-verificada), a varredura encontrou **7 fatos que não estavam no doc** (§2.4, §2.7, §2.8) e **10 decisões estão travadas** (§4.1 — a SN-D14 nasceu na F3, a SN-D11 fechou na F4). Resta **1 em aberto** (SN-D2, que é da F5) e **1 derivada a confirmar** (SN-D12) — a SN-D6 saiu da lista na F2 e a SN-D9 na F3.
+**Estado em 2026-07-30:** a reconciliação da Metade A com o código entregue pelo ciclo de redesign **foi feita** (§2 inteira re-verificada), a varredura encontrou **7 fatos que não estavam no doc** (§2.4, §2.7, §2.8) e **as 11 decisões do ledger estão travadas** (§4.1 — a SN-D14 nasceu na F3, a SN-D11 fechou na F4 e a SN-D2 na F5). **Nenhuma em aberto**; resta **1 derivada a confirmar** (SN-D12, comportamento do "voltar") — a SN-D6 saiu da lista na F2 e a SN-D9 na F3.
 
-**A F1, a F2, a F3 e a F4 foram implementadas no mesmo dia.** O boot splash não existe mais (F1), o shell parou de remontar (F2, com o `PageTransition` apagado junto), a queixa do dado velho foi curada (F3: barramento de invalidação, sessão lida do cache e o page loader verde apagado) e a camada 4 virou sistema (F4: um kit de esqueleto, um vocabulário, a região `aria-live` como peça e a barra fina de navegação). As marcas 🪦 na Metade A indicam o que caiu; o texto do "antes" fica porque é ele que explica **por que** as decisões seguintes são como são — a §2.7 em especial: ela é o diagnóstico que desenhou o barramento.
+**As cinco fases foram implementadas no mesmo dia.** O boot splash não existe mais (F1), o shell parou de remontar (F2, com o `PageTransition` apagado junto), a queixa do dado velho foi curada (F3: barramento de invalidação, sessão lida do cache e o page loader verde apagado), a camada 4 virou sistema (F4: um kit de esqueleto, um vocabulário, a região `aria-live` como peça e a barra fina de navegação) e a **entrada** ganhou desenho (F5: a caixa verde que casa com a tela do SO, a splash de marca a cada 4h e a SN-D2 travada). As marcas 🪦 na Metade A indicam o que caiu; o texto do "antes" fica porque é ele que explica **por que** as decisões seguintes são como são — a §2.7 em especial: ela é o diagnóstico que desenhou o barramento.
 
-**Próxima fase: F5** (§6) — a splash de entrada nova, junto da **SN-D2** (o verde nativo do SO). É a única fase que ainda não tem especificação: precisa de doc próprio ou do §3.5 expandido. **Nada da F1–F4 foi validado no device ainda**; a lista do que só o Flavio vê está no fim do §8.
+🔴 **O ciclo está completo em código, e ZERO validado no device.** É o que sobrou: a lista do que só o Flavio vê está no fim do §8, fase a fase. O §7 tem uma proposta de **fase curta própria** (cache-first para `/_next/static`) que a F4 achou e não executou.
 
 Fluxo para uma sessão futura: ler §1–§3 → conferir §4.1 (travadas × abertas) → se for implementar, entrar pela fase correspondente no §6 → registrar no ledger o que mudar de plano.
 
@@ -253,9 +253,35 @@ Dados de página deixam de bloquear a renderização:
 - **Auth guard:** permanece em `useRequireAuth`, agora resolvido uma vez no shell.
 - **Deep-link:** passa a **funcionar** (hoje é descartado). **Offline:** o app abre normal com a sessão em cache; o SW leva a `/offline` só se o documento não estiver cacheado. **Resume:** morre. → **SN-D3, travada.**
 
-### 3.5 Splash de entrada nova (FASE FUTURA — placeholder)
+### 3.5 Splash de entrada nova — **especificada e implementada na F5 (2026-07-30)**
 
-Só apresentação do **nome do app**, disparada **apenas na entrada** após ficar **X tempo** fora. Não é o loader de navegação. Especificação e regra do "X tempo" ficam para a fase F5 (§6). _Placeholder — não detalhar até as fases anteriores fecharem._
+_Era placeholder até as fases anteriores fecharem. A F5 a especificou e a entregou; o texto abaixo é a especificação, não mais a promessa._
+
+**O que a varredura achou antes de desenhar: o buraco branco é real.** A sequência ao tocar no ícone do PWA era `[verde do SO] → [DOCUMENTO BRANCO] → [shell]`. O `body` é branco de propósito (`--mobile-page-bg-base: #ffffff`) — e tem de ser, porque o `.app-shell-root` é **transparente** e depende dele — e a faixa verde de status bar (`.mobile-edge-shell-auth::after`) só existe **dentro** do `.app-shell-root`, que ainda não montou. Com cache de sessão a janela é curta (parse + hidratação); **sem** cache ela dura a ida ao servidor inteira, porque o gate do layout do grupo ficava em `null`. Ou seja: o princípio **"sem trocar verde por branco"** do §1 tinha um furo residual justamente na entrada.
+
+**São DUAS camadas, e a separação é o desenho inteiro:**
+
+| Camada                         | Condicional? | Onde                                                                 |
+| ------------------------------ | ------------ | -------------------------------------------------------------------- |
+| **A caixa verde** (`.fv-boot`) | Não          | No **HTML servido** — 1º filho do `<body>`, montada pelo layout raiz |
+| **O logo** (`.fv-boot-logo`)   | Sim (4h)     | Por cima do verde, **depois** da hidratação                          |
+
+A camada A faz a **primeira pintura ser verde**, no mesmo `#1f5d43` do `background_color` do manifest: a tela do SO e a do app viram uma só, sem costura (é a SN-D2). Ela não espera nada e não decide nada.
+
+🔴 **É a ordem das camadas que dispensa o `<script>` inline.** O logo aparecer **sobre verde** depois da hidratação é a animação pretendida, não um flash — então a decisão pode morar num layout effect. Um seletor de tema exigiria script síncrono no parse (e `suppressHydrationWarning` no `<html>`); aqui não. _(O CSP permitiria: `script-src 'self' 'unsafe-inline'` em `next.config.mjs`. Não foi preciso.)_
+
+**A regra do "X tempo" = 4 horas fora**, com carimbo em `localStorage` (`lib/boot/last-seen.ts`). 🔴 A regra existe porque **no iOS o sistema mata o processo do PWA com frequência**, então toda volta ao app vira um documento novo — sem ela, trocar para o WhatsApp por um minuto traria a tela de volta, que é exatamente a irritação que a F1 tirou.
+
+🔴 **`readLastSeen` distingue TRÊS estados, não dois** — e é isso que justifica o arquivo existir:
+
+- `null` (storage acessível, sem registro) → **mostra**. É a 1ª abertura depois de instalar, o momento de marca certo.
+- `undefined` (storage indisponível: modo privado, quota) → **não mostra**. Ali o carimbo nunca persistiria e a tela voltaria em **toda** abertura.
+
+Colapsar os dois num `null` daria o pior dos dois lados.
+
+**O que ela NÃO é:** o loader de navegação (isso é a SN-D11, F4) nem cobertura de espera. O erro que matou a splash velha foi **acoplar apresentação a espera** — `MIN_SPLASH_MS 1200 + EXIT_ANIMATION_MS 700` = piso de 1,9s **em todo boot**. Aqui a caixa não segura nada (o app carrega por baixo dela) e o logo custa `650 + 260 = ~910ms` **quando aparece**, no máximo 1× a cada 4h.
+
+**`?splash=force`** na URL força a marca uma vez: uma tela rara por design não se valida esperando.
 
 ---
 
@@ -360,12 +386,26 @@ Toda decisão SN passa por este rito — **uma situação por vez** — antes de
 
 **Impacto:** (a) compatível; (b) nenhum; (c) fecha a última decisão do ciclo fora a SN-D2 (F5); (d) a barra entra na skill `containers` como chrome do shell.
 
+#### SN-D2 · A tela verde nativa do SO _(travada na F5, 2026-07-30 — a última do ciclo)_
+
+**Decisão:** **não neutralizar — casar com ela.** O `background_color`/`theme_color` `#1f5d43` do manifest **fica**, e a primeira pintura do app passa a ser o **mesmo** verde (`.fv-boot`, §3.5). A tela do SO e a do app viram uma só, sem costura.
+
+**Por que isso e não o contrário:** neutralizar era a leitura literal da pergunta, mas contraria o princípio **"sem trocar verde por branco"** do §1 — e a varredura da F5 mostrou que o problema real nunca foi o verde do SO: era o **branco depois dele** (§3.5). Casar resolve os dois de uma vez, e sem tocar no manifest.
+
+**Descartadas:** _neutralizar o `background_color`_ — trocaria a marca por nada e deixaria a entrada sem identidade; _manter o verde e não criar tela de nome_ — fecharia o buraco branco com uma linha, mas deixaria o objetivo 1 do §1 ("uma nova splash será criada depois") por cumprir, e o ciclo inteiro nasceu desse pedido.
+
+**Impacto:** (a) compatível; (b) só existe depois da SN-D8 — sem a sessão vindo do cache, a caixa verde estaria cobrindo uma espera de rede, que é justamente o acoplamento que matou a splash antiga; (c) fecha o ciclo; (d) a `.fv-boot` entra nas skills `design-system` (chrome de entrada) e `containers` (tabela de tiers).
+
+🔴 **O que esta decisão NÃO garante:** que a tela nativa do SO seja verde **no iPhone**. O `background_color` é honrado pelo Chrome/Android; no iOS o suporte é irregular e o projeto **não tem `apple-touch-startup-image`**. A fase garante da **primeira pintura do documento** em diante. Se o iOS abrir branco antes disso, a correção é gerar as ~10 PNGs de launch screen por tamanho de tela — **fora de escopo**, e só o device diz se é necessário.
+
 ### §4.2 Decisões EM ABERTO
 
-| ID             | Questão                                                                                         | Status                                                                                | Nota                                                             |
-| -------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| **SN-D2**      | A tela verde **nativa do SO** (manifest `background_color`/`theme_color`) — neutralizar também? | **EM ABERTO**                                                                         | Adiada de propósito: decidir junto do visual da splash nova (F5) |
-| ~~**SN-D11**~~ | ~~**Indicador de navegação**~~                                                                  | 🪦 **TRAVADA na F4 (2026-07-30)** — ver §4.1. Barra fina no topo, com atraso de 180ms |
+**Nenhuma.** As 11 decisões do ledger estão travadas (§4.1); resta só a derivada SN-D12 (§4.3), que é de comportamento do "voltar" e não bloqueia nada.
+
+| ID             | Questão                           | Status                                                                                                |
+| -------------- | --------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| ~~**SN-D11**~~ | ~~**Indicador de navegação**~~    | 🪦 **TRAVADA na F4 (2026-07-30)** — ver §4.1. Barra fina no topo, com atraso de 180ms                 |
+| ~~**SN-D2**~~  | ~~**A tela verde nativa do SO**~~ | 🪦 **TRAVADA na F5 (2026-07-30)** — ver §4.1. **Casar** com ela, não neutralizar; o manifest não muda |
 
 ### §4.3 Decisões DERIVADAS (a confirmar antes de implementar)
 
@@ -467,14 +507,23 @@ A ordem combinada em 2026-07-24 era **D4 → D6 → D1 → D3** (D5/D2 por últi
 > 3. **Um 5º lugar que a varredura da fase não tinha contado:** o **painel do usuário** (`/users`) dizia "Carregando..." no corpo, com o cabeçalho de identidade já pintado por cima (ele vem da linha da lista). A regra 4 do vocabulário — _lista, detalhe e painel nunca dizem "Carregando"_ — o cobre. Foi convertido junto (`.usr-panel-skel`): deixar de fora significaria escrever na skill uma regra que o código não cumpre, que é exatamente a dívida que a F2 apontou.
 > 4. **O "completa e some" da barra é feito trocando a DURAÇÃO da animação, não a animação.** Substituir por outra devolve o elemento ao `scaleX(0)` da base antes de recomeçar (o valor computado de uma animação não serve de ponto de partida para uma transição). Como o tempo decorrido já passa dos 0,2s, trocar `animation-duration` faz cair direto no último keyframe.
 > 5. **O efeito que liga a barra depende SÓ de `pending`.** Com `phase` nas deps, o `setPhase('done')` dispararia a limpeza do próprio efeito e mataria o timer do 'done' — a barra ficaria presa em 100%. É o mesmo gênero de erro que a F3 teve com o `cancelAnimationFrame` da restauração de scroll.
+>
+> **🔴 Descobertas da F5 (2026-07-30) — a fase que fechou o ciclo:**
+>
+> 1. **O buraco branco era real e ninguém tinha olhado.** O ciclo inteiro girou em torno de "apagar o verde", e a F5 achou o oposto: entre a tela verde do SO e o shell havia um **documento branco** (§3.5). Foi o que transformou a fase de cosmética em correção de princípio.
+> 2. **A ORDEM das camadas é o que dispensa o `<script>` inline.** Verde incondicional no HTML servido + logo condicional por cima, depois da hidratação. Se fossem uma peça só, a decisão teria de acontecer **antes da primeira pintura** — script síncrono no parse e `suppressHydrationWarning` no `<html>`. É o terceiro caso de hidratação do ciclo, e o único resolvido por **arranjo visual** em vez de por onde a leitura mora.
+> 3. **🔴 `next/image` teria quebrado a splash offline, em silêncio.** Não há config de `images`, então o componente pede `/_next/image?url=…` — que **não está no cache do service worker**. O `STATIC_PATHS` do `sw.js` cacheia `/logo-safras-branco.png`, o caminho **cru**. `<img>` cru é obrigatório aqui, e o motivo está escrito ao lado.
+> 4. **O atalho óbvio estava errado:** pintar o `body` de verde. O `.app-shell-root` é **transparente** — quem pinta o fundo do app é o `body` —, então verde ali deixaria o **app inteiro** verde.
+> 5. **Três estados de storage, não dois.** `null` (sem registro → **mostra**, é a 1ª abertura depois de instalar) ≠ `undefined` (sem storage → **não mostra**, porque ali o carimbo nunca persistiria e a tela voltaria em toda abertura). Colapsá-los daria o pior dos dois lados.
+> 6. **A rede de segurança fica FORA do `prefers-reduced-motion`.** Uma tela que cobre tudo precisa de saída se o JS não rodar; desligar movimento reduzido não pode significar ficar preso nela. É o sobre-escopo que a F4 acabou de mostrar ser fácil de cometer.
 
-| Fase            | Objetivo                                                       | Entra                                                                                                                                                                                             | NÃO tocar                                                                                | Risco                                                                     | Pronto quando                                                                   |
-| --------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| **F1** ✅       | Remover o **boot splash** e sua lógica                         | **só** `SplashScreen.tsx` + os 2 pontos no `app/layout.tsx`                                                                                                                                       | `SplashVisual`, `LoadingProvider`, o CSS e o logo — **todos compartilhados**, saem na F3 | deep-link e offline mudam de comportamento (SN-D3, intencional)           | **código feito e gates verdes 2026-07-30; falta o 🖥️/📱 do Flavio**             |
-| **F2** ✅       | **Shell persistente** no route group                           | 8 dirs → `app/(app)/` (85 imports), `AuthProvider` + `AppShell` no layout do grupo, `PageTransition` **apagado** (SN-D5')                                                                         | dados por página                                                                         | perda de estado, hidratação                                               | **código feito e gates verdes 2026-07-30; falta o 🖥️/📱 do Flavio**             |
-| **F3** ✅       | **Sessão do cache + invalidação + fim do page loader**         | init do cache via layout effect; **barramento (SN-D13 + SN-D14)**; snapshots nas 4 restantes (SN-D7); registro de chaves (SN-D9); `LoadingProvider`+`SplashVisual`+366 linhas de CSS **apagados** | —                                                                                        | tela branca se F2 incompleta; dado velho se o barramento ficar incompleto | **código feito e gates verdes 2026-07-30 (3 commits); falta o 🖥️/📱 do Flavio** |
-| **F4** ✅       | **Camada 4 vira sistema** (SN-D10)                             | primitivo único de skeleton (absorve as 6 famílias); vocabulário de "Carregando"; `LoadingLive`; **SN-D11** (barra de navegação)                                                                  | arquitetura da F3                                                                        | —                                                                         | **código feito e gates verdes 2026-07-30 (3 commits); falta o 🖥️/📱 do Flavio** |
-| **F5** (futura) | **Nova splash de entrada** (nome do app, só após X tempo fora) | novo componente; SN-D2 (verde nativo)                                                                                                                                                             | —                                                                                        | —                                                                         | especificado em doc próprio ou §3.5 expandido                                   |
+| Fase      | Objetivo                                                       | Entra                                                                                                                                                                                             | NÃO tocar                                                                                | Risco                                                                     | Pronto quando                                                                   |
+| --------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| **F1** ✅ | Remover o **boot splash** e sua lógica                         | **só** `SplashScreen.tsx` + os 2 pontos no `app/layout.tsx`                                                                                                                                       | `SplashVisual`, `LoadingProvider`, o CSS e o logo — **todos compartilhados**, saem na F3 | deep-link e offline mudam de comportamento (SN-D3, intencional)           | **código feito e gates verdes 2026-07-30; falta o 🖥️/📱 do Flavio**             |
+| **F2** ✅ | **Shell persistente** no route group                           | 8 dirs → `app/(app)/` (85 imports), `AuthProvider` + `AppShell` no layout do grupo, `PageTransition` **apagado** (SN-D5')                                                                         | dados por página                                                                         | perda de estado, hidratação                                               | **código feito e gates verdes 2026-07-30; falta o 🖥️/📱 do Flavio**             |
+| **F3** ✅ | **Sessão do cache + invalidação + fim do page loader**         | init do cache via layout effect; **barramento (SN-D13 + SN-D14)**; snapshots nas 4 restantes (SN-D7); registro de chaves (SN-D9); `LoadingProvider`+`SplashVisual`+366 linhas de CSS **apagados** | —                                                                                        | tela branca se F2 incompleta; dado velho se o barramento ficar incompleto | **código feito e gates verdes 2026-07-30 (3 commits); falta o 🖥️/📱 do Flavio** |
+| **F4** ✅ | **Camada 4 vira sistema** (SN-D10)                             | primitivo único de skeleton (absorve as 6 famílias); vocabulário de "Carregando"; `LoadingLive`; **SN-D11** (barra de navegação)                                                                  | arquitetura da F3                                                                        | —                                                                         | **código feito e gates verdes 2026-07-30 (3 commits); falta o 🖥️/📱 do Flavio** |
+| **F5** ✅ | **Nova splash de entrada** (nome do app, só após X tempo fora) | `lib/boot/last-seen.ts` + `components/BootScreen.tsx` + `.fv-boot`; o gate `null` do layout do grupo vira verde; **SN-D2** travada (o manifest NÃO muda)                                          | o manifest; o `background` do `body`                                                     | tela verde eterna se o JS falhar (rede de segurança em CSS)               | **código feito e gates verdes 2026-07-30 (3 commits); falta o 🖥️/📱 do Flavio** |
 
 ## §7. Riscos & questões abertas
 
@@ -483,7 +532,8 @@ A ordem combinada em 2026-07-24 era **D4 → D6 → D1 → D3** (D5/D2 por últi
 - **Loop de revalidação (novo, F3):** um assinante que publicasse durante o próprio refetch realimentaria o barramento. Mitigado por construção — **só método ≠ GET publica** e o coalescedor de 120ms corta a rajada —, mas é o que conferir na aba de rede: **uma ação = um refetch por superfície**.
 - **Offline/PWA:** não regredir o comportamento offline ao remover o `resolveDestination` do splash. O SW e o cache de sessão sustentam o caminho.
 - **~~PII no HTML cacheado~~:** **eliminado pela SN-D8** — a sessão não entra no documento, então o cache do SW segue sem identidade. _(Seria risco real se tivéssemos escolhido resolver a sessão no servidor.)_
-- **Splash nativo do SO:** só sai via manifest (SN-D2), não pelo React.
+- **~~Splash nativo do SO~~ — RESOLVIDO na F5 (2026-07-30), por outro caminho.** O risco supunha que a única alavanca fosse o manifest. A saída foi **casar** em vez de sair: o manifest fica como está e o app pinta o mesmo verde na primeira pintura (SN-D2). Fica um resíduo honesto: **no iOS não dá para afirmar que a tela nativa é verde** (o `background_color` é irregular lá e não há `apple-touch-startup-image`) — a fase garante da primeira pintura do documento em diante, e só o device diz se falta mais.
+- **Tela verde eterna se o JS falhar (novo, F5):** a `.fv-boot` cobre tudo. Mitigado por uma **rede de segurança em CSS puro** (animação de 1ms com 6s de atraso), que fica **fora** do bloco de `prefers-reduced-motion` de propósito — é saída de emergência, não movimento.
 - **SSR/hidratação:** hoje o boot splash vem no HTML SSR (sem flash); removê-lo pode expor flash de `null` — mitigado pelo init síncrono do cache (F3).
 - **Modal de senha inicial (novo):** o `AppShell` guarda o fluxo de `initialPasswordDecision` (`AppShell.tsx:401-409`). Com shell persistente esse estado passa a **sobreviver à navegação** — provavelmente melhora, mas é fluxo forçado: verificar no device.
 - **~~O `transform` do `PageTransition` é load-bearing~~ — RESOLVIDO na F2 (2026-07-30).** O risco era real e se materializou: a implementação da SN-D5' removeu o `transform` **por completo** (opacidade pura), então o stacking context que obrigava o portal deixou de existir. O que se fez: **manter os portais** — o `.bottom-sheet` tem `transform` permanente e páginas têm animação de entrada com `translateY`, então a regra segue válida por outros ancestrais — e **reescrever a justificativa** na skill `modals` e nos comentários de `MobileTabbar`, `SampleSendFlow`, `SampleLookupResultModal`, `ResultDrawer` e 2 blocos do `globals.css`. A lição fica: **motivo revogado sem código revogado é dívida de documentação** — quem lesse a skill depois iria atrás de um componente que não existe.
@@ -522,6 +572,17 @@ Gates padrão (`lint` + `format:check` + `typecheck` + `build` + `test:unit`) + 
 - A **barra do topo** aparecendo só quando a navegação demora, e **nunca piscando** na troca rápida. Se piscar, o número a ajustar é o `APPEAR_DELAY_MS` (180ms) — é chute calibrado, não medição.
 - Posição da barra: **abaixo da faixa verde** no mobile (em `top: 0` ela ficaria embaixo da status bar do PWA) e **abaixo da top bar, à direita da sidenav** no desktop.
 - **Movimento reduzido ligado no aparelho:** nenhum esqueleto animando, e a barra vira uma linha cheia parada.
+
+**Da F5, o que só o device mostra** (código feito e gates verdes em 2026-07-30):
+
+- **Abrir o PWA e não ver branco em momento nenhum** entre a tela do SO e o app. É o teste da fase.
+- 🔴 **Se a tela nativa do iOS abrir branca ANTES da nossa**, o problema não é a `.fv-boot` — é a falta de `apple-touch-startup-image` (§4.1, SN-D2). Só o aparelho dele diz se acontece.
+- O logo aparecendo **só** depois de uma pausa longa. Para forçar sem esperar 4h: **`?splash=force`** na URL.
+- Trocar de app por 1 minuto e voltar: **sem** tela de marca. É o caso que a regra de 4h existe para cobrir.
+- **Deslogado:** abrir o app e ver verde até o `/login`, não branco (é o `.fv-boot.is-hold`).
+- **Offline** (modo avião, app já aberto antes): a splash com logo ainda pinta — é o teste do `<img>` cru contra o `next/image`.
+- Movimento reduzido ligado: sem fades, e ainda assim sem branco.
+- ⏱️ Se os ~910ms incomodarem, os dois números são constantes no topo do `BootScreen.tsx` (`MARK_HOLD_MS` e `BOOT_FADE_MS`) — chute calibrado, não medição, igual ao `APPEAR_DELAY_MS` da F4.
 
 ## §9. Glossário & referências
 

@@ -552,14 +552,16 @@ duplica efeitos em dev. Se for mexer, leia os comentários no arquivo primeiro.
 
 ### Tiers
 
-| Camada                                | z-index                    |
-| ------------------------------------- | -------------------------- |
-| Backdrop base (sheet e modal central) | `--z-modal-backdrop` = 400 |
-| Card base                             | `--z-modal` = 410          |
-| Backdrop `.is-stacked`                | `--z-modal-stacked` = 600  |
-| Card `.is-stacked`                    | 610                        |
-| `.fv-panel-scrim` e `.is-scrim-none`  | 620                        |
-| Toast e `.fv-navprogress`             | `--z-toast` = 700          |
+| Camada                                | z-index                       |
+| ------------------------------------- | ----------------------------- |
+| Backdrop base (sheet e modal central) | `--z-modal-backdrop` = 400    |
+| Card base                             | `--z-modal` = 410             |
+| Backdrop `.is-stacked`                | `--z-modal-stacked` = 600     |
+| Card `.is-stacked`                    | 610                           |
+| `.fv-panel-scrim` e `.is-scrim-none`  | 620                           |
+| Toast e `.fv-navprogress`             | `--z-toast` = 700             |
+| Tooltip (`.pg-node-tooltip`)          | `--z-tooltip` = 800           |
+| `.fv-boot` — a entrada do app         | `calc(var(--z-tooltip) + 10)` |
 
 Tokens em `app/globals.css` (`:root`). **Nunca escrever z-index numérico** em regra nova de
 overlay — usar o token ou `calc()` sobre ele.
@@ -569,6 +571,14 @@ uma vez pelo `AppShell`, `pointer-events: none`. Fica no tier do toast porque pr
 cima do chrome (faixa mobile `z:50`, top bar desktop `z:32`) sem competir com modal/tooltip. Ela
 **nunca** vai em `top: 0` — no mobile ali fica embaixo da status bar do PWA, invisível; a posição é
 a base da faixa verde (mobile) e abaixo da top bar, à direita da sidenav (desktop).
+
+**`.fv-boot`** é a caixa verde de entrada (SN-D2, F5): montada no layout **raiz**, primeiro filho do
+`<body>`, cobre **tudo** de propósito — ela é a primeira pintura do documento, não um overlay que
+abre por cima de conteúdo. Por ficar acima de tudo, ela carrega uma **rede de segurança em CSS
+puro** (animação de 1ms com 6s de atraso que a esconde): se o JS nunca rodar, o usuário vê o app em
+vez de uma tela verde eterna. A variante `.is-hold` (usada pelo gate de sessão em
+`app/(app)/layout.tsx`) tira a saída por tempo — ali quem a substitui é o shell. Detalhes da peça na
+skill `design-system`.
 
 ### Quando `stacked` é obrigatório
 
